@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: nabdcare_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin@123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: src/NabdCare.Api/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=nabdcare_db;Username=postgres;Password=admin@123
+    ports:
+      - "5175:5175"
+      - "7053:7053"
+    volumes:
+      - ./src/NabdCare.Api:/app
+    restart: always
+
+volumes:
+  pgdata:

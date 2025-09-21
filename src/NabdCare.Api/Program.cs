@@ -1,0 +1,25 @@
+using NabdCare.Api.Configurations;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+
+// Add Swagger via config class
+SwaggerConfig.AddSwagger(builder.Services);
+
+var app = builder.Build();
+
+// Enable Swagger UI
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "NabdCare API v1");
+    options.RoutePrefix = "swagger";
+});
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
