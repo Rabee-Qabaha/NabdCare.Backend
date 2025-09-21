@@ -9,3 +9,4 @@
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/obj/Debug/net8.0/refint/NabdCare.Domain.dll
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/obj/Debug/net8.0/NabdCare.Domain.pdb
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/obj/Debug/net8.0/ref/NabdCare.Domain.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/obj/Debug/net8.0/NabdCare.Domain.sourcelink.json

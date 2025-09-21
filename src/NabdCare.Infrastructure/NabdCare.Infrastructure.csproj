@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\NabdCare.Application\NabdCare.Application.csproj" />
     <ProjectReference Include="..\NabdCare.Domain\NabdCare.Domain.csproj" />
   </ItemGroup>
 

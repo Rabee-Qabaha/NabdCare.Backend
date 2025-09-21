@@ -52,3 +52,4 @@
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/obj/Debug/net8.0/ref/NabdCare.Api.dll
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/NabdCare.Api.xml
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/obj/Debug/net8.0/NabdCare.Api.xml
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/obj/Debug/net8.0/NabdCare.Api.sourcelink.json
