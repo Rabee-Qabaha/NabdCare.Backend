@@ -136,3 +136,11 @@
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/System.Diagnostics.EventLog.dll
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/runtimes/win/lib/net8.0/System.Diagnostics.EventLog.Messages.dll
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/runtimes/win/lib/net8.0/System.Diagnostics.EventLog.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.IdentityModel.Abstractions.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.IdentityModel.JsonWebTokens.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.IdentityModel.Logging.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.IdentityModel.Protocols.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/Microsoft.IdentityModel.Tokens.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Api/bin/Debug/net8.0/System.IdentityModel.Tokens.Jwt.dll

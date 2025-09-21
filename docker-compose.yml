@@ -1,15 +1,17 @@
-
 services:
   api:
     build:
       context: .
       dockerfile: src/NabdCare.Api/Dockerfile
     ports:
-      - "5175:5175"
-      - "7053:7053"
+      - "5175:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=nabdcare_db;Username=postgres;Password=admin@123
+      Jwt__Key: "YourSuperSecretKey1234567890"    # <--- Secure key here
+      Jwt__Issuer: "NabdCareIssuer"
+      Jwt__Audience: "NabdCareAudience"
+      Jwt__ExpireMinutes: "60"
     depends_on:
       - postgres
     restart: always
