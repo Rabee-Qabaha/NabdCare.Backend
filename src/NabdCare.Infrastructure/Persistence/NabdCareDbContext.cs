@@ -21,7 +21,8 @@ public class NabdCareDbContext : DbContext
         public DbSet<RolePermission> RolePermissions { get; set; }
         public DbSet<UserPermission> UserPermissions { get; set; }
         public DbSet<ClinicPayment> ClinicPayments { get; set; }
-
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Global query filter for ClinicId (multi-tenancy)

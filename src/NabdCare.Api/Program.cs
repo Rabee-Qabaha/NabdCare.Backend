@@ -5,7 +5,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddNabdCareServices();
+builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddNabdCareServices(builder.Configuration);
 
 // Add Swagger via config class
 SwaggerConfig.AddSwagger(builder.Services);
@@ -24,7 +25,9 @@ app.UseHttpsRedirection();
 
 app.UseMiddleware<TenantContextMiddleware>();
 
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
