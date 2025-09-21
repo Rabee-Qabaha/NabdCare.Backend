@@ -253,6 +253,9 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
+              "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/NabdCare.Application.csproj": {
+                "projectPath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/NabdCare.Application.csproj"
+              },
               "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/NabdCare.Domain.csproj": {
                 "projectPath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/NabdCare.Domain.csproj"
               }
