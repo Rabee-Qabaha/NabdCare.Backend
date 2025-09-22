@@ -10,3 +10,7 @@
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/obj/Debug/net8.0/refint/NabdCare.Application.dll
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/obj/Debug/net8.0/NabdCare.Application.pdb
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/obj/Debug/net8.0/ref/NabdCare.Application.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/bin/Debug/net8.0/NabdCare.Domain.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/bin/Debug/net8.0/NabdCare.Domain.pdb
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/obj/Debug/net8.0/NabdCare.Application.csproj.AssemblyReference.cache
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/obj/Debug/net8.0/NabdCare.B96F7889.Up2Date

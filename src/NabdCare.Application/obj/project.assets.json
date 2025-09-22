@@ -1,11 +1,30 @@
 {
   "version": 3,
   "targets": {
-    "net8.0": {}
+    "net8.0": {
+      "NabdCare.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/NabdCare.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/NabdCare.Domain.dll": {}
+        }
+      }
+    }
   },
-  "libraries": {},
+  "libraries": {
+    "NabdCare.Domain/1.0.0": {
+      "type": "project",
+      "path": "../NabdCare.Domain/NabdCare.Domain.csproj",
+      "msbuildProject": "../NabdCare.Domain/NabdCare.Domain.csproj"
+    }
+  },
   "projectFileDependencyGroups": {
-    "net8.0": []
+    "net8.0": [
+      "NabdCare.Domain >= 1.0.0"
+    ]
   },
   "packageFolders": {
     "/Users/rabe3kabha/.nuget/packages/": {}
@@ -31,7 +50,11 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/NabdCare.Domain.csproj": {
+              "projectPath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/NabdCare.Domain.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NabdCare.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+84c55bddac365f74a13b6a641d00973adb9d70c5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1c144dec14ca73c6662057553b2a2dfea9089228")]
 [assembly: System.Reflection.AssemblyProductAttribute("NabdCare.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NabdCare.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

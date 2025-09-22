@@ -917,6 +917,9 @@
       },
       "System.Threading.Channels/6.0.0": {},
       "NabdCare.Application/1.0.0": {
+        "dependencies": {
+          "NabdCare.Domain": "1.0.0"
+        },
         "runtime": {
           "NabdCare.Application.dll": {
             "assemblyVersion": "1.0.0",

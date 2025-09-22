@@ -1,4 +1,5 @@
 using NabdCare.Api.Configurations;
+using NabdCare.Api.EndPoints;
 using NabdCare.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,9 @@ SwaggerConfig.AddSwagger(builder.Services);
 
 var app = builder.Build();
 
+// Register your endpoints:
+app.MapAuthEndpoints();
+
 // Enable Swagger UI
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -24,6 +28,7 @@ app.UseSwaggerUI(options =>
 app.UseHttpsRedirection();
 
 app.UseMiddleware<TenantContextMiddleware>();
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

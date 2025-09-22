@@ -3,10 +3,10 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using NabdCare.Application.Interfaces;
 
-namespace NabdCare.Infrastructure.Authentication;
-
-public class JwtTokenService
+namespace NabdCare.Infrastructure.Repositories.Auth;
+public class JwtTokenService : ITokenService
 {
     private readonly IConfiguration _config;
 
@@ -15,6 +15,9 @@ public class JwtTokenService
         _config = config;
     }
 
+    /// <summary>
+    /// Generates a signed JWT access token with user/tenant claims.
+    /// </summary>
     public string GenerateToken(string userId, string email, string role, Guid? clinicId)
     {
         var jwtSettings = _config.GetSection("Jwt");
@@ -23,7 +26,7 @@ public class JwtTokenService
             new Claim(JwtRegisteredClaimNames.Sub, userId),
             new Claim(JwtRegisteredClaimNames.Email, email),
             new Claim(ClaimTypes.Role, role),
-            new Claim("ClinicId", clinicId?.ToString() ?? string.Empty) // Add tenant info
+            new Claim("ClinicId", clinicId?.ToString() ?? string.Empty)
             // Add more claims as needed
         };
 

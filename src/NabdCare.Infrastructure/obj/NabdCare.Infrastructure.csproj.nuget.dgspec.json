@@ -25,7 +25,11 @@
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
-            "projectReferences": {}
+            "projectReferences": {
+              "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/NabdCare.Domain.csproj": {
+                "projectPath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Domain/NabdCare.Domain.csproj"
+              }
+            }
           }
         },
         "warningProperties": {

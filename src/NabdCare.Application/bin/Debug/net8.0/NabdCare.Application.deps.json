@@ -7,14 +7,30 @@
   "targets": {
     ".NETCoreApp,Version=v8.0": {
       "NabdCare.Application/1.0.0": {
+        "dependencies": {
+          "NabdCare.Domain": "1.0.0"
+        },
         "runtime": {
           "NabdCare.Application.dll": {}
+        }
+      },
+      "NabdCare.Domain/1.0.0": {
+        "runtime": {
+          "NabdCare.Domain.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }
   },
   "libraries": {
     "NabdCare.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NabdCare.Domain/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
