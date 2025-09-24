@@ -35,7 +35,7 @@ public static class PasswordHelper
             int iterations = int.Parse(parts[0]);
             byte[] salt = Convert.FromBase64String(parts[1]);
             byte[] hash = Convert.FromBase64String(parts[2]);
-
+            
             // Hash incoming password
             using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
             byte[] attemptedHash = pbkdf2.GetBytes(hash.Length);

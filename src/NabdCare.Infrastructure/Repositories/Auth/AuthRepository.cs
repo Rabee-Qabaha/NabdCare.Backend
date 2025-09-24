@@ -20,8 +20,19 @@ namespace NabdCare.Infrastructure.Repositories.Auth;
 
         public async Task<User?> AuthenticateUserAsync(string email, string password)
         {
-            var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == email && u.IsActive);
+            User? user;
+            // Always bypass query filters for SuperAdmin
+            if (email.Trim().ToLower() == "sadmin@nabd.care")
+            {
+                user = await _dbContext.Users
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower() && u.IsActive);
+            }
+            else
+            {
+                user = await _dbContext.Users
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower() && u.IsActive);
+            }
 
             if (user == null)
                 return null;

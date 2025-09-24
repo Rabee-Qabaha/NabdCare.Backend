@@ -17,8 +17,7 @@ public class DbSeeder
     public void Seed()
     {
         _dbContext.Database.Migrate();
-
-        if (!_dbContext.Users.Any(u => u.Role == UserRole.SuperAdmin && u.IsActive))
+        if (!_dbContext.Users.IgnoreQueryFilters().Any(u => u.Role == UserRole.SuperAdmin && u.IsActive))
         {
             var password = "Admin@123!";
             var passwordHash = PasswordHelper.HashPassword(password);

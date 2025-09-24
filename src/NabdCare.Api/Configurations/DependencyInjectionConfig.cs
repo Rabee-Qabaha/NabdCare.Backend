@@ -22,7 +22,13 @@ public static class DependencyInjectionConfig
         services.AddScoped<ITenantContext, TenantContext>();
 
         // Register other services and repositories here
-        services.AddScoped<DbSeeder>();
+        services.AddScoped<DbSeeder>(sp =>
+        {
+            var options = sp.GetRequiredService<DbContextOptions<NabdCareDbContext>>();
+            var tenantContext = new TenantContext { IsSuperAdmin = true };
+            var dbContext = new NabdCareDbContext(options, tenantContext);
+            return new DbSeeder(dbContext);
+        });
         services.AddHostedService<DbSeedHostedService>();
         
         services.AddScoped<ITokenService, JwtTokenService>();

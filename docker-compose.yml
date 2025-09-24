@@ -13,7 +13,8 @@ services:
       Jwt__Audience: "NabdCareAudience"
       Jwt__ExpireMinutes: "60"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: always
 
   postgres:
@@ -27,6 +28,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   postgres_data:
