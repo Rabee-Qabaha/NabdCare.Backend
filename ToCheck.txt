@@ -1,0 +1,13 @@
+Secrets in KEY VAULT / env vars (DB strings, JWT secret).
+
+Short access token lifetime (minutes) + refresh tokens + rotation. 
+Curity
++1
+
+Rate limit auth endpoints / lock accounts on brute force.
+
+Ensure HTTPS, HSTS, CORS whitelist, security headers (CSP, X-Frame-Options, X-Content-Type-Options).
+
+Audit logging for logins, token rotation, permission changes.
+
+Background cleanup for expired refresh tokens and stale sessions.
