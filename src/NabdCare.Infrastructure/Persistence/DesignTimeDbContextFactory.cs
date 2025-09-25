@@ -21,9 +21,19 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<NabdCareDb
         var optionsBuilder = new DbContextOptionsBuilder<NabdCareDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
 
-        // Use a dummy TenantContext for migrations
+        // Use dummy TenantContext and UserContext for design-time purposes
         var tenantContext = new TenantContext();
+        var userContext = new DummyUserContext();
 
-        return new NabdCareDbContext(optionsBuilder.Options, tenantContext);
+        return new NabdCareDbContext(optionsBuilder.Options, tenantContext, userContext);
+    }
+}
+
+// Dummy implementation of IUserContext for design-time operations
+public class DummyUserContext : IUserContext
+{
+    public string GetCurrentUserId()
+    {
+        return "System"; // Return a default user ID for design-time purposes
     }
 }
