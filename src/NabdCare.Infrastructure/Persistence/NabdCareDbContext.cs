@@ -8,6 +8,9 @@ namespace NabdCare.Infrastructure.Persistence;
 
 public class NabdCareDbContext : DbContext
 {
+    public Guid? TenantId { get; set; }
+    public bool IsSuperAdminUser { get; set; }
+
     private readonly ITenantContext _tenantContext;
     private readonly IUserContext _userContext;
 
@@ -15,6 +18,9 @@ public class NabdCareDbContext : DbContext
     {
         _tenantContext = tenantContext;
         _userContext = userContext;
+
+        TenantId = tenantContext.ClinicId;
+        IsSuperAdminUser = tenantContext.IsSuperAdmin;
     }
 
     public DbSet<User> Users { get; set; }
@@ -30,17 +36,12 @@ public class NabdCareDbContext : DbContext
         // Global query filter for ClinicId (multi-tenancy)
         modelBuilder.Entity<User>().HasQueryFilter(u =>
             !u.IsDeleted &&
-            (
-                _tenantContext.IsSuperAdmin ||
-                (_tenantContext.ClinicId.HasValue && u.ClinicId == _tenantContext.ClinicId)
-            )
+            (IsSuperAdminUser || (TenantId.HasValue && u.ClinicId == TenantId))
         );
+
         modelBuilder.Entity<ClinicPayment>().HasQueryFilter(cp =>
             !cp.IsDeleted &&
-            (
-                _tenantContext.IsSuperAdmin ||
-                (_tenantContext.ClinicId.HasValue && cp.ClinicId == _tenantContext.ClinicId)
-            )
+            (IsSuperAdminUser || (TenantId.HasValue && cp.ClinicId == TenantId))
         );
 
         // Soft delete filter for all entities
@@ -48,6 +49,12 @@ public class NabdCareDbContext : DbContext
         modelBuilder.Entity<Permission>().HasQueryFilter(p => !p.IsDeleted);
         modelBuilder.Entity<RolePermission>().HasQueryFilter(rp => !rp.IsDeleted);
         modelBuilder.Entity<UserPermission>().HasQueryFilter(up => !up.IsDeleted);
+
+        modelBuilder.Entity<RefreshToken>().HasIndex(r => r.Token).IsUnique();
+        modelBuilder.Entity<RefreshToken>()
+            .Property(rt => rt.CreatedAt)
+            .HasDefaultValueSql("NOW()")
+            .ValueGeneratedOnAdd();
 
         base.OnModelCreating(modelBuilder);
     }

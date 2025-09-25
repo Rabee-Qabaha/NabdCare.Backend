@@ -1,38 +1,59 @@
 using Microsoft.EntityFrameworkCore;
+using NabdCare.Application.Common;
+using NabdCare.Application.Interfaces;
 using NabdCare.Domain.Entities.User;
 using NabdCare.Domain.Enums;
-using NabdCare.Domain.Helpers;
 
-namespace NabdCare.Infrastructure.Persistence;
+namespace NabdCare.Infrastructure.Persistence.DataSeed;
 
 public class DbSeeder
 {
     private readonly NabdCareDbContext _dbContext;
+    private readonly IPasswordService _passwordService;
+    private readonly ITenantContext _tenantContext;
 
-    public DbSeeder(NabdCareDbContext dbContext)
+    public DbSeeder(
+        NabdCareDbContext dbContext,
+        IPasswordService passwordService,
+        ITenantContext tenantContext
+    )
     {
         _dbContext = dbContext;
+        _passwordService = passwordService;
+        _tenantContext = tenantContext;
     }
 
     public void Seed()
     {
-        _dbContext.Database.Migrate();
-        if (!_dbContext.Users.IgnoreQueryFilters().Any(u => u.Role == UserRole.SuperAdmin && u.IsActive))
+        // Elevate tenant context temporarily
+        var prevSuper = _tenantContext.IsSuperAdmin;
+        _tenantContext.IsSuperAdmin = true;
+        try
         {
-            var password = "Admin@123!";
-            var passwordHash = PasswordHelper.HashPassword(password);
+            _dbContext.Database.Migrate();
 
-            var superAdmin = new User
+            if (!_dbContext.Users
+                    .IgnoreQueryFilters()
+                    .Any(u => u.Role == UserRole.SuperAdmin && u.IsActive))
             {
-                Email = "sadmin@nabd.care",
-                FullName = "Super Admin",
-                PasswordHash = passwordHash,
-                Role = UserRole.SuperAdmin,
-                IsActive = true
-            };
+                var password = "Admin@123!";
+                var passwordHash = _passwordService.HashPassword(password);
 
-            _dbContext.Users.Add(superAdmin);
-            _dbContext.SaveChanges();
+                var superAdmin = new User
+                {
+                    Email = "sadmin@nabd.care",
+                    FullName = "Super Admin",
+                    PasswordHash = passwordHash,
+                    Role = UserRole.SuperAdmin,
+                    IsActive = true
+                };
+                _dbContext.Users.Add(superAdmin);
+                _dbContext.SaveChanges();
+            }
+        }
+        finally
+        {
+            _tenantContext.IsSuperAdmin = prevSuper;
         }
     }
 }

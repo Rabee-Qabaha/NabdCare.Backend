@@ -4,6 +4,7 @@ using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Services;
+using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Validator;
 using NabdCare.Infrastructure.Persistence;
 using NabdCare.Infrastructure.Persistence.DataSeed;
@@ -15,38 +16,34 @@ public static class DependencyInjectionConfig
 {
     public static IServiceCollection AddNabdCareServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Register DbContext
+        // DbContext as scoped
         services.AddDbContext<NabdCareDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
         );
 
-        // Add IHttpContextAccessor
+        // HttpContextAccessor for accessing context
         services.AddHttpContextAccessor();
 
-        // Register TenantContext as Scoped
+        // Tenant & User context
         services.AddScoped<ITenantContext, TenantContext>();
-        // Register UserContext as Scoped
         services.AddScoped<IUserContext, UserContext>();
 
-        // Register other services and repositories here
-        services.AddScoped<DbSeeder>(sp =>
-        {
-            var options = sp.GetRequiredService<DbContextOptions<NabdCareDbContext>>();
-            var tenantContext = new TenantContext { IsSuperAdmin = true };
-            var userContext = sp.GetRequiredService<IUserContext>();
-            var dbContext = new NabdCareDbContext(options, tenantContext, userContext);
-            return new DbSeeder(dbContext);
-        });
-        services.AddHostedService<DbSeedHostedService>();
-        
+        // Password service abstraction
+        services.AddScoped<IPasswordService, IdentityPasswordService>();
+
+        // Token service / auth related
         services.AddScoped<ITokenService, JwtTokenService>();
-
-        // Add FluentValidation
-        services.AddValidatorsFromAssemblyContaining<UserValidator>();
-
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IAuthService, AuthService>();
-        
+
+        // FluentValidation
+        services.AddValidatorsFromAssemblyContaining<UserValidator>();
+
+        // Seeding: DbSeeder as scoped (or maybe singleton but probably scoped)
+        services.AddScoped<DbSeeder>();
+
+        // Optionally use an IHostedService to trigger seeding OR run it in Program.cs before app.Run()
+        services.AddHostedService<DbSeedHostedService>();
 
         return services;
     }

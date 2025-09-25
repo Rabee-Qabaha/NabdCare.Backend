@@ -3,7 +3,7 @@ using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Domain.Entities.User;
 
-namespace NabdCare.Application.Services;
+namespace NabdCare.Application.Services.Auth;
 
 public class AuthService : IAuthService
 {
@@ -16,7 +16,7 @@ public class AuthService : IAuthService
         _tokenService = tokenService;
     }
 
-    public async Task<(string accessToken, string refreshToken)> LoginAsync(string email, string password)
+    public async Task<(string accessToken, string refreshToken)> LoginAsync(string email, string password, string requestIp)
     {
         var user = await _authRepository.AuthenticateUserAsync(email, password);
         if (user == null)
@@ -31,6 +31,8 @@ public class AuthService : IAuthService
             UserId = user.Id,
             Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
             ExpiresAt = DateTime.UtcNow.AddDays(7),
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = requestIp,
             IsRevoked = false
         };
 
@@ -39,39 +41,49 @@ public class AuthService : IAuthService
         return (accessToken, refreshToken.Token);
     }
 
-    public async Task<(string accessToken, string refreshToken)> RefreshTokenAsync(string refreshTokenValue)
+    public async Task<(string accessToken, string refreshToken)> RefreshTokenAsync(string refreshTokenValue, string requestIp)
     {
-        var refreshToken = await _authRepository.GetRefreshTokenAsync(refreshTokenValue);
+        var refreshToken = await _authRepository.GetRefreshTokenIncludingRevokedAsync(refreshTokenValue);
 
-        if (refreshToken == null)
-            throw new UnauthorizedAccessException("Refresh token is invalid, expired, or revoked.");
+        if (refreshToken == null || refreshToken.ExpiresAt <= DateTime.UtcNow)
+            throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
+
+        if (refreshToken.IsRevoked)
+        {
+            // Token reuse detected
+            await _authRepository.RevokeTokenFamilyAsync(refreshToken);
+            throw new UnauthorizedAccessException("Refresh token has been revoked. Token reuse detected.");
+        }
 
         var user = await _authRepository.AuthenticateUserByIdAsync(refreshToken.UserId);
         if (user == null || !user.IsActive)
             throw new UnauthorizedAccessException("User is not active.");
 
-        // Revoke the old refresh token and issue a new one for security
-        await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue);
+        // Revoke the old one with metadata
+        await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, requestIp, "Rotated");
 
-        var newRefreshToken = new RefreshToken
+        // Create new one
+        var newToken = new RefreshToken
         {
             UserId = user.Id,
             Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
             ExpiresAt = DateTime.UtcNow.AddDays(7),
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = requestIp,
             IsRevoked = false
         };
 
-        await _authRepository.SaveRefreshTokenAsync(user, newRefreshToken);
+        await _authRepository.SaveRefreshTokenAsync(user, newToken);
 
         var accessToken = _tokenService.GenerateToken(
             user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId
         );
 
-        return (accessToken, newRefreshToken.Token);
+        return (accessToken, newToken.Token);
     }
 
-    public async Task LogoutAsync(string refreshTokenValue)
+    public async Task LogoutAsync(string refreshTokenValue, string requestIp)
     {
-        await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue);
+        await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, requestIp, "Logout");
     }
 }

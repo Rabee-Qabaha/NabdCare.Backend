@@ -3,8 +3,15 @@ namespace NabdCare.Domain.Entities.User;
 public class RefreshToken : BaseEntity
 {
     public Guid UserId { get; set; }
-    // public User User { get; set; }
     public string Token { get; set; } = string.Empty;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? CreatedByIp { get; set; }
+
     public DateTime ExpiresAt { get; set; }
     public bool IsRevoked { get; set; } = false;
+    public DateTime? RevokedAt { get; set; }
+    public string? RevokedByIp { get; set; }
+    public string? ReplacedByToken { get; set; }
+    public string? ReasonRevoked { get; set; }
 }
