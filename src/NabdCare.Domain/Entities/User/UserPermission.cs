@@ -13,5 +13,5 @@ public class UserPermission : BaseEntity
     [Required]
     public Guid PermissionId { get; set; }
     [ForeignKey(nameof(PermissionId))]
-    public Permission Permission { get; set; }
+    public AppPermission AppPermission { get; set; }
 }

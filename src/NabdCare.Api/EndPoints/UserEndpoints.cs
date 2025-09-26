@@ -2,6 +2,7 @@
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.User;
 
+namespace NabdCare.Api.Endpoints;
 public static class UserEndpoints
 {
     public static void MapUserEndpoints(this WebApplication app)

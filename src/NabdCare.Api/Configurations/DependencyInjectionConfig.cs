@@ -3,14 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
-using NabdCare.Application.Interfaces.Permission;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Validator;
 using NabdCare.Infrastructure.Persistence;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 using NabdCare.Infrastructure.Repositories.Auth;
-using NabdCare.Infrastructure.Repositories.Users;
+using NabdCare.Infrastructure.Repositories.Permissions;
 
 namespace NabdCare.Api.Configurations;
 

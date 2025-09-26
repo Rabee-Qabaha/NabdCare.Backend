@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <Folder Include="Migrations\" />
-    <Folder Include="Repositories\Permission\" />
+    <Folder Include="Repositories\Permissions\" />
   </ItemGroup>
 
   <PropertyGroup>

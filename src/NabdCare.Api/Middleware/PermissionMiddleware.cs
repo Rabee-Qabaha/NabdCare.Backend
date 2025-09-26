@@ -1,5 +1,5 @@
 ﻿using NabdCare.Application.Common;
-using NabdCare.Application.Interfaces.Users;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Api.Middleware;

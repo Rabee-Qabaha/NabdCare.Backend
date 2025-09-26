@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NabdCare.Domain.Entities.User;
 
-public class Permission : BaseEntity
+public class AppPermission : BaseEntity
 {
     [Required]
     [MaxLength(30)]

@@ -25,7 +25,7 @@ public class NabdCareDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
     public DbSet<Clinic> Clinics { get; set; }
-    public DbSet<Permission> Permissions { get; set; }
+    public DbSet<AppPermission> Permissions { get; set; }
     public DbSet<RolePermission> RolePermissions { get; set; }
     public DbSet<UserPermission> UserPermissions { get; set; }
     public DbSet<ClinicPayment> ClinicPayments { get; set; }
@@ -46,7 +46,7 @@ public class NabdCareDbContext : DbContext
 
         // Soft delete filter for all entities
         modelBuilder.Entity<Clinic>().HasQueryFilter(c => !c.IsDeleted);
-        modelBuilder.Entity<Permission>().HasQueryFilter(p => !p.IsDeleted);
+        modelBuilder.Entity<AppPermission>().HasQueryFilter(p => !p.IsDeleted);
         modelBuilder.Entity<RolePermission>().HasQueryFilter(rp => !rp.IsDeleted);
         modelBuilder.Entity<UserPermission>().HasQueryFilter(up => !up.IsDeleted);
 
