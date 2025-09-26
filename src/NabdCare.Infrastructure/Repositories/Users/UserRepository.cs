@@ -42,7 +42,7 @@ public class UserRepository : IUserRepository
 
     public async Task<bool> DeleteUserAsync(Guid userId)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u=> u.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null) return false;
 
         _dbContext.Users.Remove(user);

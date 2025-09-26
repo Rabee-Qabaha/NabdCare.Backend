@@ -1,135 +1,201 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Entities.User;
 using NabdCare.Domain.Enums;
 
-namespace NabdCare.Api.EndPoints;
+namespace NabdCare.Api.Endpoints;
 
-    public static class PermissionEndpoints
+public static class PermissionEndpoints
 {
     public static void MapPermissionEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/permissions")
-            .WithTags("Permissions");
+        var group = app.MapGroup("/api/permissions").WithTags("Permissions");
 
-        // GET all permissions
-        group.MapGet("/", async (IPermissionService permissionService, ILogger<Program> logger) =>
+        // Get all permissions
+        group.MapGet("/", async (
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var permissions = await permissionService.GetAllPermissionsAsync();
-                return Results.Ok(permissions);
+                var result = await service.GetAllPermissionsAsync();
+                return Results.Ok(result);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error fetching permissions");
-                return Results.Problem("An error occurred while fetching permissions");
+                return Results.Problem("An error occurred while fetching permissions.");
             }
-        });
+        })
+        .WithName("GetAllPermissions")
+        .WithOpenApi();
 
-        // GET appPermission by Id
-        group.MapGet("/{id:guid}", async (Guid id, IPermissionService permissionService, ILogger<Program> logger) =>
+        // Get by Id
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var permission = await permissionService.GetPermissionByIdAsync(id);
+                var permission = await service.GetPermissionByIdAsync(id);
                 return permission is not null ? Results.Ok(permission) : Results.NotFound();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error fetching appPermission {PermissionId}", id);
-                return Results.Problem("An error occurred while fetching the appPermission");
+                logger.LogError(ex, "Error fetching permission {PermissionId}", id);
+                return Results.Problem("An error occurred while fetching the permission.");
             }
-        });
+        })
+        .WithName("GetPermissionById")
+        .WithOpenApi();
 
-        // POST: create appPermission
-        group.MapPost("/", async (AppPermission appPermission, IPermissionService permissionService, ILogger<Program> logger) =>
+        // Create
+        group.MapPost("/", async (
+            [FromBody] AppPermission permission,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var created = await permissionService.CreatePermissionAsync(appPermission);
-                return Results.Created($"/permissions/{created.Id}", created);
-            }
-            catch (DbUpdateException dbEx)
-            {
-                logger.LogError(dbEx, "DB error creating appPermission");
-                return Results.Problem("Database error while creating appPermission");
+                if (string.IsNullOrWhiteSpace(permission.Name))
+                    return Results.BadRequest("Permission name is required.");
+
+                var created = await service.CreatePermissionAsync(permission);
+                return Results.Created($"/api/permissions/{created.Id}", created);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error creating appPermission");
-                return Results.Problem("An error occurred while creating appPermission");
+                logger.LogError(ex, "Error creating permission");
+                return Results.Problem("An error occurred while creating the permission.");
             }
-        });
+        })
+        .WithName("CreatePermission")
+        .WithOpenApi();
 
-        // PUT: update appPermission
-        group.MapPut("/{id:guid}", async (Guid id, AppPermission appPermission, IPermissionService permissionService, ILogger<Program> logger) =>
+        // Update
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            [FromBody] AppPermission permission,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var updated = await permissionService.UpdatePermissionAsync(id, appPermission);
+                var updated = await service.UpdatePermissionAsync(id, permission);
                 return updated is not null ? Results.Ok(updated) : Results.NotFound();
             }
-            catch (DbUpdateException dbEx)
-            {
-                logger.LogError(dbEx, "DB error updating appPermission {PermissionId}", id);
-                return Results.Problem("Database error while updating appPermission");
-            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error updating appPermission {PermissionId}", id);
-                return Results.Problem("An error occurred while updating appPermission");
+                logger.LogError(ex, "Error updating permission {PermissionId}", id);
+                return Results.Problem("An error occurred while updating the permission.");
             }
-        });
+        })
+        .WithName("UpdatePermission")
+        .WithOpenApi();
 
-        // DELETE: delete appPermission
-        group.MapDelete("/{id:guid}", async (Guid id, IPermissionService permissionService, ILogger<Program> logger) =>
+        // Delete
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var deleted = await permissionService.DeletePermissionAsync(id);
+                var deleted = await service.DeletePermissionAsync(id);
                 return deleted ? Results.NoContent() : Results.NotFound();
             }
-            catch (DbUpdateException dbEx)
-            {
-                logger.LogError(dbEx, "DB error deleting appPermission {PermissionId}", id);
-                return Results.Problem("Database error while deleting appPermission");
-            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error deleting appPermission {PermissionId}", id);
-                return Results.Problem("An error occurred while deleting appPermission");
+                logger.LogError(ex, "Error deleting permission {PermissionId}", id);
+                return Results.Problem("An error occurred while deleting the permission.");
             }
-        });
+        })
+        .WithName("DeletePermission")
+        .WithOpenApi();
 
-        // POST: assign appPermission to role
-        group.MapPost("/assign-role", async (UserRole role, Guid permissionId, IPermissionService permissionService, ILogger<Program> logger) =>
+        // Assign to role
+        group.MapPost("/assign-role", async (
+            [FromQuery] UserRole role,
+            [FromQuery] Guid permissionId,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var assigned = await permissionService.AssignPermissionToRoleAsync(role, permissionId);
-                return assigned ? Results.Ok() : Results.BadRequest("AppPermission already assigned or invalid");
+                var assigned = await service.AssignPermissionToRoleAsync(role, permissionId);
+                return assigned ? Results.Ok() : Results.BadRequest("Permission already assigned or invalid.");
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error assigning appPermission {PermissionId} to role {Role}", permissionId, role);
-                return Results.Problem("An error occurred while assigning appPermission to role");
+                logger.LogError(ex, "Error assigning permission {PermissionId} to role {Role}", permissionId, role);
+                return Results.Problem("An error occurred while assigning permission to role.");
             }
-        });
+        })
+        .WithName("AssignPermissionToRole")
+        .WithOpenApi();
 
-        // POST: assign appPermission to user
-        group.MapPost("/assign-user", async (Guid userId, Guid permissionId, IPermissionService permissionService, ILogger<Program> logger) =>
+        // Remove from role
+        group.MapDelete("/remove-role", async (
+            [FromQuery] UserRole role,
+            [FromQuery] Guid permissionId,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
         {
             try
             {
-                var assigned = await permissionService.AssignPermissionToUserAsync(userId, permissionId);
-                return assigned ? Results.Ok() : Results.BadRequest("AppPermission already assigned or invalid");
+                var removed = await service.RemovePermissionFromRoleAsync(role, permissionId);
+                return removed ? Results.Ok() : Results.NotFound();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error assigning appPermission {PermissionId} to user {UserId}", permissionId, userId);
-                return Results.Problem("An error occurred while assigning appPermission to user");
+                logger.LogError(ex, "Error removing permission {PermissionId} from role {Role}", permissionId, role);
+                return Results.Problem("An error occurred while removing permission from role.");
             }
-        });
+        })
+        .WithName("RemovePermissionFromRole")
+        .WithOpenApi();
+
+        // Assign to user
+        group.MapPost("/assign-user", async (
+            [FromQuery] Guid userId,
+            [FromQuery] Guid permissionId,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
+        {
+            try
+            {
+                var assigned = await service.AssignPermissionToUserAsync(userId, permissionId);
+                return assigned ? Results.Ok() : Results.BadRequest("Permission already assigned or invalid.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error assigning permission {PermissionId} to user {UserId}", permissionId, userId);
+                return Results.Problem("An error occurred while assigning permission to user.");
+            }
+        })
+        .WithName("AssignPermissionToUser")
+        .WithOpenApi();
+
+        // Remove from user
+        group.MapDelete("/remove-user", async (
+            [FromQuery] Guid userId,
+            [FromQuery] Guid permissionId,
+            [FromServices] IPermissionService service,
+            [FromServices] ILogger<Program> logger) =>
+        {
+            try
+            {
+                var removed = await service.RemovePermissionFromUserAsync(userId, permissionId);
+                return removed ? Results.Ok() : Results.NotFound();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error removing permission {PermissionId} from user {UserId}", permissionId, userId);
+                return Results.Problem("An error occurred while removing permission from user.");
+            }
+        })
+        .WithName("RemovePermissionFromUser")
+        .WithOpenApi();
     }
 }

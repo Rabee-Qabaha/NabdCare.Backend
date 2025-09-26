@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.Mvc;
 using NabdCare.Application.Interfaces.Auth;
 
 namespace NabdCare.Api.Endpoints;
@@ -8,49 +9,58 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this WebApplication app)
     {
-        var authGroup = app.MapGroup("/auth");
+        var authGroup = app.MapGroup("/auth").WithTags("Authentication");
 
-        authGroup.MapPost("/login", async (LoginRequest req, IAuthService authService, HttpContext http) =>
+        authGroup.MapPost("/login", async (
+            [FromBody] LoginRequest req,
+            [FromServices] IAuthService authService,
+            HttpContext http) =>
         {
             var ip = GetClientIp(http);
             var (accessToken, refreshToken) = await authService.LoginAsync(req.Email, req.Password, ip);
             return Results.Ok(new { accessToken, refreshToken });
-        });
+        })
+        .WithName("Login")
+        .WithOpenApi();
 
-        authGroup.MapPost("/refresh", async (RefreshRequest req, IAuthService authService, HttpContext http) =>
+        authGroup.MapPost("/refresh", async (
+            [FromBody] RefreshRequest req,
+            [FromServices] IAuthService authService,
+            HttpContext http) =>
         {
             var ip = GetClientIp(http);
             var (accessToken, newRefreshToken) = await authService.RefreshTokenAsync(req.RefreshToken, ip);
             return Results.Ok(new { accessToken, refreshToken = newRefreshToken });
-        });
+        })
+        .WithName("RefreshToken")
+        .WithOpenApi();
 
-        authGroup.MapPost("/logout", async (RefreshRequest req, IAuthService authService, HttpContext http) =>
+        authGroup.MapPost("/logout", async (
+            [FromBody] RefreshRequest req,
+            [FromServices] IAuthService authService,
+            HttpContext http) =>
         {
             var ip = GetClientIp(http);
             await authService.LogoutAsync(req.RefreshToken, ip);
             return Results.NoContent();
-        });
+        })
+        .WithName("Logout")
+        .WithOpenApi();
     }
 
     private static string GetClientIp(HttpContext http)
     {
-        // Check X-Forwarded-For header first
         if (http.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
         {
             var first = forwardedFor.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(first))
             {
-                // Sometimes X-Forwarded-For contains multiple addresses separated by ','
                 var ip = first.Split(',', StringSplitOptions.RemoveEmptyEntries).First().Trim();
-                if (IPAddress.TryParse(ip, out var parsed))
+                if (IPAddress.TryParse(ip, out _))
                     return ip;
             }
         }
 
-        // Fallback to remote IP
-        var remoteIp = http.Connection.RemoteIpAddress;
-        if (remoteIp != null) return remoteIp.ToString();
-
-        return "unknown";
+        return http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }

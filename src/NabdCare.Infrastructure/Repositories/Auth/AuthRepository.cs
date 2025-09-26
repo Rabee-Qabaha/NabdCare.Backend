@@ -44,6 +44,7 @@ public class AuthRepository : IAuthRepository
     public async Task<User?> AuthenticateUserByIdAsync(Guid userId)
     {
         return await _dbContext.Users
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
     }
 

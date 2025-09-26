@@ -1,7 +1,6 @@
 using NabdCare.Api.Configurations;
 using NabdCare.Api.Endpoints;
 using NabdCare.Api.Middleware;
-using NabdCare.Application.Common;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +39,8 @@ app.UseAuthorization();
 
 // Map your endpoints
 app.MapAuthEndpoints();
+app.MapPermissionEndpoints();
+app.MapUserEndpoints();
 app.MapControllers();
 
 // Swagger

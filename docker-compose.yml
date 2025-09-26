@@ -7,11 +7,11 @@ services:
       - "5175:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=nabdcare_db;Username=postgres;Password=admin@123
-      Jwt__Key: "${JWT_SECRET}"
-      Jwt__Issuer: "NabdCareIssuer"
-      Jwt__Audience: "NabdCareAudience"
-      Jwt__ExpireMinutes: "60"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=nabdcare_db;Username=postgres;Password=${POSTGRES_PASSWORD}
+      JWT_KEY: "${JWT_SECRET}"
+      JWT_ISSUER: "NabdCareIssuer"
+      JWT_AUDIENCE: "NabdCareAudience"
+      JWT_EXPIREMINUTES: "60"
     depends_on:
       postgres:
         condition: service_healthy
@@ -24,7 +24,7 @@ services:
     environment:
       POSTGRES_DB: nabdcare_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin@123
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
