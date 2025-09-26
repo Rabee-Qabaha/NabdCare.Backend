@@ -3,12 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
+using NabdCare.Application.Interfaces.Permission;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Validator;
 using NabdCare.Infrastructure.Persistence;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 using NabdCare.Infrastructure.Repositories.Auth;
+using NabdCare.Infrastructure.Repositories.Users;
 
 namespace NabdCare.Api.Configurations;
 
@@ -44,6 +46,9 @@ public static class DependencyInjectionConfig
 
         // Optionally use an IHostedService to trigger seeding OR run it in Program.cs before app.Run()
         services.AddHostedService<DbSeedHostedService>();
+
+        services.AddScoped<IPermissionRepository, PermissionRepository>();
+
 
         return services;
     }
