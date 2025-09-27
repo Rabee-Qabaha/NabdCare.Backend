@@ -31,6 +31,8 @@ public class UserService : IUserService
         _logger = logger;
     }
 
+    #region User CRUD
+
     public async Task<UserResponseDto> CreateUserAsync(CreateUserRequestDto dto)
     {
         var user = _mapper.Map<User>(dto);
@@ -41,7 +43,7 @@ public class UserService : IUserService
             : _tenantContext.ClinicId;
 
         // Hash password
-        user.PasswordHash = _passwordService.HashPassword(user,dto.Password);
+        user.PasswordHash = _passwordService.HashPassword(user, dto.Password);
 
         var created = await _userRepository.CreateUserAsync(user);
         _logger.LogInformation("User {UserId} created by {Actor}", created.Id, _tenantContext.ClinicId);
@@ -85,7 +87,7 @@ public class UserService : IUserService
 
         return _mapper.Map<UserResponseDto>(updated);
     }
-    
+
     public async Task<bool> DeleteUserAsync(Guid id)
     {
         try
@@ -127,4 +129,55 @@ public class UserService : IUserService
             throw;
         }
     }
+
+    #endregion
+
+    #region Password Management
+
+    public async Task<UserResponseDto> ChangePasswordAsync(Guid userId, ChangePasswordRequestDto dto)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+
+        if (!_passwordService.VerifyPassword(dto.CurrentPassword, dto.CurrentPassword))
+            throw new UnauthorizedAccessException("Current password is incorrect.");
+
+        user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
+        var updated = await _userRepository.UpdateUserAsync(user);
+        _logger.LogInformation("User {UserId} changed their password.", userId);
+
+        return _mapper.Map<UserResponseDto>(updated);
+    }
+
+    public async Task<UserResponseDto> ResetPasswordAsync(Guid userId, ResetPasswordRequestDto dto)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+
+        user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
+        var updated = await _userRepository.UpdateUserAsync(user);
+        _logger.LogInformation("ClinicAdmin {Actor} reset password for user {UserId}.", _tenantContext.ClinicId, userId);
+
+        return _mapper.Map<UserResponseDto>(updated);
+    }
+
+    public async Task<UserResponseDto> AdminResetPasswordAsync(Guid userId, ResetPasswordRequestDto dto)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+
+        if (!_tenantContext.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only SuperAdmin can perform this action.");
+
+        user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
+        var updated = await _userRepository.UpdateUserAsync(user);
+        _logger.LogInformation("SuperAdmin reset password for user {UserId}.", userId);
+
+        return _mapper.Map<UserResponseDto>(updated);
+    }
+
+    #endregion
 }

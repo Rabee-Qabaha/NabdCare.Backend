@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.DTOs.Users;
 using NabdCare.Application.Interfaces.Users;
@@ -9,112 +10,118 @@ public static class UserEndpoints
 {
     public static void MapUserEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/users")
-            .WithTags("Users")
-            .RequireAuthorization();
+        var group = app.MapGroup("/api/users").WithTags("Users");
 
-        // ✅ Create User
+        // Create User
         group.MapPost("/", async (
             [FromBody] CreateUserRequestDto dto,
             [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
+            [FromServices] IValidator<CreateUserRequestDto> validator) =>
         {
-            try
-            {
-                var user = await userService.CreateUserAsync(dto);
-                return Results.Created($"/api/users/{user.Id}", user);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error creating user with email {Email}", dto.Email);
-                return Results.Problem("An error occurred while creating the user.");
-            }
-        })
-        .RequirePermission("CreateUser")
-        .WithSummary("Create a new user")
-        .WithOpenApi();
+            var validationResult = await validator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return Results.BadRequest(new { Errors = validationResult.Errors.Select(e => e.ErrorMessage) });
 
-        // ✅ Get User by ID
+            var user = await userService.CreateUserAsync(dto);
+            return Results.Created($"/api/users/{user.Id}", user);
+        })
+        .RequireAuthorization("SuperAdmin", "ClinicAdmin")
+        .WithSummary("Create a new user");
+
+        // Get user by ID
         group.MapGet("/{id:guid}", async (
             Guid id,
-            [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
+            [FromServices] IUserService userService) =>
         {
             var user = await userService.GetUserByIdAsync(id);
-            return user is not null ? Results.Ok(user) : Results.NotFound();
+            return user != null ? Results.Ok(user) : Results.NotFound($"User with ID {id} not found.");
         })
-        .RequirePermission("ViewUser")
-        .WithSummary("Get user by ID")
-        .WithOpenApi();
+        .RequireAuthorization()
+        .WithSummary("Get user by ID");
 
-        // ✅ Get Users (by clinic if ClinicAdmin)
+        // Get users by clinic
         group.MapGet("/", async (
-            [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
+            [FromServices] IUserService userService) =>
         {
-            var users = await userService.GetUsersByClinicIdAsync(null); // TenantContext handles filtering
+            var users = await userService.GetUsersByClinicIdAsync(null);
             return Results.Ok(users);
         })
-        .RequirePermission("ViewUsers")
-        .WithSummary("List all users for current clinic or globally (if SuperAdmin)")
-        .WithOpenApi();
+        .RequireAuthorization("SuperAdmin", "ClinicAdmin")
+        .WithSummary("Get all users in accessible clinics");
 
-        // ✅ Update User (non-role properties)
+        // Update user info
         group.MapPut("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateUserRequestDto dto,
-            [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
+            [FromServices] IUserService userService) =>
         {
             var updatedUser = await userService.UpdateUserAsync(id, dto);
-            return updatedUser is not null
-                ? Results.Ok(updatedUser)
-                : Results.NotFound($"User with ID {id} not found.");
+            return updatedUser != null ? Results.Ok(updatedUser) : Results.NotFound($"User with ID {id} not found.");
         })
-        .RequirePermission("UpdateUser")
-        .WithSummary("Update user details")
-        .WithOpenApi();
+        .RequireAuthorization("SuperAdmin", "ClinicAdmin")
+        .WithSummary("Update user details");
 
-        // ✅ Update User Role
+        // Update user role
         group.MapPut("/{id:guid}/role", async (
             Guid id,
-            [FromBody] UpdateUserRoleDto request,
-            [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
+            [FromBody] UpdateUserRoleDto dto,
+            [FromServices] IUserService userService) =>
         {
-            var updatedUser = await userService.UpdateUserRoleAsync(id, request.Role);
-            return updatedUser is not null
-                ? Results.Ok(updatedUser)
-                : Results.NotFound($"User with ID {id} not found.");
+            var updatedUser = await userService.UpdateUserRoleAsync(id, dto.Role);
+            return updatedUser != null ? Results.Ok(updatedUser) : Results.NotFound($"User with ID {id} not found.");
         })
+        .RequireAuthorization("SuperAdmin", "ClinicAdmin")
         .RequirePermission("UpdateUserRole")
-        .WithSummary("Update user's role")
-        .WithOpenApi();
+        .WithSummary("Update user's role");
 
-        // ✅ Soft Delete User
-        group.MapDelete("/{id:guid}/soft", async (
-            Guid id,
-            [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
-        {
-            var success = await userService.SoftDeleteUserAsync(id);
-            return success ? Results.NoContent() : Results.NotFound($"User with ID {id} not found.");
-        })
-        .RequirePermission("DeleteUser")
-        .WithSummary("Soft delete user")
-        .WithOpenApi();
-
-        // ✅ Hard Delete User
+        // Soft delete user
         group.MapDelete("/{id:guid}", async (
             Guid id,
-            [FromServices] IUserService userService,
-            [FromServices] ILogger<Program> logger) =>
+            [FromServices] IUserService userService) =>
         {
-            var success = await userService.DeleteUserAsync(id);
-            return success ? Results.NoContent() : Results.NotFound($"User with ID {id} not found.");
+            var success = await userService.SoftDeleteUserAsync(id);
+            return success ? Results.Ok($"User with ID {id} has been soft deleted.") : Results.NotFound($"User with ID {id} not found.");
         })
+        .RequireAuthorization("SuperAdmin")
         .RequirePermission("DeleteUser")
-        .WithSummary("Permanently delete user")
-        .WithOpenApi();
+        .WithSummary("Soft delete a user");
+
+        // Change password (self)
+        group.MapPost("/{id:guid}/change-password", async (
+            Guid id,
+            [FromBody] ChangePasswordRequestDto dto,
+            [FromServices] IUserService userService) =>
+        {
+            var updatedUser = await userService.ChangePasswordAsync(id, dto);
+            return Results.Ok(updatedUser);
+        })
+        .RequireAuthorization()
+        .WithSummary("Change user's own password");
+
+        // Reset password (clinic admin for clinic users)
+        group.MapPost("/{id:guid}/reset-password", async (
+            Guid id,
+            [FromBody] ResetPasswordRequestDto dto,
+            [FromServices] IUserService userService) =>
+        {
+            var updatedUser = await userService.ResetPasswordAsync(id, dto);
+            return updatedUser != null ? Results.Ok(updatedUser) : Results.NotFound($"User with ID {id} not found.");
+        })
+        .RequireAuthorization("ClinicAdmin")
+        .RequirePermission("ResetPassword")
+        .WithSummary("Reset password for users in your clinic");
+
+        // Admin reset password (super admin for any user)
+        group.MapPost("/{id:guid}/admin-reset-password", async (
+            Guid id,
+            [FromBody] ResetPasswordRequestDto dto,
+            [FromServices] IUserService userService) =>
+        {
+            var updatedUser = await userService.AdminResetPasswordAsync(id, dto);
+            return Results.Ok(updatedUser);
+        })
+        .RequireAuthorization("SuperAdmin")
+        .RequirePermission("AdminResetPassword")
+        .WithSummary("SuperAdmin resets any user's password");
     }
 }

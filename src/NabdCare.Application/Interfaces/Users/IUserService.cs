@@ -12,4 +12,9 @@ public interface IUserService
     Task<UserResponseDto?> UpdateUserRoleAsync(Guid id, UserRole newRole);
     Task<bool> SoftDeleteUserAsync(Guid id);
     Task<bool> DeleteUserAsync(Guid id);
+    
+    // Password management
+    Task<UserResponseDto> ChangePasswordAsync(Guid userId, ChangePasswordRequestDto dto);
+    Task<UserResponseDto> ResetPasswordAsync(Guid userId, ResetPasswordRequestDto dto); // ClinicAdmin resets clinic user
+    Task<UserResponseDto> AdminResetPasswordAsync(Guid userId, ResetPasswordRequestDto dto); // SuperAdmin resets any user
 }
