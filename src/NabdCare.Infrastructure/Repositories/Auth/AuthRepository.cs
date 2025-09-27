@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
-using NabdCare.Domain.Entities.User;
+using NabdCare.Domain.Entities.Users;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Auth;
@@ -50,7 +50,7 @@ public class AuthRepository : IAuthRepository
 
     public async Task ChangePasswordAsync(User user, string newPassword)
     {
-        user.PasswordHash = _passwordService.HashPassword(newPassword);
+        user.PasswordHash = _passwordService.HashPassword(user, newPassword);
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
     }

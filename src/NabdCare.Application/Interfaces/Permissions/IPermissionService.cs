@@ -1,5 +1,5 @@
 ﻿using NabdCare.Domain.Enums;
-using NabdCare.Domain.Entities.User;
+using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Application.Interfaces.Permissions;
 

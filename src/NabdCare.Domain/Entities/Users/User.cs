@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Enums;
 
-namespace NabdCare.Domain.Entities.User;
+namespace NabdCare.Domain.Entities.Users;
 
 public class User : BaseEntity
 {

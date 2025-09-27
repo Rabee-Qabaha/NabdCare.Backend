@@ -1,13 +1,15 @@
-﻿using NabdCare.Domain.Entities.User;
+﻿using NabdCare.Application.DTOs.Users;
+using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Interfaces.Users;
 
 public interface IUserService
 {
-    Task<User> CreateUserAsync(User user);
-    Task<User?> GetUserByIdAsync(Guid userId);
-    Task<IEnumerable<User>> GetUsersByClinicIdAsync(Guid? clinicId);
-    Task<User> UpdateUserAsync(User user);
-    Task<bool> DeleteUserAsync(Guid userId);
-    Task<bool> SoftDeleteUserAsync(Guid userId);
+    Task<UserResponseDto> CreateUserAsync(CreateUserRequestDto dto);
+    Task<UserResponseDto?> GetUserByIdAsync(Guid id);
+    Task<IEnumerable<UserResponseDto>> GetUsersByClinicIdAsync(Guid? clinicId);
+    Task<UserResponseDto?> UpdateUserAsync(Guid id, UpdateUserRequestDto dto);
+    Task<UserResponseDto?> UpdateUserRoleAsync(Guid id, UserRole newRole);
+    Task<bool> SoftDeleteUserAsync(Guid id);
+    Task<bool> DeleteUserAsync(Guid id);
 }

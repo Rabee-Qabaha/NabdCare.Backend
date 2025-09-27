@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace NabdCare.Domain.DTOs.Auth;
+namespace NabdCare.Application.DTOs.Auth;
 
 public class RefreshRequestDto
 {

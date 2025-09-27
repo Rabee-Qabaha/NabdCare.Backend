@@ -11,14 +11,10 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddNabdCareServices(builder.Configuration);
 SwaggerConfig.AddSwagger(builder.Services);
 
-var app = builder.Build();
+// Register the hosted service to seed database
+builder.Services.AddHostedService<DbSeedHostedService>();
 
-// Seed database
-using (var scope = app.Services.CreateScope())
-{
-    var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
-    seeder.Seed();
-}
+var app = builder.Build();
 
 // Configure middleware pipeline
 

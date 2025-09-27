@@ -1,11 +1,11 @@
-namespace NabdCare.Domain.Entities.User;
+namespace NabdCare.Domain.Entities.Users;
 
 public class RefreshToken : BaseEntity
 {
     public Guid UserId { get; set; }
     public string Token { get; set; } = string.Empty;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public new DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedByIp { get; set; }
 
     public DateTime ExpiresAt { get; set; }

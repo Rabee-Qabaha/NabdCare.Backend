@@ -5,6 +5,7 @@ using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Users;
+using NabdCare.Application.mappings;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Services.Permissions;
@@ -48,6 +49,9 @@ public static class DependencyInjectionConfig
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IPermissionService, PermissionService>();
 
+        // AutoMapper
+        services.AddAutoMapper(cfg => { }, typeof(UserProfile));
+        
         // FluentValidation
         services.AddValidatorsFromAssemblyContaining<UserValidator>();
 

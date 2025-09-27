@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces.Permissions;
-using NabdCare.Domain.Entities.User;
+using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;
 

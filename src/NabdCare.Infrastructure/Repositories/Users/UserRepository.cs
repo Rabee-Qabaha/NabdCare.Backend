@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces.Users;
-using NabdCare.Domain.Entities.User;
+using NabdCare.Domain.Entities.Users;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Users;

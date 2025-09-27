@@ -1,4 +1,4 @@
-﻿using NabdCare.Domain.Entities.User;
+﻿using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Interfaces.Permissions;

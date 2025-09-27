@@ -18,6 +18,7 @@ public class PermissionMiddleware
     public async Task InvokeAsync(HttpContext context, IUserContext userContext, IPermissionService permissionService)
     {
         var userIdStr = userContext.GetCurrentUserId();
+
         if (!Guid.TryParse(userIdStr, out var userId))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -25,9 +26,16 @@ public class PermissionMiddleware
             return;
         }
 
-        // You need to get user's role from the database or from context (simplified example)
-        var role = (UserRole)Enum.Parse(typeof(UserRole), context.User.FindFirst("role")?.Value ?? "User");
+        // Get role from claims
+        var roleClaim = context.User.FindFirst("role")?.Value ?? "User";
+        if (!Enum.TryParse<UserRole>(roleClaim, true, out var role))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsync("Invalid role claim");
+            return;
+        }
 
+        // Check if the user has the required permission
         var hasPermission = await permissionService.UserHasPermissionAsync(userId, role, _permission);
         if (!hasPermission)
         {

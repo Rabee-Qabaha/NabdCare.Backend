@@ -1,14 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NabdCare.Domain.Enums;
 
-namespace NabdCare.Domain.Entities.User;
+namespace NabdCare.Domain.Entities.Users;
 
-public class UserPermission : BaseEntity
+public class RolePermission : BaseEntity
 {
     [Required]
-    public Guid UserId { get; set; }
-    [ForeignKey(nameof(UserId))]
-    public User User { get; set; }
+    public UserRole Role { get; set; }
 
     [Required]
     public Guid PermissionId { get; set; }

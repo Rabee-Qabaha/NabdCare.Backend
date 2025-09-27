@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Domain.Entities.Clinic;
-using NabdCare.Domain.Entities.User;
+using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Interfaces;
 
 namespace NabdCare.Infrastructure.Persistence;

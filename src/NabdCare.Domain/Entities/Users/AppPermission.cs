@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace NabdCare.Domain.Entities.User;
+namespace NabdCare.Domain.Entities.Users;
 
 public class AppPermission : BaseEntity
 {

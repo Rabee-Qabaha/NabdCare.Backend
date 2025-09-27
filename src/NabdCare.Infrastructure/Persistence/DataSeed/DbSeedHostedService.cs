@@ -16,8 +16,9 @@ public class DbSeedHostedService : IHostedService
     {
         using var scope = _serviceProvider.CreateScope();
         var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
-        seeder.Seed();
-        await Task.CompletedTask;
+
+        // Use async seeding
+        await seeder.SeedAsync();
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

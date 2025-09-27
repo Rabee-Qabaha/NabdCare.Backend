@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using NabdCare.Domain.Entities.User;
+using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Application.Validator;
 

@@ -1,54 +1,41 @@
 using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces;
-using NabdCare.Domain.Entities.User;
-using NabdCare.Domain.Enums;
 
 namespace NabdCare.Infrastructure.Persistence.DataSeed;
 
 public class DbSeeder
 {
+    private readonly IEnumerable<ISingleSeeder> _seeders;
     private readonly NabdCareDbContext _dbContext;
-    private readonly IPasswordService _passwordService;
     private readonly ITenantContext _tenantContext;
 
     public DbSeeder(
         NabdCareDbContext dbContext,
-        IPasswordService passwordService,
-        ITenantContext tenantContext
+        ITenantContext tenantContext,
+        IEnumerable<ISingleSeeder> seeders
     )
     {
         _dbContext = dbContext;
-        _passwordService = passwordService;
         _tenantContext = tenantContext;
+        _seeders = seeders;
     }
 
-    public void Seed()
+    public async Task SeedAsync()
     {
-        // Elevate tenant context temporarily
+        // Temporarily elevate tenant context for migrations
         var prevSuper = _tenantContext.IsSuperAdmin;
         _tenantContext.IsSuperAdmin = true;
+
         try
         {
-            _dbContext.Database.Migrate();
+            // Apply migrations first
+            await _dbContext.Database.MigrateAsync();
 
-            if (!_dbContext.Users
-                    .IgnoreQueryFilters()
-                    .Any(u => u.Role == UserRole.SuperAdmin && u.IsActive))
+            // Run all dedicated seeders
+            foreach (var seeder in _seeders)
             {
-                var password = "Admin@123!";
-                var passwordHash = _passwordService.HashPassword(password);
-
-                var superAdmin = new User
-                {
-                    Email = "sadmin@nabd.care",
-                    FullName = "Super Admin",
-                    PasswordHash = passwordHash,
-                    Role = UserRole.SuperAdmin,
-                    IsActive = true
-                };
-                _dbContext.Users.Add(superAdmin);
-                _dbContext.SaveChanges();
+                await seeder.SeedAsync();
             }
         }
         finally

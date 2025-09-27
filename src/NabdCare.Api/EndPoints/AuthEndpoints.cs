@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Application.Interfaces.Auth;
@@ -11,10 +10,8 @@ public static class AuthEndpoints
     {
         var authGroup = app.MapGroup("/auth").WithTags("Authentication");
 
-        authGroup.MapPost("/login", async (
-            [FromBody] LoginRequest req,
-            [FromServices] IAuthService authService,
-            HttpContext http) =>
+        // Login
+        authGroup.MapPost("/login", async ([FromBody] LoginRequest req, [FromServices] IAuthService authService, HttpContext http) =>
         {
             var ip = GetClientIp(http);
             var (accessToken, refreshToken) = await authService.LoginAsync(req.Email, req.Password, ip);
@@ -23,22 +20,18 @@ public static class AuthEndpoints
         .WithName("Login")
         .WithOpenApi();
 
-        authGroup.MapPost("/refresh", async (
-            [FromBody] RefreshRequest req,
-            [FromServices] IAuthService authService,
-            HttpContext http) =>
+        // Refresh token
+        authGroup.MapPost("/refresh", async ([FromBody] RefreshRequest req, [FromServices] IAuthService authService, HttpContext http) =>
         {
             var ip = GetClientIp(http);
-            var (accessToken, newRefreshToken) = await authService.RefreshTokenAsync(req.RefreshToken, ip);
-            return Results.Ok(new { accessToken, refreshToken = newRefreshToken });
+            var (accessToken, refreshToken) = await authService.RefreshTokenAsync(req.RefreshToken, ip);
+            return Results.Ok(new { accessToken, refreshToken });
         })
         .WithName("RefreshToken")
         .WithOpenApi();
 
-        authGroup.MapPost("/logout", async (
-            [FromBody] RefreshRequest req,
-            [FromServices] IAuthService authService,
-            HttpContext http) =>
+        // Logout
+        authGroup.MapPost("/logout", async ([FromBody] RefreshRequest req, [FromServices] IAuthService authService, HttpContext http) =>
         {
             var ip = GetClientIp(http);
             await authService.LogoutAsync(req.RefreshToken, ip);
@@ -56,7 +49,7 @@ public static class AuthEndpoints
             if (!string.IsNullOrWhiteSpace(first))
             {
                 var ip = first.Split(',', StringSplitOptions.RemoveEmptyEntries).First().Trim();
-                if (IPAddress.TryParse(ip, out _))
+                if (System.Net.IPAddress.TryParse(ip, out _))
                     return ip;
             }
         }
