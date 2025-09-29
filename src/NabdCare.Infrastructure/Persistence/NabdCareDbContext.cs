@@ -25,7 +25,7 @@ public class NabdCareDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
     public DbSet<Clinic> Clinics { get; set; }
-    public DbSet<AppPermission> Permissions { get; set; }
+    public DbSet<AppPermission> AppPermission { get; set; }
     public DbSet<RolePermission> RolePermissions { get; set; }
     public DbSet<UserPermission> UserPermissions { get; set; }
     public DbSet<ClinicPayment> ClinicPayments { get; set; }

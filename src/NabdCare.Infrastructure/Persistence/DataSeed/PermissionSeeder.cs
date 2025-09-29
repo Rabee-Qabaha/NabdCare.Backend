@@ -1,10 +1,12 @@
+using NabdCare.Application.Common;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using NabdCare.Application.Interfaces;
 
 namespace NabdCare.Infrastructure.Persistence.DataSeed;
 
-public class PermissionSeeder
+public class PermissionSeeder : ISingleSeeder
 {
     private readonly NabdCareDbContext _dbContext;
 
@@ -28,13 +30,13 @@ public class PermissionSeeder
 
         foreach (var perm in permissions)
         {
-            var exists = await _dbContext.Permissions
+            var exists = await _dbContext.AppPermission
                 .IgnoreQueryFilters()
                 .AnyAsync(p => p.Name == perm.Name);
 
             if (!exists)
             {
-                await _dbContext.Permissions.AddAsync(perm);
+                await _dbContext.AppPermission.AddAsync(perm);
             }
         }
 
@@ -43,7 +45,7 @@ public class PermissionSeeder
         // 2. Assign permissions to roles
         var rolePermissions = new Dictionary<UserRole, string[]>
         {
-            { UserRole.SuperAdmin, permissions.Select(p => p.Name).ToArray() }, // All permissions
+            { UserRole.SuperAdmin, permissions.Select(p => p.Name).ToArray() }, 
             { UserRole.ClinicAdmin, new[] { "CreateUser", "ViewUser", "ViewUsers", "UpdateUser" } },
             { UserRole.Doctor, Array.Empty<string>() },
             { UserRole.Nurse, Array.Empty<string>() },
@@ -55,7 +57,7 @@ public class PermissionSeeder
             var role = kv.Key;
             foreach (var permName in kv.Value)
             {
-                var permission = await _dbContext.Permissions
+                var permission = await _dbContext.AppPermission
                     .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(p => p.Name == permName);
 

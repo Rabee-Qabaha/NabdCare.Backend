@@ -12,7 +12,9 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<NabdCareDb
         // Build configuration to read appsettings.json
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json")
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddEnvironmentVariables()
             .Build();
 
         // Get the connection string (replace "DefaultConnection" with your actual name)

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Enums;
@@ -18,7 +19,7 @@ public static class PermissionEndpointExtensions
             if (!Guid.TryParse(userIdStr, out var userId))
                 return Results.Unauthorized();
 
-            var roleClaim = httpContext.User.FindFirst("role")?.Value ?? "User";
+            var roleClaim = httpContext.User.FindFirst(ClaimTypes.Role)?.Value ?? "User";
             if (!Enum.TryParse<UserRole>(roleClaim, true, out var role))
                 return Results.Unauthorized();
 

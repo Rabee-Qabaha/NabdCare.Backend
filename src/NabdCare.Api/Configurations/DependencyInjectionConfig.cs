@@ -27,7 +27,7 @@ public static class DependencyInjectionConfig
         services.AddDbContext<NabdCareDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
         );
-
+        
         // HttpContextAccessor
         services.AddHttpContextAccessor();
 
@@ -57,6 +57,8 @@ public static class DependencyInjectionConfig
 
         // Seeder
         services.AddScoped<DbSeeder>();
+        services.AddScoped<ISingleSeeder, SuperAdminSeeder>();
+        services.AddScoped<ISingleSeeder, PermissionSeeder>();
         services.AddHostedService<DbSeedHostedService>();
 
         return services;

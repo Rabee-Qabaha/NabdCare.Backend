@@ -48,7 +48,27 @@ public static class JwtConfig
                 {
                     var logger = context.HttpContext.RequestServices
                         .GetRequiredService<ILogger<JwtBearerEvents>>();
-                    logger.LogWarning(context.Exception, "JWT authentication failed: {Message}", context.Exception.Message);
+                    logger.LogError(context.Exception, "❌ JWT authentication failed");
+
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = context =>
+                {
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILogger<JwtBearerEvents>>();
+
+                    var claims = string.Join(", ",
+                        context.Principal.Claims.Select(c => $"{c.Type}={c.Value}"));
+
+                    logger.LogInformation("✅ JWT validated. Claims: {Claims}", claims);
+                    return Task.CompletedTask;
+                },
+                OnChallenge = context =>
+                {
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILogger<JwtBearerEvents>>();
+                    logger.LogWarning("⚠️ JWT challenge triggered. Error={Error}, Description={ErrorDescription}",
+                        context.Error, context.ErrorDescription);
                     return Task.CompletedTask;
                 }
             };

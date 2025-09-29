@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using AutoMapper;
+using Microsoft.Extensions.Logging;
+using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.Users;
@@ -10,69 +12,81 @@ public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IMapper _mapper;
     private readonly ILogger<PermissionService> _logger;
 
     public PermissionService(
         IPermissionRepository permissionRepository,
         IUserRepository userRepository,
+        IMapper mapper,
         ILogger<PermissionService> logger)
     {
         _permissionRepository = permissionRepository;
         _userRepository = userRepository;
+        _mapper = mapper;
         _logger = logger;
     }
 
     #region Permission CRUD
 
-    public async Task<IEnumerable<AppPermission>> GetAllPermissionsAsync()
+    public async Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
     {
         try
         {
-            return await _permissionRepository.GetAllPermissionsAsync();
+            var permissions = await _permissionRepository.GetAllPermissionsAsync();
+            return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching all permissions");
-            throw new InvalidOperationException("An error occurred while fetching permissions.", ex);
+            _logger.LogError(ex, "Failed to retrieve all permissions.");
+            throw new InvalidOperationException("Failed to retrieve permissions.", ex);
         }
     }
 
-    public async Task<AppPermission?> GetPermissionByIdAsync(Guid id)
+    public async Task<PermissionResponseDto?> GetPermissionByIdAsync(Guid id)
     {
         try
         {
-            return await _permissionRepository.GetPermissionByIdAsync(id);
+            var permission = await _permissionRepository.GetPermissionByIdAsync(id);
+            return permission == null ? null : _mapper.Map<PermissionResponseDto>(permission);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching permission {PermissionId}", id);
-            throw new InvalidOperationException("An error occurred while fetching the permission.", ex);
+            _logger.LogError(ex, "Failed to retrieve permission {PermissionId}.", id);
+            throw new InvalidOperationException($"Failed to retrieve permission {id}.", ex);
         }
     }
 
-    public async Task<AppPermission> CreatePermissionAsync(AppPermission permission)
+    public async Task<PermissionResponseDto> CreatePermissionAsync(CreatePermissionDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new ArgumentException("Permission name is required.", nameof(dto.Name));
+
         try
         {
-            return await _permissionRepository.CreatePermissionAsync(permission);
+            var entity = _mapper.Map<AppPermission>(dto);
+            var created = await _permissionRepository.CreatePermissionAsync(entity);
+            return _mapper.Map<PermissionResponseDto>(created);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating permission {PermissionName}", permission.Name);
-            throw new InvalidOperationException("An error occurred while creating the permission.", ex);
+            _logger.LogError(ex, "Failed to create permission {PermissionName}.", dto.Name);
+            throw new InvalidOperationException($"Failed to create permission {dto.Name}.", ex);
         }
     }
 
-    public async Task<AppPermission?> UpdatePermissionAsync(Guid id, AppPermission permission)
+    public async Task<PermissionResponseDto?> UpdatePermissionAsync(Guid id, UpdatePermissionDto dto)
     {
         try
         {
-            return await _permissionRepository.UpdatePermissionAsync(id, permission);
+            var entity = _mapper.Map<AppPermission>(dto);
+            var updated = await _permissionRepository.UpdatePermissionAsync(id, entity);
+            return updated == null ? null : _mapper.Map<PermissionResponseDto>(updated);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating permission {PermissionId}", id);
-            throw new InvalidOperationException("An error occurred while updating the permission.", ex);
+            _logger.LogError(ex, "Failed to update permission {PermissionId}.", id);
+            throw new InvalidOperationException($"Failed to update permission {id}.", ex);
         }
     }
 
@@ -84,59 +98,60 @@ public class PermissionService : IPermissionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting permission {PermissionId}", id);
-            throw new InvalidOperationException("An error occurred while deleting the permission.", ex);
+            _logger.LogError(ex, "Failed to delete permission {PermissionId}.", id);
+            throw new InvalidOperationException($"Failed to delete permission {id}.", ex);
         }
     }
 
     #endregion
 
-    #region RolePermission Management
+    #region Role/User Permission Management
 
     public async Task<bool> AssignPermissionToRoleAsync(UserRole role, Guid permissionId)
     {
+        if (!Enum.IsDefined(typeof(UserRole), role))
+            throw new ArgumentException("Invalid role.", nameof(role));
+
         try
         {
             return await _permissionRepository.AssignPermissionToRoleAsync(role, permissionId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error assigning permission {PermissionId} to role {Role}", permissionId, role);
-            throw new InvalidOperationException("An error occurred while assigning permission to role.", ex);
+            _logger.LogError(ex, "Failed to assign permission {PermissionId} to role {Role}.", permissionId, role);
+            throw new InvalidOperationException($"Failed to assign permission to role.", ex);
         }
     }
 
     public async Task<bool> RemovePermissionFromRoleAsync(UserRole role, Guid permissionId)
     {
+        if (!Enum.IsDefined(typeof(UserRole), role))
+            throw new ArgumentException("Invalid role.", nameof(role));
+
         try
         {
             return await _permissionRepository.RemovePermissionFromRoleAsync(role, permissionId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing permission {PermissionId} from role {Role}", permissionId, role);
-            throw new InvalidOperationException("An error occurred while removing permission from role.", ex);
+            _logger.LogError(ex, "Failed to remove permission {PermissionId} from role {Role}.", permissionId, role);
+            throw new InvalidOperationException($"Failed to remove permission from role.", ex);
         }
     }
-
-    #endregion
-
-    #region UserPermission Management
 
     public async Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId)
     {
         try
         {
-            // Optional: Validate user exists
-            var user = await _userRepository.GetUserByIdAsync(userId);
-            if (user == null) throw new KeyNotFoundException($"User {userId} not found.");
+            var user = await _userRepository.GetUserByIdAsync(userId)
+                       ?? throw new KeyNotFoundException($"User {userId} not found.");
 
             return await _permissionRepository.AssignPermissionToUserAsync(userId, permissionId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error assigning permission {PermissionId} to user {UserId}", permissionId, userId);
-            throw new InvalidOperationException("An error occurred while assigning permission to user.", ex);
+            _logger.LogError(ex, "Failed to assign permission {PermissionId} to user {UserId}.", permissionId, userId);
+            throw new InvalidOperationException($"Failed to assign permission to user.", ex);
         }
     }
 
@@ -148,8 +163,8 @@ public class PermissionService : IPermissionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing permission {PermissionId} from user {UserId}", permissionId, userId);
-            throw new InvalidOperationException("An error occurred while removing permission from user.", ex);
+            _logger.LogError(ex, "Failed to remove permission {PermissionId} from user {UserId}.", permissionId, userId);
+            throw new InvalidOperationException($"Failed to remove permission from user.", ex);
         }
     }
 
@@ -157,36 +172,33 @@ public class PermissionService : IPermissionService
 
     #region Effective Permissions
 
-    public async Task<IEnumerable<AppPermission>> GetUserEffectivePermissionsAsync(Guid userId, UserRole role)
+    public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, UserRole role)
     {
         try
         {
-            var rolePermissions = await _permissionRepository.GetPermissionsByRoleAsync(role);
-            var userPermissions = await _permissionRepository.GetPermissionsByUserAsync(userId);
+            var rolePerms = await _permissionRepository.GetPermissionsByRoleAsync(role);
+            var userPerms = await _permissionRepository.GetPermissionsByUserAsync(userId);
 
-            return rolePermissions.Concat(userPermissions)
-                                  .GroupBy(p => p.Id)
-                                  .Select(g => g.First());
+            var combined = rolePerms.Concat(userPerms)
+                                    .GroupBy(p => p.Id)
+                                    .Select(g => g.First());
+
+            return _mapper.Map<IEnumerable<PermissionResponseDto>>(combined);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching effective permissions for user {UserId}", userId);
-            throw new InvalidOperationException("An error occurred while fetching effective permissions.", ex);
+            _logger.LogError(ex, "Failed to fetch effective permissions for user {UserId}.", userId);
+            throw new InvalidOperationException("Failed to fetch effective permissions.", ex);
         }
     }
 
     public async Task<bool> UserHasPermissionAsync(Guid userId, UserRole role, string permissionName)
     {
-        try
-        {
-            var effectivePermissions = await GetUserEffectivePermissionsAsync(userId, role);
-            return effectivePermissions.Any(p => p.Name.Equals(permissionName, StringComparison.OrdinalIgnoreCase));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking permission {PermissionName} for user {UserId}", permissionName, userId);
-            throw new InvalidOperationException("An error occurred while checking user permissions.", ex);
-        }
+        if (string.IsNullOrWhiteSpace(permissionName))
+            throw new ArgumentException("Permission name is required.", nameof(permissionName));
+
+        var effective = await GetUserEffectivePermissionsAsync(userId, role);
+        return effective.Any(p => p.Name.Equals(permissionName, StringComparison.OrdinalIgnoreCase));
     }
 
     #endregion

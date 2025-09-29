@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using NabdCare.Application.DTOs.Auth;
 using NabdCare.Application.Interfaces.Auth;
 
 namespace NabdCare.Api.Endpoints;
@@ -11,30 +11,36 @@ public static class AuthEndpoints
         var authGroup = app.MapGroup("/auth").WithTags("Authentication");
 
         // Login
-        authGroup.MapPost("/login", async ([FromBody] LoginRequest req, [FromServices] IAuthService authService, HttpContext http) =>
+        authGroup.MapPost("/login", async ([FromBody] LoginRequestDto req, [FromServices] IAuthService authService, HttpContext http) =>
         {
+            if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+                return Results.BadRequest("Email and Password are required.");
+
             var ip = GetClientIp(http);
             var (accessToken, refreshToken) = await authService.LoginAsync(req.Email, req.Password, ip);
-            return Results.Ok(new { accessToken, refreshToken });
+
+            return Results.Ok(new AuthResponseDto(accessToken, refreshToken));
         })
         .WithName("Login")
         .WithOpenApi();
 
         // Refresh token
-        authGroup.MapPost("/refresh", async ([FromBody] RefreshRequest req, [FromServices] IAuthService authService, HttpContext http) =>
+        authGroup.MapPost("/refresh", async ([FromBody] RefreshRequestDto req, [FromServices] IAuthService authService, HttpContext http) =>
         {
             var ip = GetClientIp(http);
             var (accessToken, refreshToken) = await authService.RefreshTokenAsync(req.RefreshToken, ip);
-            return Results.Ok(new { accessToken, refreshToken });
+
+            return Results.Ok(new AuthResponseDto(accessToken, refreshToken));
         })
         .WithName("RefreshToken")
         .WithOpenApi();
 
         // Logout
-        authGroup.MapPost("/logout", async ([FromBody] RefreshRequest req, [FromServices] IAuthService authService, HttpContext http) =>
+        authGroup.MapPost("/logout", async ([FromBody] RefreshRequestDto req, [FromServices] IAuthService authService, HttpContext http) =>
         {
             var ip = GetClientIp(http);
             await authService.LogoutAsync(req.RefreshToken, ip);
+
             return Results.NoContent();
         })
         .WithName("Logout")
