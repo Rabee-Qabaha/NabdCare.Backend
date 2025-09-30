@@ -37,6 +37,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapPermissionEndpoints();
 app.MapUserEndpoints();
+app.MapClinicEndpoints();
 app.MapControllers();
 
 // Swagger
