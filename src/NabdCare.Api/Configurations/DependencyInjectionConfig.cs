@@ -3,17 +3,20 @@ using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
+using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Application.mappings;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
+using NabdCare.Application.Services.Clinics;
 using NabdCare.Application.Services.Permissions;
 using NabdCare.Application.Services.Users;
 using NabdCare.Application.Validator;
 using NabdCare.Infrastructure.Persistence;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 using NabdCare.Infrastructure.Repositories.Auth;
+using NabdCare.Infrastructure.Repositories.Clinics;
 using NabdCare.Infrastructure.Repositories.Permissions;
 using NabdCare.Infrastructure.Repositories.Users;
 
@@ -49,8 +52,12 @@ public static class DependencyInjectionConfig
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IPermissionService, PermissionService>();
 
+        // Clinic services
+        services.AddScoped<IClinicRepository, ClinicRepository>();
+        services.AddScoped<IClinicService, ClinicService>();
+        
         // AutoMapper
-        services.AddAutoMapper(cfg => { }, typeof(UserProfile));
+        services.AddAutoMapper(_ => { }, typeof(UserProfile), typeof(ClinicProfile));
         
         // FluentValidation
         services.AddValidatorsFromAssemblyContaining<UserValidator>();
