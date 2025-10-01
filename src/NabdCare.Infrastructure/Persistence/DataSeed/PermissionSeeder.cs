@@ -30,13 +30,13 @@ public class PermissionSeeder : ISingleSeeder
 
         foreach (var perm in permissions)
         {
-            var exists = await _dbContext.AppPermission
+            var exists = await _dbContext.AppPermissions
                 .IgnoreQueryFilters()
                 .AnyAsync(p => p.Name == perm.Name);
 
             if (!exists)
             {
-                await _dbContext.AppPermission.AddAsync(perm);
+                await _dbContext.AppPermissions.AddAsync(perm);
             }
         }
 
@@ -57,7 +57,7 @@ public class PermissionSeeder : ISingleSeeder
             var role = kv.Key;
             foreach (var permName in kv.Value)
             {
-                var permission = await _dbContext.AppPermission
+                var permission = await _dbContext.AppPermissions
                     .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(p => p.Name == permName);
 

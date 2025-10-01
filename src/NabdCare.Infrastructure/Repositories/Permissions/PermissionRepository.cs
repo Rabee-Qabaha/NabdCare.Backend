@@ -18,37 +18,37 @@ public class PermissionRepository : IPermissionRepository
     #region CRUD
 
     public async Task<IEnumerable<AppPermission>> GetAllPermissionsAsync()
-        => await _dbContext.AppPermission.ToListAsync();
+        => await _dbContext.AppPermissions.ToListAsync();
 
     public async Task<AppPermission?> GetPermissionByIdAsync(Guid permissionId)
-        => await _dbContext.AppPermission.FindAsync(permissionId);
+        => await _dbContext.AppPermissions.FindAsync(permissionId);
 
     public async Task<AppPermission> CreatePermissionAsync(AppPermission appPermission)
     {
-        await _dbContext.AppPermission.AddAsync(appPermission);
+        await _dbContext.AppPermissions.AddAsync(appPermission);
         await _dbContext.SaveChangesAsync();
         return appPermission;
     }
 
     public async Task<AppPermission?> UpdatePermissionAsync(Guid permissionId, AppPermission appPermission)
     {
-        var existing = await _dbContext.AppPermission.FindAsync(permissionId);
+        var existing = await _dbContext.AppPermissions.FindAsync(permissionId);
         if (existing == null) return null;
 
         existing.Name = appPermission.Name;
         existing.Description = appPermission.Description;
 
-        _dbContext.AppPermission.Update(existing);
+        _dbContext.AppPermissions.Update(existing);
         await _dbContext.SaveChangesAsync();
         return existing;
     }
 
     public async Task<bool> DeletePermissionAsync(Guid permissionId)
     {
-        var existing = await _dbContext.AppPermission.FindAsync(permissionId);
+        var existing = await _dbContext.AppPermissions.FindAsync(permissionId);
         if (existing == null) return false;
 
-        _dbContext.AppPermission.Remove(existing);
+        _dbContext.AppPermissions.Remove(existing);
         await _dbContext.SaveChangesAsync();
         return true;
     }

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces.Clinics;
-using NabdCare.Domain.Entities.Clinic;
+using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Clinics;
@@ -15,10 +15,15 @@ public class ClinicRepository : IClinicRepository
     }
 
     public async Task<Clinic?> GetByIdAsync(Guid id)
-        => await _db.Clinics.FirstOrDefaultAsync(c => c.Id == id);
+        => await _db.Clinics
+                    .Include(c => c.Subscriptions)
+                    .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
     public async Task<IEnumerable<Clinic>> GetAllAsync()
-        => await _db.Clinics.OrderBy(c => c.Name).ToListAsync();
+        => await _db.Clinics
+                    .Include(c => c.Subscriptions)
+                    .OrderBy(c => c.Name)
+                    .ToListAsync();
 
     public async Task<IEnumerable<Clinic>> GetPagedAsync(int page, int pageSize)
     {
@@ -26,6 +31,7 @@ public class ClinicRepository : IClinicRepository
         if (pageSize <= 0) pageSize = 20;
 
         return await _db.Clinics
+                        .Include(c => c.Subscriptions)
                         .OrderBy(c => c.Name)
                         .Skip((page - 1) * pageSize)
                         .Take(pageSize)
@@ -36,14 +42,14 @@ public class ClinicRepository : IClinicRepository
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
         var n = name.Trim().ToLower();
-        return await _db.Clinics.AnyAsync(c => c.Name.ToLower() == n);
+        return await _db.Clinics.AnyAsync(c => !c.IsDeleted && c.Name.ToLower() == n);
     }
 
     public async Task<bool> ExistsByEmailAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email)) return false;
         var e = email.Trim().ToLower();
-        return await _db.Clinics.AnyAsync(c => c.Email != null && c.Email.ToLower() == e);
+        return await _db.Clinics.AnyAsync(c => !c.IsDeleted && c.Email != null && c.Email.ToLower() == e);
     }
 
     public async Task<Clinic> CreateAsync(Clinic clinic)

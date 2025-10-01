@@ -1,4 +1,4 @@
-using NabdCare.Domain.Entities.Clinic;
+using NabdCare.Domain.Entities.Clinics;
 
 namespace NabdCare.Application.Interfaces.Clinics;
 

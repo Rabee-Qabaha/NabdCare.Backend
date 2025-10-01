@@ -11,7 +11,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Validator\" />
     <Folder Include="Services\Users\" />
   </ItemGroup>
 

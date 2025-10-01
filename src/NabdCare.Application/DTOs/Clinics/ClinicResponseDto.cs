@@ -12,4 +12,5 @@ public class ClinicResponseDto
     public DateTime SubscriptionEndDate { get; set; }
     public string SubscriptionType { get; set; } = string.Empty;
     public decimal SubscriptionFee { get; set; }
+    public int BranchCount { get; set; } = 1;
 }

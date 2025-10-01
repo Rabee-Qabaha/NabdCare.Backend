@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Domain.Entities.Users;
@@ -8,7 +9,7 @@ public class User : BaseEntity
 {
     public Guid? ClinicId { get; set; }
     [ForeignKey(nameof(ClinicId))]
-    public Clinic.Clinic? Clinic { get; set; }
+    public Clinic? Clinic { get; set; }
 
     [Required]
     [MaxLength(100)]

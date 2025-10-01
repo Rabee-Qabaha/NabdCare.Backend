@@ -28,5 +28,8 @@ public class UpdateClinicValidator : AbstractValidator<UpdateClinicRequestDto>
         
         RuleFor(x => x.SubscriptionType)
             .IsInEnum().WithMessage("Invalid subscription type specified.");
+
+        RuleFor(x => x.BranchCount)
+            .GreaterThan(0).WithMessage("Branch count must be greater than zero.");
     }
 }

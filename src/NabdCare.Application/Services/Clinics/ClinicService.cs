@@ -2,7 +2,7 @@ using AutoMapper;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.Interfaces.Clinics;
-using NabdCare.Domain.Entities.Clinic;
+using NabdCare.Domain.Entities.Clinics;
 
 namespace NabdCare.Application.Services.Clinics;
 
@@ -21,7 +21,7 @@ public class ClinicService : IClinicService
 
     public async Task<ClinicResponseDto> CreateClinicAsync(CreateClinicRequestDto dto)
     {
-        // Business validations (service-level)
+        // Business validations
         if (dto.SubscriptionStartDate >= dto.SubscriptionEndDate)
             throw new ArgumentException("SubscriptionStartDate must be before SubscriptionEndDate.");
 
@@ -31,7 +31,21 @@ public class ClinicService : IClinicService
         if (!string.IsNullOrWhiteSpace(dto.Email) && await _clinicRepository.ExistsByEmailAsync(dto.Email))
             throw new ArgumentException("A clinic with the same email already exists.");
 
+        // Map DTO to entity
         var clinic = _mapper.Map<Clinic>(dto);
+
+        // Create initial subscription
+        clinic.Subscriptions = new List<Subscription>
+        {
+            new Subscription
+            {
+                StartDate = dto.SubscriptionStartDate,
+                EndDate = dto.SubscriptionEndDate,
+                Fee = dto.SubscriptionFee,
+                Type = dto.SubscriptionType,
+                Status = dto.Status
+            }
+        };
 
         try
         {
@@ -42,7 +56,7 @@ public class ClinicService : IClinicService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create clinic (Name={Name}).", dto.Name);
-            throw; // let middleware handle (ErrorHandlingMiddleware will log/format)
+            throw;
         }
     }
 
@@ -81,8 +95,33 @@ public class ClinicService : IClinicService
             && await _clinicRepository.ExistsByEmailAsync(dto.Email))
             throw new ArgumentException("A clinic with the same email already exists.");
 
-        // map DTO into existing entity (preserve audit, id, etc.)
+        // Update main clinic info
         _mapper.Map(dto, existing);
+
+        // Update subscription: latest or create new
+        var latestSubscription = existing.Subscriptions?.OrderByDescending(s => s.StartDate).FirstOrDefault();
+        if (latestSubscription != null)
+        {
+            latestSubscription.StartDate = dto.SubscriptionStartDate;
+            latestSubscription.EndDate = dto.SubscriptionEndDate;
+            latestSubscription.Fee = dto.SubscriptionFee;
+            latestSubscription.Type = dto.SubscriptionType;
+            latestSubscription.Status = dto.Status;
+        }
+        else
+        {
+            existing.Subscriptions = new List<Subscription>
+            {
+                new Subscription
+                {
+                    StartDate = dto.SubscriptionStartDate,
+                    EndDate = dto.SubscriptionEndDate,
+                    Fee = dto.SubscriptionFee,
+                    Type = dto.SubscriptionType,
+                    Status = dto.Status
+                }
+            };
+        }
 
         try
         {
@@ -107,7 +146,7 @@ public class ClinicService : IClinicService
     public async Task<bool> DeleteClinicAsync(Guid id)
     {
         var success = await _clinicRepository.DeleteAsync(id);
-        if (success) _logger.LogInformation("Clinic {ClinicId} deleted permanently.", id);
+        if (success) _logger.LogInformation("Clinic {ClinicId} permanently deleted.", id);
         return success;
     }
 }

@@ -8,9 +8,10 @@ public class CreateClinicRequestDto
     public string Email { get; set; }
     public string? Phone { get; set; }
     public string? Address { get; set; }
-    public ClinicStatus Status { get; set; } = ClinicStatus.Active;
+    public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
     public DateTime SubscriptionStartDate { get; set; }
     public DateTime SubscriptionEndDate { get; set; }
     public SubscriptionType SubscriptionType { get; set; }
     public decimal SubscriptionFee { get; set; }
+    public int BranchCount { get; set; } = 1;
 }
