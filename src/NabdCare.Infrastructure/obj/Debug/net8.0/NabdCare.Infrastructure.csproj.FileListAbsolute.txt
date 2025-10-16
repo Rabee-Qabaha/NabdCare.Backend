@@ -18,3 +18,5 @@
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Infrastructure/obj/Debug/net8.0/NabdCare.Infrastructure.pdb
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Infrastructure/obj/Debug/net8.0/NabdCare.Infrastructure.genruntimeconfig.cache
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Infrastructure/obj/Debug/net8.0/ref/NabdCare.Infrastructure.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Infrastructure/bin/Debug/net8.0/NabdCare.Shared.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Infrastructure/bin/Debug/net8.0/NabdCare.Shared.pdb

@@ -13,31 +13,29 @@ public class TenantContextMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
+    public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext, ILogger<TenantContextMiddleware> logger)
     {
-        // Ensure the user is authenticated
-        if (context.User?.Identity != null && context.User.Identity.IsAuthenticated)
+        if (context.User?.Identity is { IsAuthenticated: true })
         {
-            // Extract ClinicId from claim (you must include it when issuing JWT)
             var clinicClaim = context.User.FindFirst("ClinicId")?.Value;
             if (Guid.TryParse(clinicClaim, out var clinicId))
             {
                 tenantContext.ClinicId = clinicId;
             }
+            else
+            {
+                logger.LogWarning("Missing or invalid ClinicId claim for user {User}", context.User.Identity?.Name);
+            }
 
-            // Extract role or a claim indicating superadmin
             var roleClaim = context.User.FindFirst(ClaimTypes.Role)?.Value
                             ?? context.User.FindFirst("role")?.Value;
 
-            if (!string.IsNullOrEmpty(roleClaim) && roleClaim == UserRole.SuperAdmin.ToString())
+            if (string.Equals(roleClaim, UserRole.SuperAdmin.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 tenantContext.IsSuperAdmin = true;
             }
         }
 
-        // If not authenticated, leave tenantContext defaults (ClinicId null, IsSuperAdmin false)
-
-        // Call the next middleware
         await _next(context);
     }
 }

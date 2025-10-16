@@ -39,9 +39,7 @@ public class PermissionMiddleware
         var hasPermission = await permissionService.UserHasPermissionAsync(userId, role, _permission);
         if (!hasPermission)
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsync("Forbidden: insufficient permissions");
-            return;
+            throw new UnauthorizedAccessException($"User {userId} lacks permission: {_permission}");
         }
 
         await _next(context);

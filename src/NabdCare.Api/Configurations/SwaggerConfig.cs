@@ -1,4 +1,5 @@
 using Microsoft.OpenApi.Models;
+using System.Reflection;
 
 namespace NabdCare.Api.Configurations
 {
@@ -16,7 +17,7 @@ namespace NabdCare.Api.Configurations
                     Description = "API documentation for NabdCare"
                 });
 
-                // JWT Authentication for Swagger
+                // ✅ JWT Authentication for Swagger
                 options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -41,10 +42,18 @@ namespace NabdCare.Api.Configurations
                     }
                 });
 
-                // Optional: Enable XML comments for richer docs
-                var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                // ✅ Make enums show as strings in Swagger UI
+                options.MapType<Enum>(() => new OpenApiSchema
+                {
+                    Type = "string",
+                    Enum = null // Swagger will infer actual enum names
+                });
+
+                // Optional: Include XML comments
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                options.IncludeXmlComments(xmlPath);
+                if (File.Exists(xmlPath))
+                    options.IncludeXmlComments(xmlPath);
             });
         }
     }

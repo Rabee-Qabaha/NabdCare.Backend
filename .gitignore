@@ -1,3 +1,62 @@
-# Environment variables
+# =========================
+#  .NET BACKEND
+# =========================
+bin/
+obj/
+*.dll
+*.exe
+*.log
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.cache
+*.pdb
+
+# Build results
+[Ll]og/
+[Tt]emp/
+[Tt]est[Rr]esults/
+
+# Rider / Visual Studio / VS Code
+.vscode/
+.idea/
+*.DotSettings.user
+
+# =========================
+#  FRONTEND (Vue + Vite)
+# =========================
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.vite/
+/frontend/.nuxt/
+/frontend/.output/
+/frontend/.tsbuildinfo
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.production.local
+/frontend/.env.test.local
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/pnpm-debug.log*
+
+# =========================
+#  ENV FILES (Backend & Frontend)
+# =========================
 .env
 .env.*
+!env.example
+
+# =========================
+#  SYSTEM / OS FILES
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+#  MISC
+# =========================
+/To add.txt
+/ToCheck.txt

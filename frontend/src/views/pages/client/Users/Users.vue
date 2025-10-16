@@ -1,0 +1,322 @@
+<script setup lang="ts">
+    import { ref, onMounted } from 'vue';
+    import { useToast } from 'primevue/usetoast';
+    import { useUserStore } from '@/stores/userStore';
+    import UserDialog from '@/components/User/UserDialog.vue';
+    import ChangePasswordDialog from '@/components/User/ChangePasswordDialog.vue';
+    import EmptyState from '@/components/EmptyState.vue';
+    import { formatDate } from '@/utils/uiHelpers';
+    import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
+    import type { UserForm, User } from '../../../../../shared/types';
+    import { useAuthStore } from '@/stores/authStore';
+
+    // ----------------------------
+    // Stores & Toast
+    // ----------------------------
+    const userStore = useUserStore();
+    const authStore = useAuthStore();
+    const toast = useToast();
+
+    // ----------------------------
+    // Reactive state
+    // ----------------------------
+    const dt = ref<any>();
+    const userDialog = ref(false);
+    const changePasswordDialog = ref(false);
+    const deleteUserDialog = ref(false);
+    // const deleteUsersDialog = ref(false);
+    const user = ref<UserForm>({} as UserForm);
+    const selectedUsers = ref<UserForm[] | null>(null);
+    const submitted = ref(false);
+
+    const filters = ref({
+        global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        displayName: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] },
+        email: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] },
+        role: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }] },
+        isActive: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }] },
+        createdAt: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.DATE_IS }] }
+    });
+
+    function clearFilters(): void {
+        filters.value = {
+            global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+            displayName: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] },
+            email: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] },
+            role: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }] },
+            isActive: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }] },
+            createdAt: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.DATE_IS }] }
+        };
+    }
+
+    const fetchUsers = async () => {
+        try {
+            await userStore.fetchUsers();
+        } catch (error: any) {
+            toast.add({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+        }
+    };
+
+    onMounted(fetchUsers);
+
+    function openNew() {
+        user.value = {} as UserForm;
+        submitted.value = false;
+        userDialog.value = true;
+    }
+
+    function hideDialog() {
+        userDialog.value = false;
+        submitted.value = false;
+    }
+
+    function editUser(selectedUser: UserForm) {
+        user.value = { ...selectedUser };
+        userDialog.value = true;
+    }
+
+    function openChangePasswordDialog(selectedUser: UserForm) {
+        user.value = { ...selectedUser };
+        changePasswordDialog.value = true;
+    }
+
+    function confirmDeleteUser(selectedUser: UserForm) {
+        user.value = { ...selectedUser };
+        deleteUserDialog.value = true;
+    }
+
+    async function deleteUser() {
+        if (!user.value.uid) return;
+        try {
+            await userStore.deleteUser(user.value.uid);
+            toast.add({ severity: 'success', summary: 'Deleted', detail: 'User deleted successfully', life: 3000 });
+            deleteUserDialog.value = false;
+            user.value = {} as UserForm;
+        } catch (error: any) {
+            toast.add({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+        }
+    }
+
+    // function confirmDeleteSelected() {
+    //     deleteUsersDialog.value = true;
+    // }
+
+    // async function deleteSelectedUsers() {
+    //     if (!selectedUsers.value || !selectedUsers.value.length) return;
+    //     try {
+    //         await Promise.all(selectedUsers.value.map((u) => userStore.deleteUser(u.uid)));
+    //         toast.add({ severity: 'success', summary: 'Deleted', detail: 'Selected users deleted', life: 3000 });
+    //         deleteUsersDialog.value = false;
+    //         selectedUsers.value = null;
+    //     } catch (error: any) {
+    //         toast.add({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    //     }
+    // }
+
+    // ----------------------------
+    // Save user (create or update)
+    // ----------------------------
+    // async function saveUser(newUser: UserForm, { resolve, reject }: { resolve: () => void; reject: (err: any) => void }) {
+    //     try {
+    //         if (!newUser.uid) {
+    //             const createdUser = await userStore.createUser({
+    //                 email: newUser.email!,
+    //                 password: newUser.password!,
+    //                 role: newUser.role!,
+    //                 isActive: newUser.isActive ?? true,
+    //                 displayName: newUser.displayName
+    //             });
+
+    //             toast.add({ severity: 'success', summary: 'Created', detail: `User ${createdUser.email} created`, life: 3000 });
+    //         } else {
+    //             await userStore.updateUser(newUser as User);
+    //             toast.add({ severity: 'success', summary: 'Updated', detail: 'User updated successfully', life: 3000 });
+    //         }
+
+    //         await fetchUsers();
+    //         resolve(); // Tell dialog save is done
+    //     } catch (err: any) {
+    //         toast.add({ severity: 'error', summary: 'Error', detail: userStore.error || 'Save failed', life: 3000 });
+    //         reject(err); // Tell dialog save failed
+    //     }
+    // }
+
+    async function saveUser(newUser: UserForm) {
+        try {
+            if (!newUser.uid) {
+                // Create new user
+                const createdUser = await userStore.createUser({
+                    email: newUser.email!,
+                    password: newUser.password!,
+                    role: newUser.role!,
+                    isActive: newUser.isActive ?? true,
+                    displayName: newUser.displayName
+                });
+                toast.add({ severity: 'success', summary: 'Created', detail: `User ${createdUser.email} created`, life: 3000 });
+            } else {
+                // Update existing user
+                await userStore.updateUser(newUser as User);
+                toast.add({ severity: 'success', summary: 'Updated', detail: 'User updated successfully', life: 3000 });
+            }
+
+            // Close dialog and reset form
+            userDialog.value = false;
+            user.value = {};
+        } catch (err: any) {
+            toast.add({ severity: 'error', summary: 'Error', detail: userStore.error || err.message || 'Save failed', life: 3000 });
+        }
+    }
+
+    // ----------------------------
+    // Change user password
+    // ----------------------------
+    async function handleChangePassword(passwords: { currentPassword?: string; newPassword: string; confirmPassword: string }) {
+        if (!passwords.newPassword || passwords.newPassword !== passwords.confirmPassword) {
+            toast.add({ severity: 'warn', summary: 'Validation', detail: 'Please fill all fields correctly', life: 3000 });
+            return;
+        }
+
+        const targetUid = authStore.isAdmin ? user.value.uid : authStore.currentUser?.uid;
+
+        if (!targetUid) return;
+
+        try {
+            await userStore.changePassword(targetUid, passwords.newPassword);
+            toast.add({ severity: 'success', summary: 'Success', detail: 'Password changed successfully', life: 3000 });
+            changePasswordDialog.value = false;
+            user.value = {} as UserForm;
+        } catch (error: any) {
+            toast.add({ severity: 'error', summary: 'Error', detail: error.message || 'Failed to change password', life: 3000 });
+        }
+    }
+</script>
+
+<template>
+    <div>
+        <div class="card">
+            <Toolbar class="mb-6">
+                <template #start>
+                    <Button v-if="authStore.isAdmin" label="New" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
+                    <!-- <Button label="Delete" icon="pi pi-trash" severity="secondary" @click="confirmDeleteSelected" :disabled="!selectedUsers || !selectedUsers.length" /> -->
+                </template>
+
+                <template #end>
+                    <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined class="mr-2" @click="clearFilters" />
+                    <IconField>
+                        <InputIcon>
+                            <i class="pi pi-search" />
+                        </InputIcon>
+                        <InputText v-model="filters['global'].value" placeholder="Search..." />
+                    </IconField>
+                </template>
+            </Toolbar>
+
+            <DataTable
+                ref="dt"
+                v-model:selection="selectedUsers"
+                :value="userStore.users"
+                dataKey="uid"
+                :paginator="true"
+                :rows="10"
+                v-model:filters="filters"
+                filterDisplay="menu"
+                :globalFilterFields="['displayName', 'email', 'role', 'isActive', 'createdAt']"
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                :rowsPerPageOptions="[5, 10, 25]"
+                currentPageReportTemplate="Showing {first} to {last} of {totalRecords} Users"
+            >
+                <!-- <Column selectionMode="multiple" style="width: 3rem" :exportable="false" /> -->
+
+                <Column field="displayName" header="Display Name" sortable filter filterField="displayName" style="min-width: 16rem">
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" placeholder="Search by display name" />
+                    </template>
+                </Column>
+
+                <Column field="email" header="Email" sortable filter filterField="email" style="min-width: 20rem">
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" placeholder="Search by email" />
+                    </template>
+                </Column>
+
+                <Column field="role" header="Role" sortable filter filterField="role" style="min-width: 10rem">
+                    <template #filter="{ filterModel }">
+                        <Select v-model="filterModel.value" :options="['Admin', 'User']" placeholder="Select Role" showClear />
+                    </template>
+                </Column>
+
+                <Column field="isActive" header="Active" sortable>
+                    <template #body="slotProps">
+                        <Tag :value="slotProps.data.isActive ? 'Active' : 'Inactive'" :severity="slotProps.data.isActive ? 'success' : 'danger'" />
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <Select
+                            v-model="filterModel.value"
+                            :options="[
+                                { label: 'Active', value: true },
+                                { label: 'Inactive', value: false }
+                            ]"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Select Status"
+                            showClear
+                        />
+                    </template>
+                </Column>
+
+                <Column field="createdAt" header="Created At" dataType="date" sortable filter filterField="createdAt" style="min-width: 12rem">
+                    <template #body="slotProps">
+                        {{ formatDate(slotProps.data.createdAt) }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <DatePicker v-model="filterModel.value" dateFormat="dd/mm/yy" placeholder="dd/mm/yyyy" />
+                    </template>
+                </Column>
+
+                <Column :exportable="false" header="Actions" style="min-width: 12rem">
+                    <template #body="slotProps">
+                        <Button v-if="authStore.isAdmin || authStore.isSelf(slotProps.data.uid)" icon="pi pi-key" outlined rounded class="mr-2" severity="info" v-tooltip="'Change Password'" @click="openChangePasswordDialog(slotProps.data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" v-tooltip="'Edit User'" @click="editUser(slotProps.data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip="'Delete User'" @click="confirmDeleteUser(slotProps.data)" />
+                    </template>
+                </Column>
+
+                <template #empty>
+                    <EmptyState icon="pi pi-user" title="No Users Found" description="There are no users in the system yet.">
+                        <template #action>
+                            <Button label="Add User" icon="pi pi-plus" class="p-button-sm" @click="openNew" />
+                        </template>
+                    </EmptyState>
+                </template>
+            </DataTable>
+        </div>
+
+        <UserDialog v-model:visible="userDialog" :user="user" @save="saveUser" @cancel="hideDialog" />
+        <ChangePasswordDialog v-model:visible="changePasswordDialog" :user="user" @save="handleChangePassword" />
+
+        <Dialog v-model:visible="deleteUserDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="user"
+                    >Are you sure you want to delete <b>{{ user.displayName }}</b
+                    >?</span
+                >
+            </div>
+            <template #footer>
+                <Button label="No" icon="pi pi-times" text @click="deleteUserDialog = false" :disabled="userStore.isProcessing" />
+                <Button label="Yes" icon="pi pi-check" :loading="userStore.isProcessing" @click="deleteUser" severity="danger" outlined />
+            </template>
+        </Dialog>
+
+        <!-- <Dialog v-model:visible="deleteUsersDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span>Are you sure you want to delete the selected users?</span>
+            </div>
+            <template #footer>
+                <Button label="No" icon="pi pi-times" text @click="deleteUsersDialog = false" />
+                <Button label="Yes" icon="pi pi-check" @click="deleteSelectedUsers" severity="danger" outlined />
+            </template>
+        </Dialog> -->
+    </div>
+</template>

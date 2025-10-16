@@ -1,3 +1,4 @@
+
 namespace NabdCare.Application.DTOs.Auth;
 
 public class AuthResponseDto

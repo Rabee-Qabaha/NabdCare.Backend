@@ -1,46 +1,72 @@
+using System.Text.Json.Serialization;
 using NabdCare.Api.Configurations;
-using NabdCare.Api.Endpoints;
+using NabdCare.Api.Extensions;
 using NabdCare.Api.Middleware;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --------------------
 // Add services
-builder.Services.AddControllers();
+// --------------------
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // ✅ Serialize enums as strings globally
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddNabdCareServices(builder.Configuration);
+
+// Swagger
 SwaggerConfig.AddSwagger(builder.Services);
 
-// Register the hosted service to seed database
+// CORS
+var allowedOrigins = builder.Environment.IsDevelopment()
+    ? new[] { "http://localhost:5174", "https://localhost:5174" }
+    : builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+    );
+});
+
+// DB Seed background service
 builder.Services.AddHostedService<DbSeedHostedService>();
 
 var app = builder.Build();
 
-// Configure middleware pipeline
-
-// Error handling first
+// --------------------
+// Middleware Pipeline
+// --------------------
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
-// HTTPS redirection
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
-// Authentication must come before tenant context
+app.UseSecurityHeaders();
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
-
-// Then tenant context to read claims
 app.UseMiddleware<TenantContextMiddleware>();
-
-// Authorization after tenant context
 app.UseAuthorization();
 
-// Map your endpoints
-app.MapAuthEndpoints();
-app.MapPermissionEndpoints();
-app.MapUserEndpoints();
-app.MapClinicEndpoints();
-app.MapControllers();
+// --------------------
+// API Grouping
+// --------------------
+var api = app.MapGroup("/api");
+api.MapAllEndpoints();
 
+// --------------------
 // Swagger
+// --------------------
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {

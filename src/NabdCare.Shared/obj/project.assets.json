@@ -1,11 +1,76 @@
 {
   "version": 3,
   "targets": {
-    "net8.0": {}
+    "net8.0": {
+      "TypeGen/5.0.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/TypeGen.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/TypeGen.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      }
+    }
   },
-  "libraries": {},
+  "libraries": {
+    "TypeGen/5.0.1": {
+      "sha512": "2zkqdZq9ueNti6BMzsuAF1EeQML8/8VlYR7LYrfKIoGB3cfUs0TyyPQ35FucseOX7SSPBdfXK7oJbHhIPCNbZA==",
+      "type": "package",
+      "path": "typegen/5.0.1",
+      "hasTools": true,
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "lib/net8.0/TypeGen.Core.dll",
+        "lib/net8.0/TypeGen.Core.xml",
+        "lib/netstandard2.0/TypeGen.Core.dll",
+        "lib/netstandard2.0/TypeGen.Core.xml",
+        "tools/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+        "tools/Microsoft.Extensions.DependencyInjection.dll",
+        "tools/Namotion.Reflection.dll",
+        "tools/Newtonsoft.Json.dll",
+        "tools/NuGet.Common.dll",
+        "tools/NuGet.Configuration.dll",
+        "tools/NuGet.Frameworks.dll",
+        "tools/System.CommandLine.dll",
+        "tools/TypeGen.Cli.deps.json",
+        "tools/TypeGen.Cli.dll",
+        "tools/TypeGen.Cli.pdb",
+        "tools/TypeGen.Cli.runtimeconfig.json",
+        "tools/TypeGen.Core.dll",
+        "tools/TypeGen.Core.pdb",
+        "tools/TypeGen.Core.xml",
+        "tools/TypeGen.exe",
+        "tools/cs/System.CommandLine.resources.dll",
+        "tools/de/System.CommandLine.resources.dll",
+        "tools/es/System.CommandLine.resources.dll",
+        "tools/fr/System.CommandLine.resources.dll",
+        "tools/it/System.CommandLine.resources.dll",
+        "tools/ja/System.CommandLine.resources.dll",
+        "tools/ko/System.CommandLine.resources.dll",
+        "tools/pl/System.CommandLine.resources.dll",
+        "tools/pt-BR/System.CommandLine.resources.dll",
+        "tools/ru/System.CommandLine.resources.dll",
+        "tools/runtimes/unix/lib/netstandard1.3/System.Security.Cryptography.ProtectedData.dll",
+        "tools/runtimes/win/lib/netstandard1.3/System.Security.Cryptography.ProtectedData.dll",
+        "tools/tr/System.CommandLine.resources.dll",
+        "tools/zh-Hans/System.CommandLine.resources.dll",
+        "tools/zh-Hant/System.CommandLine.resources.dll",
+        "typegen.5.0.1.nupkg.sha512",
+        "typegen.nuspec"
+      ]
+    }
+  },
   "projectFileDependencyGroups": {
-    "net8.0": []
+    "net8.0": [
+      "TypeGen >= 5.0.1"
+    ]
   },
   "packageFolders": {
     "/Users/rabe3kabha/.nuget/packages/": {}
@@ -49,6 +114,12 @@
     "frameworks": {
       "net8.0": {
         "targetAlias": "net8.0",
+        "dependencies": {
+          "TypeGen": {
+            "target": "Package",
+            "version": "[5.0.1, )"
+          }
+        },
         "imports": [
           "net461",
           "net462",

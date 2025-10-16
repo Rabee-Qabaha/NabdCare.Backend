@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NabdCare.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b0bb0c83d45ae224746eccdce05677775c77947f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+45a62ecba7ecc5f8c787c5bc9a748ca1110260b3")]
 [assembly: System.Reflection.AssemblyProductAttribute("NabdCare.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NabdCare.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

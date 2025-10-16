@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NabdCare.Domain\NabdCare.Domain.csproj" />
+    <ProjectReference Include="..\NabdCare.Shared\NabdCare.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

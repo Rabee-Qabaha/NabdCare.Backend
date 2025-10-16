@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "5eUU22bU93o=",
+  "dgSpecHash": "o94nwbirgYk=",
   "success": true,
   "projectFilePath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Shared/NabdCare.Shared.csproj",
   "expectedPackageFiles": [
+    "/Users/rabe3kabha/.nuget/packages/typegen/5.0.1/typegen.5.0.1.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.netcore.app.ref/8.0.10/microsoft.netcore.app.ref.8.0.10.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.10/microsoft.aspnetcore.app.ref.8.0.10.nupkg.sha512"
   ],

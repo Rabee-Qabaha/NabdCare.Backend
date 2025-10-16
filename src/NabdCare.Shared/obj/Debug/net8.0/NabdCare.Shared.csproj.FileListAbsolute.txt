@@ -10,3 +10,4 @@
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Shared/obj/Debug/net8.0/refint/NabdCare.Shared.dll
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Shared/obj/Debug/net8.0/NabdCare.Shared.pdb
 /Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Shared/obj/Debug/net8.0/ref/NabdCare.Shared.dll
+/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Shared/obj/Debug/net8.0/NabdCare.Shared.csproj.AssemblyReference.cache

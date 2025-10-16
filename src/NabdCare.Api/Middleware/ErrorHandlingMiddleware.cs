@@ -30,23 +30,32 @@ public class ErrorHandlingMiddleware
     private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = exception switch
+
+        var traceId = Guid.NewGuid().ToString("N");
+        context.Response.Headers["X-Trace-Id"] = traceId;
+
+        var statusCode = exception switch
         {
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             ArgumentException => (int)HttpStatusCode.BadRequest,
             _ => (int)HttpStatusCode.InternalServerError
         };
 
+        var isDevelopment = 
+            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+
         var errorResponse = new
         {
             error = new
             {
-                message = exception.Message,
+                message = isDevelopment ? exception.Message : "An unexpected error occurred.",
                 type = exception.GetType().Name,
-                statusCode = context.Response.StatusCode,
+                statusCode,
+                traceId
             }
         };
 
+        context.Response.StatusCode = statusCode;
         await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse));
     }
 }
