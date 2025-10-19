@@ -1,3 +1,4 @@
+// AdminLayout.vue
 <script setup type="ts">
 import { useLayout } from "@/layout/composables/layout";
 import { computed, ref, watch } from "vue";

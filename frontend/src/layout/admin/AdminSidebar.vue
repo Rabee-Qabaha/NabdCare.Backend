@@ -1,3 +1,4 @@
+// AdminSidebar.vue
 <script setup type="ts">
 import AppMenu from "@/layout/AppMenu.vue";
 </script>

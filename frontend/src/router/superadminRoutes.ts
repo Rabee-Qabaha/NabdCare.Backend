@@ -1,7 +1,5 @@
-// src/router/superadminRoutes.ts
 import type { RouteRecordRaw } from "vue-router";
 import { UserRole } from "@/types/backend";
-import type { AppRouteMeta } from "../types/router";
 
 export const superadminRoutes: RouteRecordRaw[] = [
   {
@@ -12,13 +10,25 @@ export const superadminRoutes: RouteRecordRaw[] = [
       roles: [UserRole.SuperAdmin],
       public: false,
       title: "Super Admin Dashboard",
-    } as AppRouteMeta,
+    },
     children: [
       {
         path: "",
         name: "superadmin-dashboard",
         component: () => import("@/views/pages/admin/Dashboard.vue"),
-        meta: { title: "Super Admin Dashboard", public: false } as AppRouteMeta,
+        meta: {
+          title: "Super Admin Dashboard",
+          public: false,
+        },
+      },
+      {
+        path: "users",
+        name: "superadmin-users",
+        component: () => import("@/views/pages/admin/Users.vue"),
+        meta: {
+          title: "Manage Users",
+          public: false,
+        },
       },
     ],
   },

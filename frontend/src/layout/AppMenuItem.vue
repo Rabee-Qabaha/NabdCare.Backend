@@ -1,3 +1,4 @@
+// AppMenuItem.vue
 <script setup type="ts">
 import { useLayout } from '@/layout/composables/layout';
 import { onBeforeMount, ref, watch } from 'vue';

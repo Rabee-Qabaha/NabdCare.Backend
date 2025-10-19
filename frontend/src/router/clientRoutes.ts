@@ -1,7 +1,5 @@
-// src/router/clientRoutes.ts
 import type { RouteRecordRaw } from "vue-router";
 import { UserRole } from "@/types/backend";
-import type { AppRouteMeta } from "../types/router";
 
 export const clientRoutes: RouteRecordRaw[] = [
   {
@@ -16,19 +14,25 @@ export const clientRoutes: RouteRecordRaw[] = [
         UserRole.Receptionist,
       ],
       public: false,
-    } as AppRouteMeta,
+    },
     children: [
       {
         path: "",
         name: "dashboard",
         component: () => import("@/views/pages/client/Dashboard.vue"),
-        meta: { title: "Client Dashboard", public: false } as AppRouteMeta,
+        meta: {
+          title: "Client Dashboard",
+          public: false,
+        },
       },
       {
         path: "patients",
         name: "patients",
         component: () => import("@/views/pages/client/patiesnts/Patiesnts.vue"),
-        meta: { title: "Patients", public: false } as AppRouteMeta,
+        meta: {
+          title: "Patients",
+          public: false,
+        },
       },
       {
         path: "patients/:id",
@@ -36,19 +40,28 @@ export const clientRoutes: RouteRecordRaw[] = [
         component: () =>
           import("@/views/pages/client/patiesnts/PatiesntProfile.vue"),
         props: true,
-        meta: { title: "Patient Profile", public: false } as AppRouteMeta,
+        meta: {
+          title: "Patient Profile",
+          public: false,
+        },
       },
       {
         path: "payments",
         name: "payments",
         component: () => import("@/views/pages/client/Payments/Payments.vue"),
-        meta: { title: "Payments", public: false } as AppRouteMeta,
+        meta: {
+          title: "Payments",
+          public: false,
+        },
       },
       {
         path: "users",
         name: "users",
         component: () => import("@/views/pages/client/Users/Users.vue"),
-        meta: { title: "Users", public: false } as AppRouteMeta,
+        meta: {
+          title: "Users",
+          public: false,
+        },
       },
     ],
   },

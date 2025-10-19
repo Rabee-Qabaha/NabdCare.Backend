@@ -123,9 +123,9 @@ async function handleChangePassword(passwords: {
     <Menu ref="profileMenu" :model="profileMenuItems" :popup="true" />
   </div>
 
-  <ChangePasswordDialog
+  <!-- <ChangePasswordDialog
     v-model:visible="changePasswordDialog"
     :user="currentUser"
     @save="handleChangePassword"
-  />
+  /> -->
 </template>

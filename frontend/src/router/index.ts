@@ -1,4 +1,3 @@
-// src/router/index.ts
 import {
   createRouter,
   createWebHistory,
@@ -8,7 +7,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { clientRoutes } from "./clientRoutes";
 import { superadminRoutes } from "./superadminRoutes";
 import { UserRole } from "@/types/backend";
-import type { AppRouteMeta } from "../types/router";
 
 const Login = () => import("@/views/pages/auth/Login.vue");
 const AccessDenied = () => import("@/views/pages/auth/Access.vue");
@@ -25,20 +23,29 @@ const routes: RouteRecordRaw[] = [
         ? { name: "superadmin-dashboard" }
         : { name: "dashboard" };
     },
-    meta: { public: true } as AppRouteMeta,
+    meta: {
+      public: true,
+    },
   },
 
   {
     path: "/auth/login",
     name: "login",
     component: Login,
-    meta: { public: true, title: "Login" } as AppRouteMeta,
+    meta: {
+      public: true,
+      title: "Login",
+    },
   },
+
   {
     path: "/auth/access",
     name: "accessDenied",
     component: AccessDenied,
-    meta: { public: true, title: "Access Denied" } as AppRouteMeta,
+    meta: {
+      public: true,
+      title: "Access Denied",
+    },
   },
 
   // Spread routes
@@ -49,7 +56,10 @@ const routes: RouteRecordRaw[] = [
     path: "/:pathMatch(.*)*",
     name: "notfound",
     component: NotFound,
-    meta: { public: true, title: "Not Found" } as AppRouteMeta,
+    meta: {
+      public: true,
+      title: "Not Found",
+    },
   },
 ];
 
@@ -59,10 +69,10 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 
-// ✅ Auth Guard
+// ✅ Auth Guard with proper typing
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
-  const meta = to.meta as AppRouteMeta;
+  const meta = to.meta; // ✅ No need to cast anymore!
 
   console.log("🚦 Navigating to:", to.fullPath);
   console.log("📜 Route meta:", meta);
@@ -70,15 +80,33 @@ router.beforeEach((to, from, next) => {
   console.log("🎭 Normalized role:", authStore.role);
   console.log("🔑 Logged in:", authStore.isLoggedIn);
 
-  if (meta.title) document.title = `${meta.title} - NabdCare`;
-
-  if (meta.public) return next();
-  if (!authStore.isLoggedIn) {
-    console.log("❌ User not logged in → redirect to login");
-    return next({ name: "login", query: { redirect: to.fullPath } });
+  // Set page title
+  if (meta.title) {
+    document.title = `${meta.title} - NabdCare`;
   }
 
-  const routeRoles = meta.roles as UserRole[] | undefined;
+  // Allow public routes
+  if (meta.public) {
+    return next();
+  }
+
+  // Check authentication
+  if (!authStore.isLoggedIn) {
+    console.log("❌ User not logged in → redirect to login");
+
+    // Only add redirect param if not already on login page
+    if (to.path !== "/auth/login") {
+      return next({
+        name: "login",
+        query: { redirect: to.fullPath },
+      });
+    }
+
+    return next({ name: "login" });
+  }
+
+  // Check role-based access
+  const routeRoles = meta.roles;
   const userRole = authStore.role;
 
   if (routeRoles && (!userRole || !routeRoles.includes(userRole))) {

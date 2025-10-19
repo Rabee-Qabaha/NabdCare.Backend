@@ -1,11 +1,10 @@
-// src/service/apiService.ts
 import axios, {
   type AxiosInstance,
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from "axios";
-import type { AuthResponseDto, RefreshRequestDto } from "@/types/backend";
 import { AuthService } from "@/service/AuthService";
+import { tokenManager } from "@/utils/tokenManager";
 
 interface QueuedRequest {
   resolve: (value: string) => void;
@@ -19,7 +18,6 @@ class ApiService {
   private failedQueue: QueuedRequest[] = [];
 
   constructor() {
-    // ✅ Add /api in baseURL
     this.baseURL =
       import.meta.env.VITE_API_BASE_URL || "http://localhost:5175/api";
 
@@ -27,7 +25,7 @@ class ApiService {
       baseURL: this.baseURL,
       headers: { "Content-Type": "application/json" },
       timeout: 30000,
-      withCredentials: false,
+      withCredentials: true, // ✅ CRITICAL: Enable cookie support for HttpOnly refresh token
     });
 
     this.setupInterceptors();
@@ -37,7 +35,7 @@ class ApiService {
   // Interceptors
   // ----------------------
   private setupInterceptors(): void {
-    // Attach access token
+    // ✅ Request Interceptor: Attach access token
     this.api.interceptors.request.use(
       (config) => {
         const token = AuthService.getAccessToken();
@@ -49,7 +47,7 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor → handle 401 + refresh
+    // ✅ Response Interceptor: Handle 401 + refresh token
     this.api.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
@@ -57,7 +55,9 @@ class ApiService {
           _retry?: boolean;
         };
 
+        // Handle 401 errors (token expired)
         if (error.response?.status === 401 && !originalRequest._retry) {
+          // Queue requests while refreshing
           if (this.isRefreshing) {
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });
@@ -75,21 +75,23 @@ class ApiService {
           this.isRefreshing = true;
 
           try {
-            const refreshToken = AuthService.getRefreshToken();
-            if (!refreshToken) throw new Error("No refresh token available");
+            // ✅ Refresh using HttpOnly cookie
+            const newAccessToken = await tokenManager.refreshAccessToken();
 
-            const newTokens = await this.refreshTokenRequest({ refreshToken });
+            if (!newAccessToken) {
+              throw new Error("Token refresh failed");
+            }
 
-            const rememberMe = !!localStorage.getItem("accessToken");
-            AuthService.storeTokens(newTokens, rememberMe);
+            // Process queued requests with new token
+            this.processQueue(null, newAccessToken);
 
-            this.processQueue(null, newTokens.accessToken);
-
+            // Retry original request with new token
             if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
+              originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             }
             return this.api(originalRequest);
           } catch (err) {
+            // Refresh failed - clear tokens and redirect to login
             this.processQueue(err, null);
             AuthService.clearTokens();
             this.redirectToLogin();
@@ -117,18 +119,6 @@ class ApiService {
       const redirect = encodeURIComponent(window.location.pathname);
       window.location.href = `/auth/login?redirect=${redirect}`;
     }
-  }
-
-  private async refreshTokenRequest(
-    data: RefreshRequestDto
-  ): Promise<AuthResponseDto> {
-    // ✅ Always use full URL with baseURL
-    const response = await axios.post<AuthResponseDto>(
-      `${this.baseURL}/auth/refresh`,
-      data,
-      { headers: { "Content-Type": "application/json" }, timeout: 10000 }
-    );
-    return response.data;
   }
 
   // ----------------------

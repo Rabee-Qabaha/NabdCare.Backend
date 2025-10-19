@@ -7,8 +7,6 @@ namespace NabdCare.Application.DTOs.Auth;
 public class AuthResponseDto
 {
     public string AccessToken { get; set; } = string.Empty;
-    public AuthResponseDto() { }
-
     public AuthResponseDto(string accessToken)
     {
         AccessToken = accessToken;
