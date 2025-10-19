@@ -1,62 +1,86 @@
-# =========================
-#  .NET BACKEND
-# =========================
+############################################################
+# 🧱 BACKEND (.NET / C#)
+############################################################
+# Build artifacts
 bin/
 obj/
-*.dll
 *.exe
+*.dll
+*.pdb
+*.cache
 *.log
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
-*.cache
-*.pdb
 
-# Build results
+# Test results and temporary folders
 [Ll]og/
 [Tt]emp/
 [Tt]est[Rr]esults/
 
-# Rider / Visual Studio / VS Code
+# IDE configs
 .vscode/
 .idea/
 *.DotSettings.user
 
-# =========================
-#  FRONTEND (Vue + Vite)
-# =========================
-/frontend/node_modules/
-/frontend/dist/
-/frontend/.vite/
-/frontend/.nuxt/
-/frontend/.output/
-/frontend/.tsbuildinfo
-/frontend/.env.local
-/frontend/.env.development.local
-/frontend/.env.production.local
-/frontend/.env.test.local
-/frontend/npm-debug.log*
-/frontend/yarn-debug.log*
-/frontend/yarn-error.log*
-/frontend/pnpm-debug.log*
+# TypeGen cache and intermediate files
+*.typegen.cache
+.typegen.cache
+.tgen.cache
+TypeGenTemp/
+# keep the config and ignore files
+!tgen.json
+!.tgenignore
 
-# =========================
-#  ENV FILES (Backend & Frontend)
-# =========================
+# Entity Framework / Migrations temp files
+Migrations/obj/
+Migrations/bin/
+
+############################################################
+# 🌐 FRONTEND (Vue 3 + Vite + PrimeVue)
+############################################################
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.nuxt/
+frontend/.output/
+frontend/.cache/
+frontend/.tsbuildinfo
+frontend/.eslintcache
+frontend/.stylelintcache
+frontend/.typegen.cache
+
+# Debug logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Local envs (don’t commit secrets)
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+############################################################
+# ⚙️ BACKEND ENV FILES
+############################################################
 .env
 .env.*
 !env.example
 
-# =========================
-#  SYSTEM / OS FILES
-# =========================
+############################################################
+# 💾 SYSTEM / OS FILES
+############################################################
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# =========================
-#  MISC
-# =========================
-/To add.txt
-/ToCheck.txt
+############################################################
+# 🧩 GENERATED TYPE FILES
+############################################################
+# Keep generated TypeScript models since the frontend depends on them
+!frontend/src/types/backend/**
+# but ignore cache or backup artifacts under that path
+frontend/src/types/backend/**/*.cache
+frontend/src/types/backend/**/__pycache__/
