@@ -1,27 +1,29 @@
 <script setup type="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import AppMenuItem from './AppMenuItem.vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/authStore';
 import { AuthService } from '@/service/AuthService';
+import { UserRole } from '@/types/backend';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
-const model = ref([
+// ✅ SuperAdmin Menu
+const superAdminMenu = [
     {
         label: 'Home',
-        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' }]
+        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/superadmin' }]
     },
     {
-        label: 'Patients',
+        label: 'Management',
         items: [
-            { label: 'Patients', icon: 'pi pi-fw pi-address-book', to: '/pages/patients' },
-            { label: 'Payments', icon: 'pi pi-fw pi-wallet', to: '/pages/payments' }
+            { label: 'Users', icon: 'pi pi-fw pi-users', to: '/superadmin/users' }
         ]
     },
     {
-        label: 'Users',
+        label: 'Account',
         items: [
-            { label: 'Users', icon: 'pi pi-fw pi-users', to: '/pages/users' },
             {
                 label: 'Log out',
                 icon: 'pi pi-fw pi-power-off',
@@ -32,29 +34,44 @@ const model = ref([
             }
         ]
     }
-    // {
-    //     label: 'Get Started',
-    //     items: [
-    //         {
-    //             label: 'Documentation',
-    //             icon: 'pi pi-fw pi-book',
-    //             to: '/documentation'
-    //         },
-    //         {
-    //             label: 'Sakai Vue TS Source',
-    //             icon: 'pi pi-fw pi-github',
-    //             url: 'https://github.com/mrevjd/sakai-vue-ts',
-    //             target: '_blank'
-    //         },
-    //         {
-    //             label: 'Original Source',
-    //             icon: 'pi pi-fw pi-github',
-    //             url: 'https://github.com/primefaces/sakai-vue',
-    //             target: '_blank'
-    //         }
-    //     ]
-    // }
-]);
+];
+
+// ✅ Client Menu (ClinicAdmin, Doctor, Nurse, Receptionist)
+const clientMenu = [
+    {
+        label: 'Home',
+        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/client' }]
+    },
+    {
+        label: 'Patients',
+        items: [
+            { label: 'Patients', icon: 'pi pi-fw pi-address-book', to: '/client/patients' },
+            { label: 'Payments', icon: 'pi pi-fw pi-wallet', to: '/client/payments' }
+        ]
+    },
+    {
+        label: 'Users',
+        items: [
+            { label: 'Users', icon: 'pi pi-fw pi-users', to: '/client/users' },
+            {
+                label: 'Log out',
+                icon: 'pi pi-fw pi-power-off',
+                command: async () => {
+                    await AuthService.logout();
+                    router.push('/auth/login');
+                }
+            }
+        ]
+    }
+];
+
+// ✅ Show different menu based on user role
+const model = computed(() => {
+    if (authStore.role === UserRole.SuperAdmin) {
+        return superAdminMenu;
+    }
+    return clientMenu;
+});
 </script>
 
 <template>

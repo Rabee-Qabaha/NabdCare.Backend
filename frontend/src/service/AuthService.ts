@@ -1,68 +1,39 @@
-// src/service/AuthService.ts
 import { apiService } from "@/service/apiService";
-import type {
-  LoginRequestDto,
-  AuthResponseDto,
-  RefreshRequestDto,
-} from "@/types/backend";
+import type { LoginRequestDto, AuthResponseDto } from "@/types/backend";
 import { getUserFromToken, isTokenExpired } from "@/utils/jwtUtils";
 import type { UserInfo } from "@/utils/jwtUtils";
+import { tokenManager } from "@/utils/tokenManager";
 
 /**
  * AuthService: Handles login, logout, token management, and user info
- * Used by apiService + Pinia auth store
  */
 export class AuthService {
   // ============ 🔐 Token Management ============
-  private static accessTokenKey = "accessToken";
-  private static refreshTokenKey = "refreshToken";
 
   /**
-   * Get access token
+   * Get access token from secure storage
    */
   static getAccessToken(): string | null {
-    return (
-      localStorage.getItem(this.accessTokenKey) ||
-      sessionStorage.getItem(this.accessTokenKey)
-    );
+    return tokenManager.getAccessToken();
   }
 
   /**
-   * Get refresh token
+   * Store access token securely
+   * NOTE: Refresh token is in HttpOnly cookie (backend manages it)
    */
-  static getRefreshToken(): string | null {
-    return (
-      localStorage.getItem(this.refreshTokenKey) ||
-      sessionStorage.getItem(this.refreshTokenKey)
-    );
-  }
-
-  /**
-   * Store tokens persistently
-   */
-  static storeTokens(tokens: AuthResponseDto, rememberMe: boolean): void {
-    const storage = rememberMe ? localStorage : sessionStorage;
-
-    storage.setItem(this.accessTokenKey, tokens.accessToken);
-    storage.setItem(this.refreshTokenKey, tokens.refreshToken);
-
-    // Clear the other storage type (avoid conflicts)
-    const otherStorage = rememberMe ? sessionStorage : localStorage;
-    otherStorage.removeItem(this.accessTokenKey);
-    otherStorage.removeItem(this.refreshTokenKey);
+  static storeAccessToken(token: string): void {
+    tokenManager.setAccessToken(token, true);
   }
 
   /**
    * Clear all tokens
    */
   static clearTokens(): void {
-    localStorage.removeItem(this.accessTokenKey);
-    localStorage.removeItem(this.refreshTokenKey);
-    sessionStorage.removeItem(this.accessTokenKey);
-    sessionStorage.removeItem(this.refreshTokenKey);
+    tokenManager.clearTokens();
   }
 
   // ============ 👤 User Info ============
+
   static getCurrentUser(): UserInfo | null {
     const token = this.getAccessToken();
     if (!token || isTokenExpired(token)) return null;
@@ -76,28 +47,28 @@ export class AuthService {
       "/auth/login",
       request
     );
+
+    // Store access token (refresh token is in HttpOnly cookie)
+    this.storeAccessToken(response.accessToken);
+
     return response;
   }
 
   static async logout(): Promise<void> {
-    const refreshToken = this.getRefreshToken();
-    if (refreshToken) {
-      try {
-        await apiService.post("/auth/logout", { refreshToken });
-      } catch (err) {
-        console.warn("Logout API failed, continuing cleanup", err);
-      }
+    try {
+      // Backend will clear the HttpOnly cookie
+      await apiService.post("/auth/logout", {});
+    } catch (err) {
+      console.warn("Logout API failed, continuing cleanup", err);
+    } finally {
+      this.clearTokens();
     }
-    this.clearTokens();
   }
 
-  static async refreshTokens(
-    request: RefreshRequestDto
-  ): Promise<AuthResponseDto> {
-    const response = await apiService.post<AuthResponseDto>(
-      "/auth/refresh",
-      request
-    );
-    return response;
+  /**
+   * Refresh access token using HttpOnly cookie
+   */
+  static async refreshAccessToken(): Promise<string | null> {
+    return tokenManager.refreshAccessToken();
   }
 }

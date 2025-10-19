@@ -1,13 +1,13 @@
-// src/views/pages/auth/Login.vue
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { useId } from "vue";
 import { useAuthStore } from "@/stores/authStore";
 
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 
 // Form state
@@ -42,11 +42,20 @@ const handleLogin = async (): Promise<void> => {
       life: 3000,
     });
 
-    // Redirect automatically based on role
-    if (authStore.isSuperAdmin) {
-      router.push({ name: "superadmin-dashboard" });
+    // ✅ Get redirect URL from query parameter
+    const redirectPath = route.query.redirect as string | undefined;
+
+    // ✅ Navigate to redirect URL or default dashboard
+    if (redirectPath) {
+      // Use router.push with string path to properly navigate
+      await router.push(redirectPath);
     } else {
-      router.push({ name: "dashboard" });
+      // Default redirect based on role
+      if (authStore.isSuperAdmin) {
+        await router.push({ name: "superadmin-dashboard" });
+      } else {
+        await router.push({ name: "dashboard" });
+      }
     }
   } catch (err: any) {
     toast.add({
@@ -64,6 +73,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
 </script>
 
 <template>
+  <!-- Template stays the same -->
   <div class="flex min-h-screen">
     <!-- Left Side - Illustration -->
     <div
@@ -197,7 +207,6 @@ const handleKeyPress = (event: KeyboardEvent): void => {
 </template>
 
 <style scoped>
-/* Ensure password input takes full width */
 :deep(.p-password) {
   width: 100%;
 }
