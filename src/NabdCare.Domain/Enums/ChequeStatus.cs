@@ -1,5 +1,8 @@
-﻿namespace NabdCare.Domain.Enums
-{
+﻿using TypeGen.Core.TypeAnnotations;
+
+namespace NabdCare.Domain.Enums;
+
+[ExportTsEnum]
     public enum ChequeStatus
     {
         Pending, 
@@ -7,4 +10,3 @@
         Bounced, 
         Cancelled
     }
-}

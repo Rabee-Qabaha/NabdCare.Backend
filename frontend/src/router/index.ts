@@ -1,169 +1,95 @@
-// // src/router.ts
-// import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
-// import { useAuthStore } from '@/stores/authStore';
-// import AppLayout from '@/layout/AppLayout.vue';
-//
-// // --------------------
-// // Routes
-// // --------------------
-// const routes: RouteRecordRaw[] = [
-//     {
-//         path: '/',
-//         component: AppLayout,
-//         children: [
-//             {
-//                 path: '/',
-//                 name: 'dashboard',
-//                 component: () => import('../views/Dashboard.vue')
-//             },
-//             {
-//                 path: '/pages/patients',
-//                 name: 'patients',
-//                 component: () => import('../views/pages/patiesnts/Patiesnts.vue')
-//             },
-//             {
-//                 path: '/pages/patients/:id',
-//                 name: 'patient-profile',
-//                 component: () => import('../views/pages/patiesnts/PatiesntProfile.vue'),
-//                 props: true
-//             },
-//             {
-//                 path: '/pages/payments',
-//                 name: 'payments',
-//                 component: () => import('../views/pages/Payments/Payments.vue')
-//             },
-//             {
-//                 path: '/pages/users',
-//                 name: 'users',
-//                 component: () => import('../views/pages/Users/Users.vue'),
-//                 props: true
-//             }
-//         ]
-//     },
-//     {
-//         path: '/pages/notfound',
-//         name: 'notfound',
-//         component: () => import('../views/pages/NotFound.vue')
-//     },
-//     {
-//         path: '/auth/login',
-//         name: 'login',
-//         component: () => import('../views/pages/auth/Login.vue')
-//     },
-//     {
-//         path: '/auth/access',
-//         name: 'accessDenied',
-//         component: () => import('../views/pages/auth/Access.vue')
-//     },
-//     {
-//         path: '/auth/error',
-//         name: 'error',
-//         component: () => import('../views/pages/auth/Error.vue')
-//     },
-//     {
-//         path: '/:pathMatch(.*)*',
-//         redirect: '/pages/notfound'
-//     }
-// ];
-//
-// // --------------------
-// // Router Instance
-// // --------------------
-// const router = createRouter({
-//     history: createWebHistory(),
-//     routes
-// });
-//
-// // --------------------
-// // Navigation Guard
-// // --------------------
-// router.beforeEach(async (to) => {
-//     const authStore = useAuthStore();
-//     const publicPages = ['/auth/login', '/auth/error', '/auth/access'];
-//     const authRequired = !publicPages.includes(to.path);
-//
-//     // Wait for auth initialization if needed
-//     if (!authStore.isInitialized) {
-//         await new Promise((resolve) => {
-//             const unwatch = authStore.$subscribe(() => {
-//                 if (authStore.isInitialized) {
-//                     unwatch();
-//                     resolve(true);
-//                 }
-//             });
-//         });
-//     }
-//
-//     if (authRequired && !authStore.isLoggedIn) {
-//         return '/auth/login';
-//     }
-// });
-//
-// export default router;
-
+// src/router/index.ts
 import {
   createRouter,
   createWebHistory,
   type RouteRecordRaw,
 } from "vue-router";
 import { useAuthStore } from "@/stores/authStore";
-import AppLayout from "@/layout/AppLayout.vue";
+import { clientRoutes } from "./clientRoutes";
+import { superadminRoutes } from "./superadminRoutes";
+import { UserRole } from "@/types/backend";
+import type { AppRouteMeta } from "./router";
+
+const Login = () => import("@/views/pages/auth/Login.vue");
+const AccessDenied = () => import("@/views/pages/auth/Access.vue");
+const NotFound = () => import("@/views/pages/NotFound.vue");
 
 const routes: RouteRecordRaw[] = [
+  // 🔑 Root redirect
   {
     path: "/",
-    component: AppLayout,
-    children: [
-      {
-        path: "",
-        name: "dashboard",
-        component: () => import("../views/pages/client/Dashboard.vue"),
-      },
-      // { path: 'patients', name: 'patients', component: () => import('@/pages/client/PatientsList.vue') },
-      // { path: 'payments', name: 'payments', component: () => import('@/pages/client/Payments.vue') }
-    ],
+    redirect: () => {
+      const authStore = useAuthStore();
+      if (!authStore.isLoggedIn) return { name: "login" };
+      return authStore.role === UserRole.SuperAdmin
+        ? { name: "superadmin-dashboard" }
+        : { name: "dashboard" };
+    },
+    meta: { public: true } as AppRouteMeta,
   },
-  {
-    path: "/admin",
-    component: AppLayout,
-    meta: { requiresAdmin: true },
-    children: [
-      {
-        path: "dashboard",
-        name: "admin-dashboard",
-        component: () => import("../views/pages/admin/Dashboard.vue"),
-      },
-      // { path: 'users', name: 'admin-users', component: () => import('@/pages/admin/UsersList.vue') },
-      // { path: 'clinics', name: 'admin-clinics', component: () => import('@/pages/admin/ClinicsList.vue') }
-    ],
-  },
+
   {
     path: "/auth/login",
     name: "login",
-    component: () => import("../views/pages/auth/Login.vue"),
+    component: Login,
+    meta: { public: true, title: "Login" } as AppRouteMeta,
   },
-  { path: "/:pathMatch(.*)*", redirect: "/auth/login" },
+  {
+    path: "/auth/access",
+    name: "accessDenied",
+    component: AccessDenied,
+    meta: { public: true, title: "Access Denied" } as AppRouteMeta,
+  },
+
+  // Spread routes
+  ...clientRoutes,
+  ...superadminRoutes,
+
+  {
+    path: "/:pathMatch(.*)*",
+    name: "notfound",
+    component: NotFound,
+    meta: { public: true, title: "Not Found" } as AppRouteMeta,
+  },
 ];
 
-// ✅ Create router instance
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+  scrollBehavior: () => ({ top: 0 }),
 });
 
-// ✅ Navigation guard
-router.beforeEach(async (to) => {
+// ✅ Auth Guard
+router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
+  const meta = to.meta as AppRouteMeta;
 
-  if (!authStore.isInitialized) {
-    authStore.tryRestoreSession();
+  console.log("🚦 Navigating to:", to.fullPath);
+  console.log("📜 Route meta:", meta);
+  console.log("👤 Current user:", authStore.currentUser);
+  console.log("🎭 Normalized role:", authStore.role);
+  console.log("🔑 Logged in:", authStore.isLoggedIn);
+
+  if (meta.title) document.title = `${meta.title} - NabdCare`;
+
+  if (meta.public) return next();
+  if (!authStore.isLoggedIn) {
+    console.log("❌ User not logged in → redirect to login");
+    return next({ name: "login", query: { redirect: to.fullPath } });
   }
 
-  const publicPages = ["/auth/login"];
-  const authRequired = !publicPages.includes(to.path);
+  const routeRoles = meta.roles as UserRole[] | undefined;
+  const userRole = authStore.role;
 
-  if (authRequired && !authStore.isLoggedIn) return "/auth/login";
-  if (to.meta.requiresAdmin && !authStore.isAdmin) return "/auth/access";
+  if (routeRoles && (!userRole || !routeRoles.includes(userRole))) {
+    console.log(
+      `❌ Access denied! User role: ${userRole}, Allowed roles: ${routeRoles}`
+    );
+    return next({ name: "accessDenied" });
+  }
+
+  console.log("✅ Access granted");
+  next();
 });
 
 export default router;

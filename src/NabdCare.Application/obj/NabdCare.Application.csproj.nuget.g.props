@@ -13,6 +13,6 @@
     <SourceRoot Include="/Users/rabe3kabha/.nuget/packages/" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgTypeGen Condition=" '$(PkgTypeGen)' == '' ">/Users/rabe3kabha/.nuget/packages/typegen/5.0.1</PkgTypeGen>
+    <PkgTypeGen Condition=" '$(PkgTypeGen)' == '' ">/Users/rabe3kabha/.nuget/packages/typegen/6.0.3</PkgTypeGen>
   </PropertyGroup>
 </Project>

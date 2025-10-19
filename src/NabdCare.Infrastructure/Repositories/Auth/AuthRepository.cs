@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Domain.Entities.Users;
+using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Auth;
@@ -17,30 +18,54 @@ public class AuthRepository : IAuthRepository
         _passwordService = passwordService;
     }
 
+    // public async Task<User?> AuthenticateUserAsync(string email, string password)
+    // {
+    //     User? user;
+    //     if (email.Trim().ToLower() == "sadmin@nabd.care")
+    //     {
+    //         user = await _dbContext.Users
+    //             .IgnoreQueryFilters()
+    //             .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower() && u.IsActive);
+    //     }
+    //     else
+    //     {
+    //         user = await _dbContext.Users
+    //             .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower() && u.IsActive);
+    //     }
+    //
+    //     if (user == null)
+    //         return null;
+    //
+    //     if (!_passwordService.VerifyPassword(password, user.PasswordHash))
+    //         return null;
+    //
+    //     return user;
+    // }
+
     public async Task<User?> AuthenticateUserAsync(string email, string password)
     {
-        User? user;
-        if (email.Trim().ToLower() == "sadmin@nabd.care")
-        {
-            user = await _dbContext.Users
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower() && u.IsActive);
-        }
-        else
-        {
-            user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower() && u.IsActive);
-        }
+        // Normalize the email
+        email = email.Trim().ToLower();
+
+        // Fetch user by email
+        var user = await _dbContext.Users
+            .IgnoreQueryFilters() // we’ll handle IsActive manually
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
 
         if (user == null)
             return null;
 
+        // Allow SuperAdmin login even if inactive — for safety (like your original intent)
+        if (!user.IsActive && user.Role != UserRole.SuperAdmin)
+            return null;
+
+        // Validate password
         if (!_passwordService.VerifyPassword(password, user.PasswordHash))
             return null;
 
         return user;
     }
-
+    
     public async Task<User?> AuthenticateUserByIdAsync(Guid userId)
     {
         return await _dbContext.Users

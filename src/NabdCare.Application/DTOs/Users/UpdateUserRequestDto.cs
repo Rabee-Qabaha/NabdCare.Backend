@@ -1,7 +1,9 @@
 using NabdCare.Domain.Enums;
+using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Users;
 
+[ExportTsClass]
 public class UpdateUserRequestDto
 {
     public string FullName { get; set; } = string.Empty;

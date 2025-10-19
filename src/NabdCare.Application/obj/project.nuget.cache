@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "26gsS2/IG7E=",
+  "dgSpecHash": "phota9r746s=",
   "success": true,
   "projectFilePath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Application/NabdCare.Application.csproj",
   "expectedPackageFiles": [
@@ -23,7 +23,7 @@
     "/Users/rabe3kabha/.nuget/packages/microsoft.identitymodel.logging/8.0.1/microsoft.identitymodel.logging.8.0.1.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.identitymodel.tokens/8.0.1/microsoft.identitymodel.tokens.8.0.1.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/system.text.encodings.web/8.0.0/system.text.encodings.web.8.0.0.nupkg.sha512",
-    "/Users/rabe3kabha/.nuget/packages/typegen/5.0.1/typegen.5.0.1.nupkg.sha512",
+    "/Users/rabe3kabha/.nuget/packages/typegen/6.0.3/typegen.6.0.3.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.netcore.app.ref/8.0.10/microsoft.netcore.app.ref.8.0.10.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.10/microsoft.aspnetcore.app.ref.8.0.10.nupkg.sha512"
   ],

@@ -2,9 +2,12 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Enums;
+using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Domain.Entities.Users;
 
+[ExportTsClass]
+[TsIgnoreBase]
 public class User : BaseEntity
 {
     public Guid? ClinicId { get; set; }

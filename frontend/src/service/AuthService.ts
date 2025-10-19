@@ -1,64 +1,103 @@
 // src/service/AuthService.ts
-import { jwtDecode } from "@/utils/jwtDecoder";
-import { refreshToken as apiRefreshToken } from "@/types/sdk.gen";
-import { apiClient } from "@/api/apiClientInstance";
+import { apiService } from "@/service/apiService";
+import type {
+  LoginRequestDto,
+  AuthResponseDto,
+  RefreshRequestDto,
+} from "@/types/backend";
+import { getUserFromToken, isTokenExpired } from "@/utils/jwtUtils";
+import type { UserInfo } from "@/utils/jwtUtils";
 
-interface JwtPayload {
-  sub: string;
-  email: string;
-  role: string;
-  exp: number;
-  ClinicId?: string;
-}
-
-const ACCESS_TOKEN_KEY = "access_token";
-const REFRESH_TOKEN_KEY = "refresh_token";
-
+/**
+ * AuthService: Handles login, logout, token management, and user info
+ * Used by apiService + Pinia auth store
+ */
 export class AuthService {
-  static saveTokens(accessToken: string, refreshToken: string) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  }
+  // ============ 🔐 Token Management ============
+  private static accessTokenKey = "accessToken";
+  private static refreshTokenKey = "refreshToken";
 
+  /**
+   * Get access token
+   */
   static getAccessToken(): string | null {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
+    return (
+      localStorage.getItem(this.accessTokenKey) ||
+      sessionStorage.getItem(this.accessTokenKey)
+    );
   }
 
+  /**
+   * Get refresh token
+   */
   static getRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    return (
+      localStorage.getItem(this.refreshTokenKey) ||
+      sessionStorage.getItem(this.refreshTokenKey)
+    );
   }
 
-  static clearTokens() {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  /**
+   * Store tokens persistently
+   */
+  static storeTokens(tokens: AuthResponseDto, rememberMe: boolean): void {
+    const storage = rememberMe ? localStorage : sessionStorage;
+
+    storage.setItem(this.accessTokenKey, tokens.accessToken);
+    storage.setItem(this.refreshTokenKey, tokens.refreshToken);
+
+    // Clear the other storage type (avoid conflicts)
+    const otherStorage = rememberMe ? sessionStorage : localStorage;
+    otherStorage.removeItem(this.accessTokenKey);
+    otherStorage.removeItem(this.refreshTokenKey);
   }
 
-  static async refreshToken() {
-    const refreshToken = this.getRefreshToken();
-    if (!refreshToken) throw new Error("No refresh token found.");
-
-    const { data, error } = await apiRefreshToken({
-      client: apiClient,
-      body: { refreshToken },
-    });
-
-    if (error) throw error;
-
-    this.saveTokens(data.accessToken, data.refreshToken);
-    return data;
+  /**
+   * Clear all tokens
+   */
+  static clearTokens(): void {
+    localStorage.removeItem(this.accessTokenKey);
+    localStorage.removeItem(this.refreshTokenKey);
+    sessionStorage.removeItem(this.accessTokenKey);
+    sessionStorage.removeItem(this.refreshTokenKey);
   }
 
-  static decodeToken(): JwtPayload | null {
+  // ============ 👤 User Info ============
+  static getCurrentUser(): UserInfo | null {
     const token = this.getAccessToken();
-    if (!token) return null;
-    try {
-      return jwtDecode<JwtPayload>(token);
-    } catch {
-      return null;
-    }
+    if (!token || isTokenExpired(token)) return null;
+    return getUserFromToken(token);
   }
 
-  static async logout() {
+  // ============ 🔑 Auth Actions ============
+
+  static async login(request: LoginRequestDto): Promise<AuthResponseDto> {
+    const response = await apiService.post<AuthResponseDto>(
+      "/auth/login",
+      request
+    );
+    return response;
+  }
+
+  static async logout(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiService.post("/auth/logout", { refreshToken });
+      } catch (err) {
+        console.warn("Logout API failed, continuing cleanup", err);
+      }
+    }
     this.clearTokens();
+  }
+
+  static async refreshTokens(
+    request: RefreshRequestDto
+  ): Promise<AuthResponseDto> {
+    const response = await apiService.post<AuthResponseDto>(
+      "/auth/refresh",
+      request
+    );
+    return response;
   }
 }

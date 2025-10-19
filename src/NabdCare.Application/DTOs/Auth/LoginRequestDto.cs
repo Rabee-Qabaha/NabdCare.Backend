@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Auth;
 
+[ExportTsClass]
 public class LoginRequestDto
 {
     [Required]

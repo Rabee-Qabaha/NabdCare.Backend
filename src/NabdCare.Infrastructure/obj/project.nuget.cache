@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "qVA7o4Uc/FU=",
+  "dgSpecHash": "WjKYSn9BtZQ=",
   "success": true,
   "projectFilePath": "/Users/rabe3kabha/Desktop/NabdCare/src/NabdCare.Infrastructure/NabdCare.Infrastructure.csproj",
   "expectedPackageFiles": [
@@ -77,7 +77,7 @@
     "/Users/rabe3kabha/.nuget/packages/system.text.encoding.codepages/6.0.0/system.text.encoding.codepages.6.0.0.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/system.text.encodings.web/8.0.0/system.text.encodings.web.8.0.0.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/system.threading.channels/6.0.0/system.threading.channels.6.0.0.nupkg.sha512",
-    "/Users/rabe3kabha/.nuget/packages/typegen/5.0.1/typegen.5.0.1.nupkg.sha512",
+    "/Users/rabe3kabha/.nuget/packages/typegen/6.0.3/typegen.6.0.3.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.netcore.app.ref/8.0.10/microsoft.netcore.app.ref.8.0.10.nupkg.sha512",
     "/Users/rabe3kabha/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.10/microsoft.aspnetcore.app.ref.8.0.10.nupkg.sha512"
   ],

@@ -1,16 +1,14 @@
-Tenant Settings/Branding
-Enable per-tenant settings (logo, theme, language, feature toggles).
-
-Add indexes for ClinicId and other query-heavy columns.
-
-8. Security Enhancements
-Add support for SSO (Single Sign-On) for clinics.
-Implement rate limiting.
-Periodically rotate keys and secrets.
-
-
-
-FrontEnd:
-
-Note to self: Later, add a global Axios interceptor to automatically handle loading states and toast notifications for all API requests — so you won’t need to manually manage try/catch, loaders, or success/error messages in each component.
-
+{
+  "$schema": "https://typegen.io/schema/v3.json",
+  "assemblies": [
+    "src/NabdCare.Application/bin/Debug/net8.0/NabdCare.Application.dll",
+    "src/NabdCare.Domain/bin/Debug/net8.0/NabdCare.Domain.dll"
+  ],
+  "output": "frontend/src/types/backend",
+  "createIndexFile": true,
+  "fileNaming": "PascalCase",
+  "typeNaming": "PascalCase",
+  "enumStringInitializers": true,
+  "tabLength": 2,
+  "typeBlacklist": ["NabdCare.Domain.Entities.BaseEntity", "NabdCare.Domain.Interfaces.IAuditable","NabdCare.Domain.Interfaces.ISoftDeletable"]
+}

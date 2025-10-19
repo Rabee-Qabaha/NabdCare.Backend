@@ -1,6 +1,9 @@
 ﻿using NabdCare.Domain.Enums;
+using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Clinics.Subscriptions;
+
+[ExportTsClass]
 public class CreateSubscriptionRequestDto
 {
     public Guid ClinicId { get; set; }

@@ -32,7 +32,7 @@ public class AuthService : IAuthService
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
-            var accessToken = _tokenService.GenerateToken(user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId);
+            var accessToken = _tokenService.GenerateToken(user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId, user.FullName);
 
             var refreshToken = new RefreshToken
             {
@@ -89,7 +89,7 @@ public class AuthService : IAuthService
 
             await _authRepository.SaveRefreshTokenAsync(user, newToken);
 
-            var accessToken = _tokenService.GenerateToken(user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId);
+            var accessToken = _tokenService.GenerateToken(user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId, user.FullName);
             _logger.LogInformation("Refresh token rotated for user {UserId}", user.Id);
 
             return (accessToken, newToken.Token);

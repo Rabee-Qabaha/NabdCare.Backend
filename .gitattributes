@@ -1,0 +1,73 @@
+############################################################
+# 🌍 General Git Settings
+############################################################
+# Normalize line endings across all platforms
+* text=auto eol=lf
+
+# Ensure consistent diff/merge behavior for common file types
+*.cs     diff=csharp
+*.ts     diff=typescript
+*.js     diff=javascript
+*.vue    diff=html
+*.html   diff=html
+*.css    diff=css
+*.scss   diff=css
+*.json   diff=json
+*.yml    diff=yaml
+*.yaml   diff=yaml
+*.md     diff=markdown
+*.sql    diff=sql
+*.xml    diff=xml
+
+# Prevent binary files from being diffed as text
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary
+*.mp4    binary
+*.zip    binary
+*.dll    binary
+*.exe    binary
+
+############################################################
+# ⚙️ Backend (.NET / C#)
+############################################################
+# Treat .csproj and .sln as text for readable diffs
+*.csproj text eol=lf
+*.sln    text eol=lf
+
+# Ensure JSON configs are normalized
+*.json   text eol=lf
+
+# Prevent secrets or private settings from being normalized incorrectly
+*.env    text eol=lf
+
+############################################################
+# 🌐 Frontend (Vue + Vite)
+############################################################
+# Normalize Vue and TypeScript source files
+*.vue text eol=lf
+*.ts  text eol=lf
+*.js  text eol=lf
+
+# Vite and config files
+vite.config.* text eol=lf
+tsconfig.*    text eol=lf
+package.json  text eol=lf
+yarn.lock     text eol=lf
+pnpm-lock.yaml text eol=lf
+
+############################################################
+# 🧩 Documentation / Misc
+############################################################
+*.md     text eol=lf diff=markdown
+*.txt    text eol=lf
+*.log    text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf

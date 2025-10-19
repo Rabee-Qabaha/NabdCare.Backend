@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Folder Include="Helpers\" />
+      <PackageReference Include="TypeGen" Version="6.0.3" />
   </ItemGroup>
 
 </Project>

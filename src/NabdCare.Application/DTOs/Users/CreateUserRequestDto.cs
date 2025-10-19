@@ -1,7 +1,9 @@
 using NabdCare.Domain.Enums;
+using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Users;
 
+[ExportTsClass]
 public class CreateUserRequestDto
 {
     public string Email { get; set; } = string.Empty;

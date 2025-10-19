@@ -31,6 +31,7 @@ declare module 'vue' {
     InputNumber: typeof import('primevue/inputnumber')['default']
     InputText: typeof import('primevue/inputtext')['default']
     LineChart: typeof import('./src/components/dashboard/LineChart.vue')['default']
+    Message: typeof import('primevue/message')['default']
     Password: typeof import('primevue/password')['default']
     PatientDetails: typeof import('./src/components/Patiesnt/patientDetails.vue')['default']
     PatientDialog: typeof import('./src/components/Patiesnt/PatientDialog.vue')['default']

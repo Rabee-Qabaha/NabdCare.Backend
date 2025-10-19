@@ -1,5 +1,8 @@
+using TypeGen.Core.TypeAnnotations;
+
 namespace NabdCare.Application.DTOs.Permissions;
 
+[ExportTsClass]
 public class PermissionResponseDto
 {
     public Guid Id { get; set; }

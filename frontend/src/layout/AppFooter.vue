@@ -1,8 +1,14 @@
-<script setup></script>
+<script setup type="ts"></script>
 
 <template>
-    <div class="layout-footer">
-        Created By
-        <a href="https://primevue.org" target="_blank" rel="noopener noreferrer" class="text-primary font-bold hover:underline">Rabee Qabaha</a>
-    </div>
+  <div class="layout-footer">
+    Created By
+    <a
+      href="https://primevue.org"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="text-primary font-bold hover:underline"
+      >Rabee Qabaha</a
+    >
+  </div>
 </template>

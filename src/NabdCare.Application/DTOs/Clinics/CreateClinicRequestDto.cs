@@ -1,7 +1,9 @@
 using NabdCare.Domain.Enums;
+using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Clinics;
 
+[ExportTsClass]
 public class CreateClinicRequestDto
 {
     public string Name { get; set; } = string.Empty;

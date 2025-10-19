@@ -1,0 +1,35 @@
+Tenant Settings/Branding
+Enable per-tenant settings (logo, theme, language, feature toggles).
+
+Add indexes for ClinicId and other query-heavy columns.
+
+8. Security Enhancements
+Add support for SSO (Single Sign-On) for clinics.
+Implement rate limiting.
+Periodically rotate keys and secrets.
+
+
+
+FrontEnd:
+
+Note to self: Later, add a global Axios interceptor to automatically handle loading states and toast notifications for all API requests — so you won’t need to manually manage try/catch, loaders, or success/error messages in each component.
+
+--------------------
+mprove Token Storage & Refresh Security
+
+Right now you use localStorage / sessionStorage for both access and refresh tokens.
+That’s fine in dev, but in production SaaS:
+	•	accessToken → OK in memory or session storage.
+	•	refreshToken → should be httpOnly cookie, set by backend.
+
+✅ Recommended next step:
+
+When your backend supports it, change your login API to send:
+Set-Cookie: refreshToken=<token>; HttpOnly; Secure; SameSite=Strict
+
+Then:
+	•	Remove refresh token storage from frontend.
+	•	In axios instance:
+axiosInstance.defaults.withCredentials = true;
+
+	•	And your /auth/refresh endpoint will read cookie directly.

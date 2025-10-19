@@ -17,39 +17,42 @@ public class JwtTokenService : ITokenService
     }
 
     /// <summary>
-    /// Generates a signed JWT access token with user/tenant claims.
-    /// Supports both environment variables and appsettings.json.
+    /// Generates a signed JWT access token with clean, frontend-friendly claims.
     /// </summary>
-    public string GenerateToken(string userId, string email, string role, Guid? clinicId)
+    public string GenerateToken(string userId, string email, string role, Guid? clinicId, string fullName)
     {
-        // Prefer env vars (Docker / production), fallback to appsettings
-        var key = Environment.GetEnvironmentVariable("JWT_KEY") 
-                  ?? _config["Jwt:Key"] 
+        // Prefer env vars (for Docker/prod), fallback to appsettings.json
+        var key = Environment.GetEnvironmentVariable("JWT_KEY")
+                  ?? _config["Jwt:Key"]
                   ?? throw new InvalidOperationException("JWT Key not configured");
 
-        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") 
-                     ?? _config["Jwt:Issuer"] 
+        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+                     ?? _config["Jwt:Issuer"]
                      ?? throw new InvalidOperationException("JWT Issuer not configured");
 
-        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") 
-                       ?? _config["Jwt:Audience"] 
+        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+                       ?? _config["Jwt:Audience"]
                        ?? throw new InvalidOperationException("JWT Audience not configured");
 
-        var expireMinutesStr = Environment.GetEnvironmentVariable("JWT_EXPIREMINUTES") 
-                               ?? _config["Jwt:ExpireMinutes"] 
+        var expireMinutesStr = Environment.GetEnvironmentVariable("JWT_EXPIREMINUTES")
+                               ?? _config["Jwt:ExpireMinutes"]
                                ?? "60";
 
         if (!double.TryParse(expireMinutesStr, out var expireMinutes))
             expireMinutes = 60;
 
-        // Claims
-        var claims = new[]
+        // ✅ Clean claim names for frontend simplicity
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, userId),
             new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim(ClaimTypes.Role, role),
-            new Claim("ClinicId", clinicId?.ToString() ?? string.Empty)
+            new Claim("role", role),
+            new Claim("ClinicId", clinicId?.ToString() ?? string.Empty),
+            new Claim("fullName", fullName)
         };
+
+        // 🧩 (Optional backward compatibility: keep the old ClaimTypes.Role if you wish)
+        // claims.Add(new Claim(ClaimTypes.Role, role));
 
         // Signing key
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));

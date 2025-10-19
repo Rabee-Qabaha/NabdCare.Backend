@@ -1520,15 +1520,15 @@
           "buildTransitive/netcoreapp3.1/_._": {}
         }
       },
-      "TypeGen/5.0.1": {
+      "TypeGen/6.0.3": {
         "type": "package",
         "compile": {
-          "lib/net8.0/TypeGen.Core.dll": {
+          "lib/netstandard2.0/TypeGen.Core.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net8.0/TypeGen.Core.dll": {
+          "lib/netstandard2.0/TypeGen.Core.dll": {
             "related": ".xml"
           }
         }
@@ -1542,7 +1542,8 @@
           "Microsoft.AspNetCore.Http.Abstractions": "2.3.0",
           "Microsoft.Extensions.Identity.Core": "8.0.20",
           "NabdCare.Domain": "1.0.0",
-          "NabdCare.Shared": "1.0.0"
+          "NabdCare.Shared": "1.0.0",
+          "TypeGen": "6.0.3"
         },
         "compile": {
           "bin/placeholder/NabdCare.Application.dll": {}
@@ -1554,6 +1555,9 @@
       "NabdCare.Domain/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "TypeGen": "6.0.3"
+        },
         "compile": {
           "bin/placeholder/NabdCare.Domain.dll": {}
         },
@@ -3797,17 +3801,17 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "TypeGen/5.0.1": {
-      "sha512": "2zkqdZq9ueNti6BMzsuAF1EeQML8/8VlYR7LYrfKIoGB3cfUs0TyyPQ35FucseOX7SSPBdfXK7oJbHhIPCNbZA==",
+    "TypeGen/6.0.3": {
+      "sha512": "FbgRxhMUvPjj46r26sKNpXEtt6/lsTkYarvAKxrhADz4imXeoX1NtjyHCr4PF6SXmmPJEAWcE2PVQI1VXtxckw==",
       "type": "package",
-      "path": "typegen/5.0.1",
+      "path": "typegen/6.0.3",
       "hasTools": true,
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "LICENSE",
-        "lib/net8.0/TypeGen.Core.dll",
-        "lib/net8.0/TypeGen.Core.xml",
+        "lib/net9.0/TypeGen.Core.dll",
+        "lib/net9.0/TypeGen.Core.xml",
         "lib/netstandard2.0/TypeGen.Core.dll",
         "lib/netstandard2.0/TypeGen.Core.xml",
         "tools/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
@@ -3841,7 +3845,7 @@
         "tools/tr/System.CommandLine.resources.dll",
         "tools/zh-Hans/System.CommandLine.resources.dll",
         "tools/zh-Hant/System.CommandLine.resources.dll",
-        "typegen.5.0.1.nupkg.sha512",
+        "typegen.6.0.3.nupkg.sha512",
         "typegen.nuspec"
       ]
     },

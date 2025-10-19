@@ -1,7 +1,7 @@
 // import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, orderBy, query } from 'firebase/firestore';
 
-// // import { db } from '@/firebase';
-// // import type { Patient } from '../../../shared/types';
+// import { db } from '@/firebase';
+// import type { Patient } from '../../../shared/types';
 
 // function mapDocToPatient(docSnap: any): Patient {
 //     const data = docSnap.data();

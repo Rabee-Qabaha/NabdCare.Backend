@@ -1,5 +1,8 @@
+using TypeGen.Core.TypeAnnotations;
+
 namespace NabdCare.Application.DTOs.Users;
 
+[ExportTsClass]
 public class ChangePasswordRequestDto
 {
     public string CurrentPassword { get; set; } = string.Empty;
