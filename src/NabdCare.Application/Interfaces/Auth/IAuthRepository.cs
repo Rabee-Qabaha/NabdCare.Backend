@@ -12,6 +12,7 @@ public interface IAuthRepository
     Task<RefreshToken?> GetRefreshTokenIncludingRevokedAsync(string token);
     Task RevokeRefreshTokenAsync(string token, string revokedByIp, string reason);
     Task RevokeTokenFamilyAsync(RefreshToken token);
+    Task RevokeAllUserTokensAsync(Guid userId, string revokedByIp, string reason);
 
     Task<RefreshToken?> GetRefreshTokenAsync(string token);
 }

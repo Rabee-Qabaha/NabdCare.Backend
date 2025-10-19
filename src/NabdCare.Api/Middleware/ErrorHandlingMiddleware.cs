@@ -34,28 +34,52 @@ public class ErrorHandlingMiddleware
         var traceId = Guid.NewGuid().ToString("N");
         context.Response.Headers["X-Trace-Id"] = traceId;
 
-        var statusCode = exception switch
-        {
-            UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
-            ArgumentException => (int)HttpStatusCode.BadRequest,
-            _ => (int)HttpStatusCode.InternalServerError
-        };
-
         var isDevelopment = 
             Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+
+        // ✅ P0 FIX: Enhanced exception handling with generic messages for production
+        var (statusCode, message, exceptionType) = exception switch
+        {
+            UnauthorizedAccessException => (
+                (int)HttpStatusCode.Unauthorized,
+                isDevelopment ? exception.Message : "Authentication failed.",
+                "UnauthorizedAccess"
+            ),
+            ArgumentException => (
+                (int)HttpStatusCode.BadRequest,
+                isDevelopment ? exception.Message : "Invalid request.",
+                "BadRequest"
+            ),
+            InvalidOperationException => (
+                (int)HttpStatusCode.InternalServerError,
+                isDevelopment ? exception.Message : "An error occurred processing your request.",
+                "InvalidOperation"
+            ),
+            _ => (
+                (int)HttpStatusCode.InternalServerError,
+                isDevelopment ? exception.Message : "An unexpected error occurred.",
+                "InternalError"
+            )
+        };
 
         var errorResponse = new
         {
             error = new
             {
-                message = isDevelopment ? exception.Message : "An unexpected error occurred.",
-                type = exception.GetType().Name,
+                message,
+                type = exceptionType,
                 statusCode,
-                traceId
+                traceId,
+                // ✅ Only include stack trace in development
+                stackTrace = isDevelopment ? exception.StackTrace : null
             }
         };
 
         context.Response.StatusCode = statusCode;
-        await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        }));
     }
 }

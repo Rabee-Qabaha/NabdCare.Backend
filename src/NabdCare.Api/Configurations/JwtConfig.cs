@@ -8,13 +8,22 @@ public static class JwtConfig
 {
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        // Read from environment first, fallback to appsettings.json
-        var key = Environment.GetEnvironmentVariable("JWT_KEY") ?? configuration["Jwt:Key"];
-        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? configuration["Jwt:Issuer"];
-        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? configuration["Jwt:Audience"];
+        // ✅ Read from environment first, fallback to appsettings.json
+        var key = Environment.GetEnvironmentVariable("JWT_KEY") 
+                  ?? configuration["Jwt:Key"];
+        
+        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") 
+                     ?? configuration["Jwt:Issuer"];
+        
+        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") 
+                       ?? configuration["Jwt:Audience"];
 
+        // ✅ P0 FIX: Validate configuration
         if (string.IsNullOrWhiteSpace(key))
             throw new InvalidOperationException("JWT Key is not configured. Set JWT_KEY environment variable or Jwt:Key in appsettings.json.");
+
+        if (key.Length < 32)
+            throw new InvalidOperationException($"JWT Key is too short ({key.Length} chars). Must be at least 32 characters (256 bits).");
 
         if (string.IsNullOrWhiteSpace(issuer))
             throw new InvalidOperationException("JWT Issuer is not configured. Set JWT_ISSUER environment variable or Jwt:Issuer in appsettings.json.");
@@ -39,7 +48,10 @@ public static class JwtConfig
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = issuer,
                 ValidAudience = audience,
-                IssuerSigningKey = signingKey
+                IssuerSigningKey = signingKey,
+                
+                // ✅ P0 FIX: Add clock skew tolerance for time sync issues
+                ClockSkew = TimeSpan.FromMinutes(5)
             };
 
             options.Events = new JwtBearerEvents
@@ -48,7 +60,17 @@ public static class JwtConfig
                 {
                     var logger = context.HttpContext.RequestServices
                         .GetRequiredService<ILogger<JwtBearerEvents>>();
-                    logger.LogError(context.Exception, "❌ JWT authentication failed");
+                    
+                    // ✅ P0 FIX: Add token expiry header
+                    if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                    {
+                        context.Response.Headers.Append("X-Token-Expired", "true");
+                        logger.LogWarning("⚠️ JWT expired for user");
+                    }
+                    else
+                    {
+                        logger.LogError(context.Exception, "❌ JWT authentication failed");
+                    }
 
                     return Task.CompletedTask;
                 },
@@ -57,18 +79,40 @@ public static class JwtConfig
                     var logger = context.HttpContext.RequestServices
                         .GetRequiredService<ILogger<JwtBearerEvents>>();
 
-                    var claims = string.Join(", ", context.Principal.Claims.Select(c => $"{c.Type}={c.Value}"));
+                    var userId = context.Principal?.FindFirst("sub")?.Value ?? "unknown";
+                    var email = context.Principal?.FindFirst("email")?.Value ?? "unknown";
 
-                    logger.LogInformation("✅ JWT validated. Claims: {Claims}", claims);
+                    logger.LogInformation("✅ JWT validated for user {UserId} ({Email})", userId, email);
                     return Task.CompletedTask;
                 },
                 OnChallenge = context =>
                 {
+                    // ✅ P0 FIX: Provide consistent error response
+                    context.HandleResponse();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json";
+                    
+                    var traceId = Guid.NewGuid().ToString("N");
+                    context.Response.Headers.Append("X-Trace-Id", traceId);
+                    
                     var logger = context.HttpContext.RequestServices
                         .GetRequiredService<ILogger<JwtBearerEvents>>();
-                    logger.LogWarning("⚠️ JWT challenge triggered. Error={Error}, Description={ErrorDescription}",
-                        context.Error, context.ErrorDescription);
-                    return Task.CompletedTask;
+                    
+                    logger.LogWarning("⚠️ JWT challenge triggered. Error={Error}, Description={ErrorDescription}, TraceId={TraceId}",
+                        context.Error, context.ErrorDescription, traceId);
+                    
+                    var result = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        error = new
+                        {
+                            message = "Authentication failed. Please login again.",
+                            type = "Unauthorized",
+                            statusCode = 401,
+                            traceId
+                        }
+                    });
+                    
+                    return context.Response.WriteAsync(result);
                 }
             };
         });

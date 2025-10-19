@@ -28,11 +28,21 @@ public class AuthService : IAuthService
             var user = await _authRepository.AuthenticateUserAsync(email, password);
             if (user == null)
             {
-                _logger.LogWarning("Login failed for email {Email}", email);
+                _logger.LogWarning("Login failed from IP {IP}", requestIp);
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
-            var accessToken = _tokenService.GenerateToken(user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId, user.FullName);
+            // ✅ OPTIONAL: Revoke all existing refresh tokens for this user
+            // Might annoy users with multiple devices
+            await _authRepository.RevokeAllUserTokensAsync(user.Id, requestIp, "New login");
+
+            var accessToken = _tokenService.GenerateToken(
+                user.Id.ToString(), 
+                user.Email, 
+                user.Role.ToString(), 
+                user.ClinicId, 
+                user.FullName
+            );
 
             var refreshToken = new RefreshToken
             {
@@ -45,14 +55,18 @@ public class AuthService : IAuthService
             };
 
             await _authRepository.SaveRefreshTokenAsync(user, refreshToken);
-            _logger.LogInformation("User {UserId} logged in successfully", user.Id);
+            _logger.LogInformation("User {UserId} logged in successfully from IP {IP}", user.Id, requestIp);
 
             return (accessToken, refreshToken.Token);
         }
+        catch (UnauthorizedAccessException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Login failed for email {Email}", email);
-            throw;
+            _logger.LogError(ex, "Unexpected error during login from IP {IP}", requestIp);
+            throw new InvalidOperationException("An error occurred during login. Please try again later.");
         }
     }
 
@@ -61,22 +75,33 @@ public class AuthService : IAuthService
         try
         {
             var refreshToken = await _authRepository.GetRefreshTokenIncludingRevokedAsync(refreshTokenValue);
+            
             if (refreshToken == null || refreshToken.ExpiresAt <= DateTime.UtcNow)
+            {
+                _logger.LogWarning("Invalid or expired refresh token from IP {IP}", requestIp);
                 throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
+            }
 
+            // Token reuse detection with family revocation
             if (refreshToken.IsRevoked)
             {
+                _logger.LogWarning("⚠️ Token reuse detected for user {UserId} from IP {IP} - Revoking token family", 
+                    refreshToken.UserId, requestIp);
                 await _authRepository.RevokeTokenFamilyAsync(refreshToken);
-                _logger.LogWarning("Token reuse detected for user {UserId}", refreshToken.UserId);
-                throw new UnauthorizedAccessException("Refresh token has been revoked. Token reuse detected.");
+                throw new UnauthorizedAccessException("Token reuse detected. All tokens have been revoked for security.");
             }
 
             var user = await _authRepository.AuthenticateUserByIdAsync(refreshToken.UserId);
             if (user == null || !user.IsActive)
+            {
+                _logger.LogWarning("Refresh attempted for inactive user {UserId}", refreshToken.UserId);
                 throw new UnauthorizedAccessException("User is not active.");
+            }
 
+            // Revoke old token (rotation)
             await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, requestIp, "Rotated");
 
+            //  Create new token with parent tracking
             var newToken = new RefreshToken
             {
                 UserId = user.Id,
@@ -84,20 +109,34 @@ public class AuthService : IAuthService
                 ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenDays),
                 CreatedAt = DateTime.UtcNow,
                 CreatedByIp = requestIp,
-                IsRevoked = false
+                IsRevoked = false,
+                ReplacedByToken = refreshToken.Token
             };
 
             await _authRepository.SaveRefreshTokenAsync(user, newToken);
 
-            var accessToken = _tokenService.GenerateToken(user.Id.ToString(), user.Email, user.Role.ToString(), user.ClinicId, user.FullName);
-            _logger.LogInformation("Refresh token rotated for user {UserId}", user.Id);
+            var accessToken = _tokenService.GenerateToken(
+                user.Id.ToString(), 
+                user.Email, 
+                user.Role.ToString(), 
+                user.ClinicId, 
+                user.FullName
+            );
+            
+            _logger.LogInformation("Refresh token rotated for user {UserId} from IP {IP}", user.Id, requestIp);
 
             return (accessToken, newToken.Token);
         }
+        catch (UnauthorizedAccessException)
+        {
+            // Re-throw auth exceptions
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Refresh token failed for token {Token}", refreshTokenValue);
-            throw;
+            // Log but throw generic error
+            _logger.LogError(ex, "Unexpected error during token refresh from IP {IP}", requestIp);
+            throw new InvalidOperationException("An error occurred during token refresh. Please login again.");
         }
     }
 
@@ -106,12 +145,12 @@ public class AuthService : IAuthService
         try
         {
             await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, requestIp, "Logout");
-            _logger.LogInformation("Logout successful for token {Token}", refreshTokenValue);
+            _logger.LogInformation("Logout successful from IP {IP}", requestIp);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Logout failed for token {Token}", refreshTokenValue);
-            throw;
+            // Log error but don't throw (logout should always succeed from client perspective)
+            _logger.LogError(ex, "Error during logout from IP {IP} - ignoring", requestIp);
         }
     }
 }

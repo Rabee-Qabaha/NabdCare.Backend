@@ -143,4 +143,22 @@ public class AuthRepository : IAuthRepository
         _dbContext.RefreshTokens.UpdateRange(toRevoke);
         await _dbContext.SaveChangesAsync();
     }
+    
+    public async Task RevokeAllUserTokensAsync(Guid userId, string revokedByIp, string reason)
+    {
+        var tokens = await _dbContext.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .ToListAsync();
+
+        foreach (var token in tokens)
+        {
+            token.IsRevoked = true;
+            token.RevokedAt = DateTime.UtcNow;
+            token.RevokedByIp = revokedByIp;
+            token.ReasonRevoked = reason;
+        }
+
+        _dbContext.RefreshTokens.UpdateRange(tokens);
+        await _dbContext.SaveChangesAsync();
+    }
 }

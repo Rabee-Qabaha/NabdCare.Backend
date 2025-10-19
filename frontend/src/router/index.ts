@@ -8,7 +8,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { clientRoutes } from "./clientRoutes";
 import { superadminRoutes } from "./superadminRoutes";
 import { UserRole } from "@/types/backend";
-import type { AppRouteMeta } from "./router";
+import type { AppRouteMeta } from "../types/router";
 
 const Login = () => import("@/views/pages/auth/Login.vue");
 const AccessDenied = () => import("@/views/pages/auth/Access.vue");

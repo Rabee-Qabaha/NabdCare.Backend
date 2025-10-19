@@ -1,7 +1,7 @@
 // src/router/clientRoutes.ts
 import type { RouteRecordRaw } from "vue-router";
 import { UserRole } from "@/types/backend";
-import type { AppRouteMeta } from "./router";
+import type { AppRouteMeta } from "../types/router";
 
 export const clientRoutes: RouteRecordRaw[] = [
   {

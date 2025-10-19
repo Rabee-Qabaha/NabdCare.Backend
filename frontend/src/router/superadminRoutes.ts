@@ -1,7 +1,7 @@
 // src/router/superadminRoutes.ts
 import type { RouteRecordRaw } from "vue-router";
 import { UserRole } from "@/types/backend";
-import type { AppRouteMeta } from "./router";
+import type { AppRouteMeta } from "../types/router";
 
 export const superadminRoutes: RouteRecordRaw[] = [
   {
