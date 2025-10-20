@@ -15,11 +15,15 @@ public class IdentityPasswordService : IPasswordService
 
     /// <summary>
     /// Hashes the given password using ASP.NET Core Identity's PasswordHasher.
-    /// User is included in case hashing strategy uses per-user data in the future.
     /// </summary>
+    /// <param name="user">The user entity</param>
+    /// <param name="password">Plain text password</param>
+    /// <returns>Hashed password string</returns>
     public string HashPassword(User user, string password)
     {
-        if (user == null) throw new ArgumentNullException(nameof(user));
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
+        
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password cannot be empty.", nameof(password));
 
@@ -27,18 +31,23 @@ public class IdentityPasswordService : IPasswordService
     }
 
     /// <summary>
-    /// Verifies a plaintext password against a stored hashed password.
-    /// Returns true if valid, false otherwise.
+    /// Verifies a plaintext password against the user's stored hashed password.
     /// </summary>
-    public bool VerifyPassword(string password, string hashed)
+    /// <param name="user">The user entity with PasswordHash property</param>
+    /// <param name="password">Plain text password to verify</param>
+    /// <returns>True if password is valid, false otherwise</returns>
+    public bool VerifyPassword(User user, string password)
     {
-        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(hashed))
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
+
+        if (string.IsNullOrWhiteSpace(password))
             return false;
 
-        // We don’t have the actual user instance, so we pass null.
-        // This is safe because PasswordHasher does not require User for verification
-        // unless advanced strategies are configured.
-        var result = _hasher.VerifyHashedPassword(null!, hashed, password);
+        if (string.IsNullOrWhiteSpace(user.PasswordHash))
+            return false;
+
+        var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
         return result != PasswordVerificationResult.Failed;
     }

@@ -1,83 +1,60 @@
-using NabdCare.Application.Common;
-using NabdCare.Domain.Entities.Users;
-using NabdCare.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NabdCare.Application.Interfaces;
+using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Infrastructure.Persistence.DataSeed;
 
-public class PermissionSeeder : ISingleSeeder
+public class PermissionsSeeder : ISingleSeeder
 {
     private readonly NabdCareDbContext _dbContext;
+    private readonly ILogger<PermissionsSeeder> _logger;
 
-    public PermissionSeeder(NabdCareDbContext dbContext)
+    public int Order => 2; // Run after SuperAdminSeeder
+
+    public PermissionsSeeder(
+        NabdCareDbContext dbContext,
+        ILogger<PermissionsSeeder> logger)
     {
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task SeedAsync()
     {
-        // 1. Define all explicit permissions
-        var permissions = new List<AppPermission>
+        _logger.LogInformation("🌱 Seeding permissions...");
+
+        var permissions = new[]
         {
-            new() { Name = "CreateUser", Description = "Create a new user" },
-            new() { Name = "ViewUser", Description = "View a single user" },
-            new() { Name = "ViewUsers", Description = "View all users" },
-            new() { Name = "UpdateUser", Description = "Update user details" },
-            new() { Name = "UpdateUserRole", Description = "Change user's role" },
-            new() { Name = "DeleteUser", Description = "Soft delete a user" }
+            new AppPermission { Name = "ViewUsers", Description = "View users list" },
+            new AppPermission { Name = "CreateUser", Description = "Create new users" },
+            new AppPermission { Name = "UpdateUser", Description = "Update user details" },
+            new AppPermission { Name = "DeleteUser", Description = "Delete users" },
+            new AppPermission { Name = "UpdateUserRole", Description = "Change user roles" },
+            new AppPermission { Name = "ResetPassword", Description = "Reset user passwords" },
+            new AppPermission { Name = "AdminResetPassword", Description = "SuperAdmin password reset" },
+            new AppPermission { Name = "ViewPatients", Description = "View patients list" },
+            new AppPermission { Name = "CreatePatient", Description = "Create new patients" },
+            new AppPermission { Name = "UpdatePatient", Description = "Update patient details" },
+            new AppPermission { Name = "DeletePatient", Description = "Delete patients" },
         };
 
-        foreach (var perm in permissions)
+        foreach (var permission in permissions)
         {
-            var exists = await _dbContext.AppPermissions
+            var exists = await _dbContext.Set<AppPermission>()
                 .IgnoreQueryFilters()
-                .AnyAsync(p => p.Name == perm.Name);
+                .AnyAsync(p => p.Name == permission.Name);
 
             if (!exists)
             {
-                await _dbContext.AppPermissions.AddAsync(perm);
+                permission.Id = Guid.NewGuid();
+                permission.CreatedAt = DateTime.UtcNow;
+                _dbContext.Set<AppPermission>().Add(permission);
+                _logger.LogInformation("   ➕ Added permission: {Name}", permission.Name);
             }
         }
 
         await _dbContext.SaveChangesAsync();
-
-        // 2. Assign permissions to roles
-        var rolePermissions = new Dictionary<UserRole, string[]>
-        {
-            { UserRole.SuperAdmin, permissions.Select(p => p.Name).ToArray() }, 
-            { UserRole.ClinicAdmin, new[] { "CreateUser", "ViewUser", "ViewUsers", "UpdateUser" } },
-            { UserRole.Doctor, Array.Empty<string>() },
-            { UserRole.Nurse, Array.Empty<string>() },
-            { UserRole.Receptionist, Array.Empty<string>() }
-        };
-
-        foreach (var kv in rolePermissions)
-        {
-            var role = kv.Key;
-            foreach (var permName in kv.Value)
-            {
-                var permission = await _dbContext.AppPermissions
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(p => p.Name == permName);
-
-                if (permission == null) continue;
-
-                var existsRp = await _dbContext.RolePermissions
-                    .IgnoreQueryFilters()
-                    .AnyAsync(rp => rp.Role == role && rp.PermissionId == permission.Id);
-
-                if (!existsRp)
-                {
-                    await _dbContext.RolePermissions.AddAsync(new RolePermission
-                    {
-                        Role = role,
-                        PermissionId = permission.Id
-                    });
-                }
-            }
-        }
-
-        await _dbContext.SaveChangesAsync();
+        _logger.LogInformation("✅ Permissions seeded successfully.");
     }
 }

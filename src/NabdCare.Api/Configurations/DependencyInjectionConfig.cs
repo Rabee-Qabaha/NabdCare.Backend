@@ -14,8 +14,6 @@ using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Services.Clinics;
 using NabdCare.Application.Services.Permissions;
 using NabdCare.Application.Services.Users;
-using NabdCare.Application.Validator.Clinics.Subscriptions;
-using NabdCare.Application.Validator.clinics;
 using NabdCare.Application.Validator.Users;
 using NabdCare.Infrastructure.Persistence;
 using NabdCare.Infrastructure.Persistence.DataSeed;
@@ -34,7 +32,7 @@ public static class DependencyInjectionConfig
         services.AddDbContext<NabdCareDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
         );
-        
+
         // HttpContextAccessor
         services.AddHttpContextAccessor();
 
@@ -66,15 +64,14 @@ public static class DependencyInjectionConfig
 
         // AutoMapper
         services.AddAutoMapper(_ => { }, typeof(UserProfile), typeof(ClinicProfile), typeof(PermissionProfile), typeof(SubscriptionProfile));
-        
+
         // FluentValidation
         services.AddValidatorsFromAssemblyContaining<UserValidator>();
 
-        // Seeder
+        // Seeder registrations - only SuperAdmin + Permissions as requested
         services.AddScoped<DbSeeder>();
         services.AddScoped<ISingleSeeder, SuperAdminSeeder>();
-        services.AddScoped<ISingleSeeder, PermissionSeeder>();
-        services.AddHostedService<DbSeedHostedService>();
+        services.AddScoped<ISingleSeeder, PermissionsSeeder>();
 
         return services;
     }

@@ -23,13 +23,31 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetUserByIdAsync(Guid userId)
     {
-        return await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        return await _dbContext.Users
+            .Include(u => u.Clinic) // ✅ Include clinic for ClinicName in response
+            .FirstOrDefaultAsync(u => u.Id == userId);
+    }
+
+    // ✅ NEW: Get user by email
+    public async Task<User?> GetUserByEmailAsync(string email)
+    {
+        return await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email == email.ToLower());
     }
 
     public async Task<IEnumerable<User>> GetUsersByClinicIdAsync(Guid? clinicId)
     {
-        return await _dbContext.Users
-            .Where(u => !clinicId.HasValue || u.ClinicId == clinicId)
+        var query = _dbContext.Users
+            .Include(u => u.Clinic) // ✅ Include clinic
+            .AsQueryable();
+
+        if (clinicId.HasValue)
+        {
+            query = query.Where(u => u.ClinicId == clinicId.Value);
+        }
+
+        return await query
+            .OrderBy(u => u.FullName)
             .ToListAsync();
     }
 
@@ -56,10 +74,10 @@ public class UserRepository : IUserRepository
         if (user == null) return false;
 
         user.IsDeleted = true;
+        user.DeletedAt = DateTime.UtcNow;
 
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
         return true;
     }
-
 }

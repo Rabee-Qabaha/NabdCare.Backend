@@ -8,7 +8,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=nabdcare_db;Username=postgres;Password=${POSTGRES_PASSWORD}
-      JWT_KEY: "${JWT_SECRET}"
+      JWT_KEY: "${JWT_KEY}"
       JWT_ISSUER: "NabdCareIssuer"
       JWT_AUDIENCE: "NabdCareAudience"
       JWT_EXPIREMINUTES: "60"

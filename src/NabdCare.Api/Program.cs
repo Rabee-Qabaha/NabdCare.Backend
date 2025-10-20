@@ -5,26 +5,24 @@ using NabdCare.Api.Extensions;
 using NabdCare.Api.Middleware;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 
-// Load .env file at the very start
 DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --------------------
 // Bind configurations
-// --------------------
 builder.Services.Configure<FrontendSettings>(builder.Configuration);
 
-// --------------------
-// Add services
-// --------------------
+// Add services and application wiring (repositories, services, AutoMapper, validators, seeders)
+builder.Services.AddNabdCareServices(builder.Configuration);
+
+// Controllers + JSON enum strings
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// ✅ P0 FIX: Configure automatic model validation responses
+// Centralized model validation response
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -51,16 +49,12 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 
+// Authentication, rate limiting, swagger etc. (extension methods used in your project)
 builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddNabdCareServices(builder.Configuration);
-
-// ✅ P0 FIX: Add Rate Limiting (extracted to extension method)
 builder.Services.AddRateLimiting(builder.Configuration);
-
-// Swagger
 SwaggerConfig.AddSwagger(builder.Services);
 
-// 🔹 Configure CORS dynamically
+// CORS
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
@@ -72,14 +66,13 @@ builder.Services.AddCors(options =>
     );
 });
 
-// DB Seed background service
+// Register the DB seed hosted service once (single registration)
+// This will create a scope and run the DbSeeder during startup.
 builder.Services.AddHostedService<DbSeedHostedService>();
 
 var app = builder.Build();
 
-// --------------------
-// Middleware Pipeline
-// --------------------
+// Middleware pipeline
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
 if (!app.Environment.IsDevelopment())
@@ -87,24 +80,18 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-// ✅ P0 FIX: Enable rate limiting
 app.UseRateLimiter();
-
 app.UseSecurityHeaders();
 app.UseCors("AllowFrontend");
+
 app.UseAuthentication();
-app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
 
-// --------------------
-// API Grouping
-// --------------------
+// Map API groups
 var api = app.MapGroup("/api");
 api.MapAllEndpoints();
 
-// --------------------
 // Swagger
-// --------------------
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {

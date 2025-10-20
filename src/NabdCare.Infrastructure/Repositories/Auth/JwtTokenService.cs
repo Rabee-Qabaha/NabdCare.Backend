@@ -72,7 +72,7 @@ public class JwtTokenService : ITokenService
             issuer: issuer,
             audience: audience,
             claims: claims,
-            notBefore: DateTime.UtcNow, // ✅ Token valid from now
+            notBefore: DateTime.UtcNow,
             expires: DateTime.UtcNow.AddMinutes(expireMinutes),
             signingCredentials: creds
         );
@@ -94,7 +94,7 @@ public class JwtTokenService : ITokenService
             throw new InvalidOperationException("JWT Key not configured");
         }
 
-        // ✅ P0 FIX: Validate key strength
+        // Validate key strength
         if (key.Length < 32)
         {
             _logger.LogCritical("❌ JWT Key is too short ({Length} chars). Must be at least 32 characters (256 bits)", key.Length);

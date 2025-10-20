@@ -11,7 +11,9 @@ public static class UserEndpoints
 {
     public static void MapUserEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/users").WithTags("Users");
+        var group = app.MapGroup("/api/users")
+            .WithTags("Users")
+            .RequireRateLimiting("fixed"); // ✅ Apply rate limiting
 
         // ✅ Create a new user
         group.MapPost("/", async (
@@ -23,8 +25,19 @@ public static class UserEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            var user = await userService.CreateUserAsync(dto);
-            return Results.Created($"/api/users/{user.Id}", user);
+            try
+            {
+                var user = await userService.CreateUserAsync(dto);
+                return Results.Created($"/api/users/{user.Id}", user);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { Error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
         })
         .RequirePermission("CreateUser")
         .WithSummary("Create a new user in the current clinic (SuperAdmin can specify ClinicId)");
@@ -35,7 +48,7 @@ public static class UserEndpoints
             [FromServices] IUserService userService) =>
         {
             var user = await userService.GetUserByIdAsync(id);
-            return user is not null ? Results.Ok(user) : Results.NotFound($"User with ID {id} not found.");
+            return user is not null ? Results.Ok(user) : Results.NotFound(new { Error = $"User {id} not found" });
         })
         .RequireAuthorization()
         .WithSummary("Get user by ID (auto filtered by global filter)");
@@ -43,14 +56,13 @@ public static class UserEndpoints
         // ✅ Get all users (auto filtered by global filter)
         group.MapGet("/", async ([FromServices] IUserService userService) =>
         {
-            // Global filters in DbContext handle clinic + soft-delete
             var users = await userService.GetUsersByClinicIdAsync(null);
             return Results.Ok(users);
         })
         .RequirePermission("ViewUsers")
-        .WithSummary("Get all users (SuperAdmin sees all, ClinicAdmin sees clinic’s users)");
+        .WithSummary("Get all users (SuperAdmin sees all, ClinicAdmin sees clinic's users)");
 
-        // ✅ Optional: SuperAdmin only - View specific clinic users
+        // ✅ SuperAdmin only - View specific clinic users
         group.MapGet("/clinic/{clinicId:guid}", async (
             Guid clinicId,
             [FromServices] IUserService userService,
@@ -76,8 +88,17 @@ public static class UserEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            var updatedUser = await userService.UpdateUserAsync(id, dto);
-            return updatedUser is not null ? Results.Ok(updatedUser) : Results.NotFound($"User {id} not found");
+            try
+            {
+                var updatedUser = await userService.UpdateUserAsync(id, dto);
+                return updatedUser is not null 
+                    ? Results.Ok(updatedUser) 
+                    : Results.NotFound(new { Error = $"User {id} not found" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
         })
         .RequirePermission("UpdateUser")
         .WithSummary("Update user details (SuperAdmin or clinic-level user)");
@@ -93,24 +114,46 @@ public static class UserEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            var updatedUser = await userService.UpdateUserRoleAsync(id, dto.Role);
-            return updatedUser is not null ? Results.Ok(updatedUser) : Results.NotFound($"User {id} not found");
+            try
+            {
+                var updatedUser = await userService.UpdateUserRoleAsync(id, dto.Role);
+                return updatedUser is not null 
+                    ? Results.Ok(updatedUser) 
+                    : Results.NotFound(new { Error = $"User {id} not found" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
         })
         .RequirePermission("UpdateUserRole")
-        .WithSummary("Update a user’s role (SuperAdmin or clinic admin)");
+        .WithSummary("Update a user's role (SuperAdmin or clinic admin)");
 
         // ✅ Soft delete user
         group.MapDelete("/{id:guid}", async (
             Guid id,
             [FromServices] IUserService userService) =>
         {
-            var success = await userService.SoftDeleteUserAsync(id);
-            return success ? Results.Ok($"User {id} soft deleted.") : Results.NotFound($"User {id} not found.");
+            try
+            {
+                var success = await userService.SoftDeleteUserAsync(id);
+                return success 
+                    ? Results.Ok(new { Message = $"User {id} soft deleted successfully" }) 
+                    : Results.NotFound(new { Error = $"User {id} not found" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { Error = ex.Message });
+            }
         })
         .RequirePermission("DeleteUser")
         .WithSummary("Soft delete a user");
 
-        // ✅ Change password (self)
+        // ✅ Change password (self) - Rate limited
         group.MapPost("/{id:guid}/change-password", async (
             Guid id,
             [FromBody] ChangePasswordRequestDto dto,
@@ -121,13 +164,25 @@ public static class UserEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            var updated = await userService.ChangePasswordAsync(id, dto);
-            return Results.Ok(updated);
+            try
+            {
+                var updated = await userService.ChangePasswordAsync(id, dto);
+                return Results.Ok(new { Message = "Password changed successfully", User = updated });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { Error = ex.Message });
+            }
+            catch (UnauthorizedAccessException )
+            {
+                return Results.Unauthorized();
+            }
         })
         .RequireAuthorization()
+        .RequireRateLimiting("sliding") // ✅ Stricter rate limiting for password operations
         .WithSummary("User changes their own password");
 
-        // ✅ Reset password (clinic admin only)
+        // ✅ Reset password (clinic admin only) - Rate limited
         group.MapPost("/{id:guid}/reset-password", async (
             Guid id,
             [FromBody] ResetPasswordRequestDto dto,
@@ -138,13 +193,25 @@ public static class UserEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            var updated = await userService.ResetPasswordAsync(id, dto);
-            return Results.Ok(updated);
+            try
+            {
+                var updated = await userService.ResetPasswordAsync(id, dto);
+                return Results.Ok(new { Message = "Password reset successfully", User = updated });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { Error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
         })
         .RequirePermission("ResetPassword")
+        .RequireRateLimiting("sliding")
         .WithSummary("ClinicAdmin resets password for users in their clinic");
 
-        // ✅ Admin reset password (super admin only)
+        // ✅ Admin reset password (super admin only) - Rate limited
         group.MapPost("/{id:guid}/admin-reset-password", async (
             Guid id,
             [FromBody] ResetPasswordRequestDto dto,
@@ -155,10 +222,22 @@ public static class UserEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            var updated = await userService.AdminResetPasswordAsync(id, dto);
-            return Results.Ok(updated);
+            try
+            {
+                var updated = await userService.AdminResetPasswordAsync(id, dto);
+                return Results.Ok(new { Message = "Password reset successfully by SuperAdmin", User = updated });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { Error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
         })
         .RequirePermission("AdminResetPassword")
-        .WithSummary("SuperAdmin resets any user’s password (any clinic)");
+        .RequireRateLimiting("sliding")
+        .WithSummary("SuperAdmin resets any user's password (any clinic)");
     }
 }

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using NabdCare.Application.Common;
+using Microsoft.Extensions.Logging;
 using NabdCare.Application.Interfaces;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Enums;
@@ -10,52 +10,59 @@ public class SuperAdminSeeder : ISingleSeeder
 {
     private readonly NabdCareDbContext _dbContext;
     private readonly IPasswordService _passwordService;
-    private readonly ITenantContext _tenantContext;
+    private readonly ILogger<SuperAdminSeeder> _logger;
+
+    // ✅ Add Order property
+    public int Order => 1; // Run first
 
     public SuperAdminSeeder(
         NabdCareDbContext dbContext,
         IPasswordService passwordService,
-        ITenantContext tenantContext
+        ILogger<SuperAdminSeeder> logger
     )
     {
         _dbContext = dbContext;
         _passwordService = passwordService;
-        _tenantContext = tenantContext;
+        _logger = logger;
     }
 
     public async Task SeedAsync()
     {
-        // Temporarily elevate tenant context
-        var prevSuper = _tenantContext.IsSuperAdmin;
-        _tenantContext.IsSuperAdmin = true;
+        _logger.LogInformation("🌱 Seeding SuperAdmin user...");
 
-        try
+        // Check if SuperAdmin already exists
+        var exists = await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(u => u.Email == "sadmin@nabd.care");
+
+        if (exists)
         {
-            var exists = await _dbContext.Users
-                .IgnoreQueryFilters()
-                .AnyAsync(u => u.Role == UserRole.SuperAdmin && u.IsActive);
-
-            if (!exists)
-            {
-                // Create a new User object first
-                var superAdmin = new User
-                {
-                    Email = "sadmin@nabd.care",
-                    FullName = "Super Admin",
-                    Role = UserRole.SuperAdmin,
-                    IsActive = true
-                };
-
-                // Hash the password using the user instance
-                superAdmin.PasswordHash = _passwordService.HashPassword(superAdmin, "Admin@123!");
-
-                _dbContext.Users.Add(superAdmin);
-                await _dbContext.SaveChangesAsync();
-            }
+            _logger.LogInformation("✅ SuperAdmin user already exists, skipping seed.");
+            return;
         }
-        finally
+
+        // Create SuperAdmin user
+        var superAdmin = new User
         {
-            _tenantContext.IsSuperAdmin = prevSuper;
-        }
+            Id = Guid.NewGuid(),
+            Email = "sadmin@nabd.care",
+            FullName = "Super Admin",
+            Role = UserRole.SuperAdmin,
+            IsActive = true,
+            ClinicId = null, // SuperAdmin doesn't belong to a clinic
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        // Hash the password
+        superAdmin.PasswordHash = _passwordService.HashPassword(superAdmin, "Admin@123!");
+
+        _dbContext.Users.Add(superAdmin);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("✅ SuperAdmin created successfully: {Email}", superAdmin.Email);
+        _logger.LogWarning("⚠️  IMPORTANT: Change default password immediately!");
+        _logger.LogInformation("   Email: {Email}", superAdmin.Email);
+        _logger.LogInformation("   Password: Admin@123!");
     }
 }

@@ -17,25 +17,40 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<NabdCareDb
             .AddEnvironmentVariables()
             .Build();
 
-        // Get the connection string (replace "DefaultConnection" with your actual name)
+        // Get the connection string
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         var optionsBuilder = new DbContextOptionsBuilder<NabdCareDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
 
-        // Use dummy TenantContext and UserContext for design-time purposes
-        var tenantContext = new TenantContext();
-        var userContext = new DummyUserContext();
+        // ✅ Use dummy implementations for design-time purposes
+        var tenantContext = new DesignTimeTenantContext();
+        var userContext = new DesignTimeUserContext();
 
         return new NabdCareDbContext(optionsBuilder.Options, tenantContext, userContext);
     }
 }
 
-// Dummy implementation of IUserContext for design-time operations
-public class DummyUserContext : IUserContext
+/// <summary>
+/// Dummy TenantContext implementation for EF Core design-time operations (migrations)
+/// </summary>
+public class DesignTimeTenantContext : ITenantContext
+{
+    public Guid? ClinicId => null;
+    public Guid? UserId => null;
+    public string? UserEmail => "system@nabdcare.local";
+    public bool IsSuperAdmin => true; // Allow all operations during migrations
+    public string? UserRole => "SuperAdmin";
+    public bool IsAuthenticated => false;
+}
+
+/// <summary>
+/// Dummy UserContext implementation for EF Core design-time operations (migrations)
+/// </summary>
+public class DesignTimeUserContext : IUserContext
 {
     public string GetCurrentUserId()
     {
-        return "System"; // Return a default user ID for design-time purposes
+        return "System";
     }
 }
