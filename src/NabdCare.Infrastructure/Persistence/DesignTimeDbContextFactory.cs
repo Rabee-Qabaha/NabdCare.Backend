@@ -53,4 +53,9 @@ public class DesignTimeUserContext : IUserContext
     {
         return "System";
     }
+
+    public string? GetCurrentUserRoleId()
+    {
+        return null; // No role ID during design-time/migrations
+    }
 }

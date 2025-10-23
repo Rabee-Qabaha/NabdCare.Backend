@@ -26,6 +26,12 @@ public class ChequePaymentDetailConfiguration : IEntityTypeConfiguration<ChequeP
         builder.Property(cd => cd.Amount)
             .HasPrecision(18, 2);
 
+        builder.HasOne(cd => cd.Payment)
+            .WithOne(p => p.ChequeDetail)
+            .HasForeignKey<ChequePaymentDetail>(cd => cd.PaymentId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired(false);
+
         // Indexes
         builder.HasIndex(cd => cd.ChequeNumber).IsUnique();
         builder.HasIndex(cd => cd.Status);

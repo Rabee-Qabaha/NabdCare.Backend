@@ -6,6 +6,7 @@ using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Application.Interfaces.Clinics.Subscriptions;
 using NabdCare.Application.Interfaces.Permissions;
+using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Application.mappings;
 using NabdCare.Application.Mappings;
@@ -13,6 +14,7 @@ using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Services.Clinics;
 using NabdCare.Application.Services.Permissions;
+using NabdCare.Application.Services.Roles;
 using NabdCare.Application.Services.Users;
 using NabdCare.Application.Validator.Users;
 using NabdCare.Infrastructure.Persistence;
@@ -20,6 +22,7 @@ using NabdCare.Infrastructure.Persistence.DataSeed;
 using NabdCare.Infrastructure.Repositories.Auth;
 using NabdCare.Infrastructure.Repositories.Clinics;
 using NabdCare.Infrastructure.Repositories.Permissions;
+using NabdCare.Infrastructure.Repositories.Roles;
 using NabdCare.Infrastructure.Repositories.Users;
 
 namespace NabdCare.Api.Configurations;
@@ -53,7 +56,14 @@ public static class DependencyInjectionConfig
         // Permission services
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IPermissionService, PermissionService>();
-
+        
+        // ✅ ADD THESE TWO LINES - Role services
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IRoleService, RoleService>();
+        
+        // Role repository (already exists, keep it)
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        
         // Clinic services
         services.AddScoped<IClinicRepository, ClinicRepository>();
         services.AddScoped<IClinicService, ClinicService>();
@@ -62,16 +72,23 @@ public static class DependencyInjectionConfig
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
-        // AutoMapper
-        services.AddAutoMapper(_ => { }, typeof(UserProfile), typeof(ClinicProfile), typeof(PermissionProfile), typeof(SubscriptionProfile));
+        // AutoMapper - ✅ ADD RoleProfile
+        services.AddAutoMapper(_ => { }, 
+            typeof(UserProfile), 
+            typeof(ClinicProfile), 
+            typeof(PermissionProfile), 
+            typeof(SubscriptionProfile),
+            typeof(RoleProfile));  // ✅ ADD THIS
 
-        // FluentValidation
+        // FluentValidation - ✅ This will automatically find Role validators
         services.AddValidatorsFromAssemblyContaining<UserValidator>();
 
-        // Seeder registrations - only SuperAdmin + Permissions as requested
+        // Seeder registrations
         services.AddScoped<DbSeeder>();
-        services.AddScoped<ISingleSeeder, SuperAdminSeeder>();
-        services.AddScoped<ISingleSeeder, PermissionsSeeder>();
+        services.AddScoped<ISingleSeeder, RolesSeeder>();           // Order 1 - Create roles first
+        services.AddScoped<ISingleSeeder, PermissionsSeeder>();     // Order 2 - Create permissions
+        services.AddScoped<ISingleSeeder, RolePermissionsSeeder>(); // Order 3 - Assign permissions to roles
+        services.AddScoped<ISingleSeeder, SuperAdminSeeder>();      // Order 4 - Create SuperAdmin user
 
         return services;
     }

@@ -30,12 +30,21 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(u => u.ClinicId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // ⚠️ NEW: Role relationship
+        builder.HasOne(u => u.Role)
+            .WithMany(r => r.Users)
+            .HasForeignKey(u => u.RoleId)
+            .OnDelete(DeleteBehavior.Restrict); // Cannot delete role with assigned users
+
         builder.HasMany(u => u.Permissions)
             .WithOne(up => up.User)
-            .HasForeignKey(up => up.UserId);
+            .HasForeignKey(up => up.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
         builder.HasIndex(u => u.Email).IsUnique();
         builder.HasIndex(u => u.FullName);
+        builder.HasIndex(u => u.RoleId); // ⚠️ NEW: Index for role lookups
+        builder.HasIndex(u => u.ClinicId);
     }
 }

@@ -25,15 +25,11 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.Property(s => s.Status)
             .IsRequired();
 
+        // Clinic relationship
         builder.HasOne(s => s.Clinic)
-            .WithMany()
+            .WithMany(c => c.Subscriptions)
             .HasForeignKey(s => s.ClinicId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasMany(s => s.Payments)
-            .WithOne()
-            .HasForeignKey(p => p.ClinicId);
-
 
         // Indexes
         builder.HasIndex(s => s.ClinicId);

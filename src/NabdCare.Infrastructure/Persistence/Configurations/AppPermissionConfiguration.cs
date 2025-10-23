@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// Infrastructure/Persistence/Configurations/AppPermissionConfiguration.cs
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using NabdCare.Domain.Entities.Users;
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Infrastructure.Persistence.Configurations;
 
@@ -14,12 +15,13 @@ public class AppPermissionConfiguration : IEntityTypeConfiguration<AppPermission
 
         builder.Property(p => p.Name)
             .IsRequired()
-            .HasMaxLength(30);
+            .HasMaxLength(100); 
 
         builder.Property(p => p.Description)
-            .HasMaxLength(255);
+            .HasMaxLength(500); 
 
-        // Index
-        builder.HasIndex(p => p.Name).IsUnique();
+        // Indexes
+        builder.HasIndex(p => p.Name)
+            .IsUnique();
     }
 }

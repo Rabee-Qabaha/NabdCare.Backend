@@ -7,7 +7,7 @@ public class UpdateUserRoleDtoValidator : AbstractValidator<UpdateUserRoleDto>
 {
     public UpdateUserRoleDtoValidator()
     {
-        RuleFor(x => x.Role)
+        RuleFor(x => x.RoleId)
             .IsInEnum().WithMessage("Invalid role specified.");
     }
 }

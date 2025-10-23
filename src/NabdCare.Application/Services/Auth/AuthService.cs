@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
-using NabdCare.Domain.Entities.Users;
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Auth;
 
@@ -36,11 +36,12 @@ public class AuthService : IAuthService
             // Might annoy users with multiple devices
             await _authRepository.RevokeAllUserTokensAsync(user.Id, requestIp, "New login");
 
-            var accessToken = _tokenService.GenerateToken(
-                user.Id.ToString(), 
-                user.Email, 
-                user.Role.ToString(), 
-                user.ClinicId, 
+            var token = _tokenService.GenerateToken(
+                user.Id.ToString(),
+                user.Email,
+                user.Role.Name,
+                user.Role.Id,
+                user.ClinicId,
                 user.FullName
             );
 
@@ -57,7 +58,7 @@ public class AuthService : IAuthService
             await _authRepository.SaveRefreshTokenAsync(user, refreshToken);
             _logger.LogInformation("User {UserId} logged in successfully from IP {IP}", user.Id, requestIp);
 
-            return (accessToken, refreshToken.Token);
+            return (token, refreshToken.Token);
         }
         catch (UnauthorizedAccessException)
         {
@@ -115,17 +116,18 @@ public class AuthService : IAuthService
 
             await _authRepository.SaveRefreshTokenAsync(user, newToken);
 
-            var accessToken = _tokenService.GenerateToken(
-                user.Id.ToString(), 
-                user.Email, 
-                user.Role.ToString(), 
-                user.ClinicId, 
+            var token = _tokenService.GenerateToken(
+                user.Id.ToString(),
+                user.Email,
+                user.Role.Name,
+                user.Role.Id,
+                user.ClinicId,
                 user.FullName
             );
             
             _logger.LogInformation("Refresh token rotated for user {UserId} from IP {IP}", user.Id, requestIp);
 
-            return (accessToken, newToken.Token);
+            return (token, newToken.Token);
         }
         catch (UnauthorizedAccessException)
         {

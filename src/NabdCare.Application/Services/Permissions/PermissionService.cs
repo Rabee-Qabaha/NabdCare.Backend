@@ -1,28 +1,28 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
-using NabdCare.Application.Interfaces.Users;
-using NabdCare.Domain.Entities.Users;
-using NabdCare.Domain.Enums;
+using NabdCare.Application.Interfaces.Roles;
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Permissions;
 
 public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
-    private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<PermissionService> _logger;
 
     public PermissionService(
         IPermissionRepository permissionRepository,
-        IUserRepository userRepository,
+        IRoleRepository roleRepository, // ✅ Inject role repository
         IMapper mapper,
         ILogger<PermissionService> logger)
     {
         _permissionRepository = permissionRepository;
-        _userRepository = userRepository;
+        _roleRepository = roleRepository;
         _mapper = mapper;
         _logger = logger;
     }
@@ -107,34 +107,38 @@ public class PermissionService : IPermissionService
 
     #region Role/User Permission Management
 
-    public async Task<bool> AssignPermissionToRoleAsync(UserRole role, Guid permissionId)
+    public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
-        if (!Enum.IsDefined(typeof(UserRole), role))
-            throw new ArgumentException("Invalid role.", nameof(role));
-
         try
         {
-            return await _permissionRepository.AssignPermissionToRoleAsync(role, permissionId);
+            // ✅ Validate role exists
+            var role = await _roleRepository.GetRoleByIdAsync(roleId);
+            if (role == null)
+                throw new KeyNotFoundException($"Role {roleId} not found.");
+
+            return await _permissionRepository.AssignPermissionToRoleAsync(roleId, permissionId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to assign permission {PermissionId} to role {Role}.", permissionId, role);
+            _logger.LogError(ex, "Failed to assign permission {PermissionId} to role {RoleId}.", permissionId, roleId);
             throw new InvalidOperationException($"Failed to assign permission to role.", ex);
         }
     }
 
-    public async Task<bool> RemovePermissionFromRoleAsync(UserRole role, Guid permissionId)
+    public async Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
     {
-        if (!Enum.IsDefined(typeof(UserRole), role))
-            throw new ArgumentException("Invalid role.", nameof(role));
-
         try
         {
-            return await _permissionRepository.RemovePermissionFromRoleAsync(role, permissionId);
+            // ✅ Validate role exists
+            var role = await _roleRepository.GetRoleByIdAsync(roleId);
+            if (role == null)
+                throw new KeyNotFoundException($"Role {roleId} not found.");
+
+            return await _permissionRepository.RemovePermissionFromRoleAsync(roleId, permissionId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to remove permission {PermissionId} from role {Role}.", permissionId, role);
+            _logger.LogError(ex, "Failed to remove permission {PermissionId} from role {RoleId}.", permissionId, roleId);
             throw new InvalidOperationException($"Failed to remove permission from role.", ex);
         }
     }
@@ -143,15 +147,27 @@ public class PermissionService : IPermissionService
     {
         try
         {
-            var user = await _userRepository.GetUserByIdAsync(userId)
-                       ?? throw new KeyNotFoundException($"User {userId} not found.");
-
             return await _permissionRepository.AssignPermissionToUserAsync(userId, permissionId);
         }
-        catch (Exception ex)
+        catch (DbUpdateException ex)
         {
-            _logger.LogError(ex, "Failed to assign permission {PermissionId} to user {UserId}.", permissionId, userId);
-            throw new InvalidOperationException($"Failed to assign permission to user.", ex);
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+        
+            // Check for foreign key violations
+            if (errorMessage.Contains("Users") && errorMessage.Contains("foreign key"))
+            {
+                _logger.LogWarning("User {UserId} not found when assigning permission.", userId);
+                throw new KeyNotFoundException($"User with ID {userId} does not exist.");
+            }
+        
+            if (errorMessage.Contains("Permissions") && errorMessage.Contains("foreign key"))
+            {
+                _logger.LogWarning("Permission {PermissionId} not found.", permissionId);
+                throw new KeyNotFoundException($"Permission with ID {permissionId} does not exist.");
+            }
+        
+            _logger.LogError(ex, "Database error assigning permission {PermissionId} to user {UserId}.", permissionId, userId);
+            throw new InvalidOperationException("Failed to assign permission to user.", ex);
         }
     }
 
@@ -164,19 +180,31 @@ public class PermissionService : IPermissionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to remove permission {PermissionId} from user {UserId}.", permissionId, userId);
-            throw new InvalidOperationException($"Failed to remove permission from user.", ex);
+            throw new InvalidOperationException("Failed to remove permission from user.", ex);
         }
+    }
+    
+    public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByRoleAsync(Guid roleId)
+    {
+        var permissions = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
+        return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
+    }
+
+    public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByUserAsync(Guid userId)
+    {
+        var permissions = await _permissionRepository.GetPermissionsByUserAsync(userId);
+        return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
     }
 
     #endregion
 
     #region Effective Permissions
 
-    public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, UserRole role)
+    public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, Guid roleId)
     {
         try
         {
-            var rolePerms = await _permissionRepository.GetPermissionsByRoleAsync(role);
+            var rolePerms = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
             var userPerms = await _permissionRepository.GetPermissionsByUserAsync(userId);
 
             var combined = rolePerms.Concat(userPerms)
@@ -192,12 +220,12 @@ public class PermissionService : IPermissionService
         }
     }
 
-    public async Task<bool> UserHasPermissionAsync(Guid userId, UserRole role, string permissionName)
+    public async Task<bool> UserHasPermissionAsync(Guid userId, Guid roleId, string permissionName)
     {
         if (string.IsNullOrWhiteSpace(permissionName))
             throw new ArgumentException("Permission name is required.", nameof(permissionName));
 
-        var effective = await GetUserEffectivePermissionsAsync(userId, role);
+        var effective = await GetUserEffectivePermissionsAsync(userId, roleId);
         return effective.Any(p => p.Name.Equals(permissionName, StringComparison.OrdinalIgnoreCase));
     }
 

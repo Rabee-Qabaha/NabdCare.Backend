@@ -1,3 +1,4 @@
+using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Application.Interfaces.Auth;

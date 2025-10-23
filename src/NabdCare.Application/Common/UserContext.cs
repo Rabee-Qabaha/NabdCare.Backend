@@ -14,7 +14,13 @@ public class UserContext : IUserContext
 
     public string GetCurrentUserId()
     {
-        var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return userId ?? "System"; // Default to "System" if no user is authenticated
+        return _httpContextAccessor.HttpContext?.User
+            .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+    }
+
+    public string? GetCurrentUserRoleId()
+    {
+        return _httpContextAccessor.HttpContext?.User
+            .FindFirst("RoleId")?.Value;
     }
 }

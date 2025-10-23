@@ -5,7 +5,7 @@ namespace NabdCare.Domain.Enums;
 [ExportTsEnum]
 public enum SubscriptionType
 {
-    Yearly,
-    Monthly,
-    Trial
+    Monthly = 0,
+    Yearly = 1,
+    Lifetime = 2
 }

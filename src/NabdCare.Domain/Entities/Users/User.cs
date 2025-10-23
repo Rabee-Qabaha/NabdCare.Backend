@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Entities.Clinics;
-using NabdCare.Domain.Enums;
+using NabdCare.Domain.Entities.Permissions;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Domain.Entities.Users;
@@ -27,7 +27,9 @@ public class User : BaseEntity
     public string FullName { get; set; } = string.Empty;
 
     [Required]
-    public UserRole Role { get; set; }
+    public Guid RoleId { get; set; }
+    [ForeignKey(nameof(RoleId))]
+    public Role Role { get; set; } = null!;
 
     [Required]
     public bool IsActive { get; set; } = true;

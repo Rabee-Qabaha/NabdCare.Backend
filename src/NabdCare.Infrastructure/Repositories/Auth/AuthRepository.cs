@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
+using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Users;
-using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Auth;
@@ -10,31 +10,33 @@ namespace NabdCare.Infrastructure.Repositories.Auth;
 public class AuthRepository : IAuthRepository
 {
     private readonly NabdCareDbContext _dbContext;
-    private readonly IPasswordService _passwordService;  // assuming you have abstracted
+    private readonly IPasswordService _passwordService;
 
     public AuthRepository(NabdCareDbContext dbContext, IPasswordService passwordService)
     {
         _dbContext = dbContext;
         _passwordService = passwordService;
     }
+
     public async Task<User?> AuthenticateUserAsync(string email, string password)
     {
         // Normalize the email
         email = email.Trim().ToLower();
 
-        // Fetch user by email (ignore query filters for system-level users)
+        // ✅ FIXED: Include Role when fetching user
         var user = await _dbContext.Users
+            .Include(u => u.Role) // Load role relationship
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
 
         if (user == null)
             return null;
 
-        // Allow SuperAdmin login even if inactive, otherwise require active
-        if (!user.IsActive && user.Role != UserRole.SuperAdmin)
+        // ✅ FIXED: Allow SuperAdmin login even if inactive, otherwise require active
+        if (!user.IsActive && user.Role.Name != "SuperAdmin")
             return null;
 
-        // Validate password: PASS THE PLAINTEXT password PARAMETER here
+        // Validate password
         if (!_passwordService.VerifyPassword(user, password))
             return null;
 
@@ -43,7 +45,9 @@ public class AuthRepository : IAuthRepository
     
     public async Task<User?> AuthenticateUserByIdAsync(Guid userId)
     {
+        // ✅ FIXED: Include Role when fetching user
         return await _dbContext.Users
+            .Include(u => u.Role)
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
     }
@@ -68,7 +72,6 @@ public class AuthRepository : IAuthRepository
             .FirstOrDefaultAsync(rt => rt.Token == token && !rt.IsRevoked && rt.ExpiresAt > DateTime.UtcNow);
     }
 
-    // New method: get including revoked
     public async Task<RefreshToken?> GetRefreshTokenIncludingRevokedAsync(string token)
     {
         return await _dbContext.RefreshTokens
@@ -94,14 +97,11 @@ public class AuthRepository : IAuthRepository
 
     public async Task RevokeTokenFamilyAsync(RefreshToken token)
     {
-        // Revoke this token and all tokens in its "family" i.e. those that were replaced by it or descendants
-        // Simple approach: tokens that have this token in their ReplacedByToken chain
         var toRevoke = await _dbContext.RefreshTokens
             .Where(rt =>
                 rt.UserId == token.UserId &&
                 (rt.Token == token.Token ||
                     rt.ReplacedByToken == token.Token ||
-                    // optionally more complex chain via multiple levels
                     false
                 ) &&
                 !rt.IsRevoked)

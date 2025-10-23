@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Interfaces.Permissions;
-using NabdCare.Domain.Entities.Users;
-using NabdCare.Domain.Enums;
+using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Permissions;
@@ -57,23 +56,23 @@ public class PermissionRepository : IPermissionRepository
 
     #region Role Permissions
 
-    public async Task<IEnumerable<AppPermission>> GetPermissionsByRoleAsync(UserRole role)
+    public async Task<IEnumerable<AppPermission>> GetPermissionsByRoleAsync(Guid roleId)
     {
         return await _dbContext.RolePermissions
-            .Include(rp => rp.AppPermission) // make sure RolePermission has `public AppPermission Permission { get; set; }`
-            .Where(rp => rp.Role == role)
+            .Include(rp => rp.AppPermission)
+            .Where(rp => rp.RoleId == roleId)
             .Select(rp => rp.AppPermission)
             .ToListAsync();
     }
 
-    public async Task<bool> AssignPermissionToRoleAsync(UserRole role, Guid permissionId)
+    public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
-        if (await _dbContext.RolePermissions.AnyAsync(rp => rp.Role == role && rp.PermissionId == permissionId))
+        if (await _dbContext.RolePermissions.AnyAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId))
             return false;
 
         _dbContext.RolePermissions.Add(new RolePermission
         {
-            Role = role,
+            RoleId = roleId,
             PermissionId = permissionId
         });
 
@@ -81,10 +80,10 @@ public class PermissionRepository : IPermissionRepository
         return true;
     }
 
-    public async Task<bool> RemovePermissionFromRoleAsync(UserRole role, Guid permissionId)
+    public async Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
     {
         var existing = await _dbContext.RolePermissions
-            .FirstOrDefaultAsync(rp => rp.Role == role && rp.PermissionId == permissionId);
+            .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId);
 
         if (existing == null) return false;
 
@@ -100,7 +99,7 @@ public class PermissionRepository : IPermissionRepository
     public async Task<IEnumerable<AppPermission>> GetPermissionsByUserAsync(Guid userId)
     {
         return await _dbContext.UserPermissions
-            .Include(up => up.AppPermission) // make sure UserPermission has `public AppPermission Permission { get; set; }`
+            .Include(up => up.AppPermission)
             .Where(up => up.UserId == userId)
             .Select(up => up.AppPermission)
             .ToListAsync();

@@ -11,7 +11,7 @@ public class UpdateUserRequestDtoValidator : AbstractValidator<UpdateUserRequest
             .NotEmpty().WithMessage("Full name is required.")
             .MaximumLength(100).WithMessage("Full name cannot exceed 100 characters.");
 
-        RuleFor(x => x.Role)
+        RuleFor(x => x.RoleId)
             .IsInEnum().WithMessage("Invalid role specified.");
     }
 }

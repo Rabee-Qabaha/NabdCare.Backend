@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using NabdCare.Domain.Entities.Users;
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Infrastructure.Persistence.Configurations;
 
@@ -12,14 +12,20 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
 
         builder.HasKey(rp => rp.Id);
 
-        builder.Property(rp => rp.Role).IsRequired();
+        // ⚠️ CHANGED: Relationship to Role entity instead of enum
+        builder.HasOne(rp => rp.Role)
+            .WithMany(r => r.RolePermissions)
+            .HasForeignKey(rp => rp.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(rp => rp.AppPermission)
             .WithMany()
             .HasForeignKey(rp => rp.PermissionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Indexes
-        builder.HasIndex(rp => new { rp.Role, rp.PermissionId }).IsUnique();
+        // Indexes - Prevent duplicate permission assignments
+        builder.HasIndex(rp => new { rp.RoleId, rp.PermissionId })
+            .IsUnique()
+            .HasDatabaseName("IX_RolePermissions_Role_Permission");
     }
 }

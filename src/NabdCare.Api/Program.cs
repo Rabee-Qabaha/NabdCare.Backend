@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Configurations;
 using NabdCare.Api.Extensions;
@@ -74,6 +75,7 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseMiddleware<SubscriptionValidationMiddleware>();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -83,6 +85,11 @@ if (!app.Environment.IsDevelopment())
 app.UseRateLimiter();
 app.UseSecurityHeaders();
 app.UseCors("AllowFrontend");
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

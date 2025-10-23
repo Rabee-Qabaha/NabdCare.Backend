@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using NabdCare.Domain.Enums;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Permissions;
@@ -11,5 +10,5 @@ public class AssignPermissionDto
     public Guid PermissionId { get; set; }
 
     [Required]
-    public UserRole Role { get; set; }
+    public Guid RoleId { get; set; }
 }

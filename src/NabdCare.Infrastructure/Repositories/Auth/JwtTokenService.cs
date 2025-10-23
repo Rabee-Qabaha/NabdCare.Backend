@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -18,14 +19,14 @@ public class JwtTokenService : ITokenService
         _config = config;
         _logger = logger;
         
-        // ✅ P0 FIX: Validate JWT configuration on startup
+        // ✅ Validate JWT configuration on startup
         ValidateConfiguration();
     }
 
     /// <summary>
     /// Generates a signed JWT access token with clean, frontend-friendly claims.
     /// </summary>
-    public string GenerateToken(string userId, string email, string role, Guid? clinicId, string fullName)
+    public string GenerateToken(string userId, string email, string roleName, Guid roleId, Guid? clinicId, string fullName)
     {
         // Prefer env vars (for Docker/prod), fallback to appsettings.json
         var key = Environment.GetEnvironmentVariable("JWT_KEY")
@@ -50,14 +51,14 @@ public class JwtTokenService : ITokenService
         // ✅ Clean claim names for frontend simplicity
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, userId),
-            new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim("role", role),
-            new Claim("fullName", fullName),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // ✅ Unique token ID
+            new(ClaimTypes.NameIdentifier, userId),
+            new(ClaimTypes.Email, email),
+            new(ClaimTypes.Name, fullName),
+            new(ClaimTypes.Role, roleName),
+            new("RoleId", roleId.ToString()),
         };
 
-        // ✅ P0 FIX: Only add ClinicId if it has a value (cleaner JWT)
+        // ✅ Only add ClinicId if it has a value (cleaner JWT)
         if (clinicId.HasValue)
         {
             claims.Add(new Claim("ClinicId", clinicId.Value.ToString()));
@@ -78,6 +79,20 @@ public class JwtTokenService : ITokenService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>
+    /// Generates a cryptographically secure random refresh token
+    /// </summary>
+    public string GenerateRefreshToken()
+    {
+        // ✅ Generate 64 random bytes (512 bits) for maximum security
+        var randomBytes = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        
+        // Convert to Base64 string for storage
+        return Convert.ToBase64String(randomBytes);
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 using AutoMapper;
 using NabdCare.Application.DTOs.Permissions;
-using NabdCare.Domain.Entities.Users;
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.mappings;
 

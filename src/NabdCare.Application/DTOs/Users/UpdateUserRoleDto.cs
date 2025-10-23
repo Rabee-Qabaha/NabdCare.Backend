@@ -1,4 +1,3 @@
-using NabdCare.Domain.Enums;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Users;
@@ -6,5 +5,5 @@ namespace NabdCare.Application.DTOs.Users;
 [ExportTsClass]
 public class UpdateUserRoleDto
 {
-    public UserRole Role { get; set; }
+    public Guid RoleId { get; set; } 
 }

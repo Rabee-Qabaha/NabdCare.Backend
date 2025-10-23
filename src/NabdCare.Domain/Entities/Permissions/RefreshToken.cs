@@ -1,4 +1,4 @@
-namespace NabdCare.Domain.Entities.Users;
+namespace NabdCare.Domain.Entities.Permissions;
 
 public class RefreshToken : BaseEntity
 {

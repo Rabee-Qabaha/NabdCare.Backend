@@ -1,5 +1,5 @@
-﻿using NabdCare.Domain.Entities.Users;
-using NabdCare.Domain.Enums;
+﻿
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Interfaces.Permissions;
 
@@ -12,10 +12,9 @@ public interface IPermissionRepository
     Task<AppPermission?> UpdatePermissionAsync(Guid permissionId, AppPermission appPermission);
     Task<bool> DeletePermissionAsync(Guid permissionId);
 
-    // Role Permissions
-    Task<IEnumerable<AppPermission>> GetPermissionsByRoleAsync(UserRole role);
-    Task<bool> AssignPermissionToRoleAsync(UserRole role, Guid permissionId);
-    Task<bool> RemovePermissionFromRoleAsync(UserRole role, Guid permissionId);
+    Task<IEnumerable<AppPermission>> GetPermissionsByRoleAsync(Guid roleId);
+    Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId);
+    Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId);
 
     // User Permissions
     Task<IEnumerable<AppPermission>> GetPermissionsByUserAsync(Guid userId);
