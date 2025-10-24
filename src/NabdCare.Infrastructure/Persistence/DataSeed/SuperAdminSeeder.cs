@@ -11,7 +11,7 @@ namespace NabdCare.Infrastructure.Persistence.DataSeed;
 /// Seeds the SuperAdmin user and Ramallah Medical Center demo clinic.
 /// Creates initial data for testing and development.
 /// Author: Rabee-Qabaha
-/// Updated: 2025-10-23 18:46:03 UTC
+/// Updated: 2025-10-23 21:00:21 UTC
 /// </summary>
 public class SuperAdminSeeder : ISingleSeeder
 {
@@ -35,10 +35,18 @@ public class SuperAdminSeeder : ISingleSeeder
     {
         _logger.LogInformation("🌱 Seeding SuperAdmin user and demo clinic...");
 
-        await SeedSuperAdminUserAsync();
-        await SeedDemoClinicAsync();
-
-        _logger.LogInformation("✅ SuperAdmin and demo clinic seeding completed");
+        try
+        {
+            await SeedSuperAdminUserAsync();
+            await SeedDemoClinicAsync();
+            
+            _logger.LogInformation("✅ SuperAdmin and demo clinic seeding completed");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ SuperAdmin seeding failed: {Message}", ex.Message);
+            throw;
+        }
     }
 
     private async Task SeedSuperAdminUserAsync()
@@ -93,16 +101,60 @@ public class SuperAdminSeeder : ISingleSeeder
     {
         var demoClinicEmail = "info@ramallahmedical.ps";
 
-        var exists = await _dbContext.Clinics
+        // Check if clinic exists
+        var clinic = await _dbContext.Clinics
             .IgnoreQueryFilters()
-            .AnyAsync(c => c.Email == demoClinicEmail);
+            .FirstOrDefaultAsync(c => c.Email == demoClinicEmail);
 
-        if (exists)
+        if (clinic == null)
         {
-            _logger.LogInformation("✅ Demo clinic already exists, skipping creation");
-            return;
+            _logger.LogInformation("🔄 Creating demo clinic...");
+            
+            // Create clinic if it doesn't exist
+            var clinicId = Guid.NewGuid();
+            var subscriptionId = Guid.NewGuid();
+
+            clinic = new Clinic
+            {
+                Id = clinicId,
+                Name = "Ramallah Medical Center",
+                Email = demoClinicEmail,
+                Phone = "+970-2-2987654",
+                Address = "Al-Irsal Street, Downtown Ramallah, Palestine",
+                Status = SubscriptionStatus.Active,
+                BranchCount = 3,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "System:Seeder",
+                IsDeleted = false,
+                Subscriptions = new List<Subscription>
+                {
+                    new()
+                    {
+                        Id = subscriptionId,
+                        ClinicId = clinicId,
+                        StartDate = DateTime.UtcNow,
+                        EndDate = DateTime.UtcNow.AddYears(1),
+                        Type = SubscriptionType.Yearly,
+                        Fee = 12000m,
+                        Status = SubscriptionStatus.Active,
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = "System:Seeder",
+                        IsDeleted = false
+                    }
+                }
+            };
+
+            _dbContext.Clinics.Add(clinic);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("✅ Demo clinic created: {ClinicName}", clinic.Name);
+        }
+        else
+        {
+            _logger.LogInformation("✅ Demo clinic already exists: {ClinicName}", clinic.Name);
         }
 
+        // Get required roles
         var clinicAdminRole = await _dbContext.Roles
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Name == "Clinic Admin" && r.IsTemplate);
@@ -113,66 +165,71 @@ public class SuperAdminSeeder : ISingleSeeder
 
         if (clinicAdminRole == null || doctorRole == null)
         {
-            _logger.LogError("❌ Required roles not found. Ensure RolesSeeder runs first");
+            _logger.LogError("❌ Required roles not found. Clinic Admin: {CAFound}, Doctor: {DFound}", 
+                clinicAdminRole != null, doctorRole != null);
             throw new InvalidOperationException("Clinic Admin and Doctor roles must be seeded first");
         }
 
-        // Create clinic
-        var clinicId = Guid.NewGuid();
-        var subscriptionId = Guid.NewGuid();
+        _logger.LogInformation("✅ Found roles - Clinic Admin: {CAId}, Doctor: {DId}", 
+            clinicAdminRole.Id, doctorRole.Id);
 
-        var clinic = new Clinic
+        // Create Clinic Admin if doesn't exist
+        var clinicAdminExists = await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(u => u.Email == "cadmin@nabd.care");
+
+        if (!clinicAdminExists)
         {
-            Id = clinicId,
-            Name = "Ramallah Medical Center",
-            Email = demoClinicEmail,
-            Phone = "+970-2-2987654",
-            Address = "Al-Irsal Street, Downtown Ramallah, Palestine",
-            Status = SubscriptionStatus.Active,
-            BranchCount = 3,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System:Seeder",
-            IsDeleted = false,
-            Subscriptions = new List<Subscription>
+            try
             {
-                new()
-                {
-                    Id = subscriptionId,
-                    ClinicId = clinicId,
-                    StartDate = DateTime.UtcNow,
-                    EndDate = DateTime.UtcNow.AddYears(1),
-                    Type = SubscriptionType.Yearly, // ✅ FIXED: Changed from Monthly to Yearly
-                    Fee = 12000m,
-                    Status = SubscriptionStatus.Active,
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = "System:Seeder",
-                    IsDeleted = false
-                }
+                _logger.LogInformation("🔄 Creating Clinic Admin user...");
+                await CreateDemoUserAsync(
+                    clinic.Id,
+                    clinicAdminRole.Id,
+                    "Admin User",
+                    "cadmin@nabd.care",
+                    "Admin@123!"
+                );
             }
-        };
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Failed to create Clinic Admin: {Message}", ex.Message);
+                throw;
+            }
+        }
+        else
+        {
+            _logger.LogInformation("✅ Clinic admin already exists: cadmin@nabd.care");
+        }
 
-        _dbContext.Clinics.Add(clinic);
-        await _dbContext.SaveChangesAsync();
+        // Create Doctor if doesn't exist
+        var doctorExists = await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(u => u.Email == "dadmin@nabd.care");
 
-        _logger.LogInformation("✅ Demo clinic created: {ClinicName}", clinic.Name);
-
-        // Create Clinic Admin user
-        await CreateDemoUserAsync(
-            clinicId,
-            clinicAdminRole.Id,
-            "Admin User",
-            "admin@ramallahmedical.ps",
-            "Admin@123!"
-        );
-
-        // Create Doctor user
-        await CreateDemoUserAsync(
-            clinicId,
-            doctorRole.Id,
-            "Dr. Ahmad Hassan",
-            "doctor@ramallahmedical.ps",
-            "Doctor@123!"
-        );
+        if (!doctorExists)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 Creating Doctor user...");
+                await CreateDemoUserAsync(
+                    clinic.Id,
+                    doctorRole.Id,
+                    "Dr. Ahmad Hassan",
+                    "dadmin@nabd.care",
+                    "Doctor@123!"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Failed to create Doctor: {Message}", ex.Message);
+                throw;
+            }
+        }
+        else
+        {
+            _logger.LogInformation("✅ Doctor already exists: dadmin@nabd.care");
+        }
     }
 
     private async Task CreateDemoUserAsync(
@@ -182,26 +239,48 @@ public class SuperAdminSeeder : ISingleSeeder
         string email,
         string password)
     {
-        var user = new User
+        try
         {
-            Id = Guid.NewGuid(),
-            ClinicId = clinicId,
-            RoleId = roleId,
-            Email = email,
-            FullName = fullName,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System:Seeder",
-            IsDeleted = false
-        };
+            _logger.LogInformation("  🔄 Creating user {Email} with ClinicId: {ClinicId}, RoleId: {RoleId}", 
+                email, clinicId, roleId);
+            
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                ClinicId = clinicId,
+                RoleId = roleId,
+                Email = email,
+                FullName = fullName,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "System:Seeder",
+                IsDeleted = false
+            };
 
-        user.PasswordHash = _passwordService.HashPassword(user, password);
+            _logger.LogInformation("  🔄 Hashing password for {Email}...", email);
+            user.PasswordHash = _passwordService.HashPassword(user, password);
+            
+            _logger.LogInformation("  🔄 Adding user {Email} to DbContext...", email);
+            _dbContext.Users.Add(user);
+            
+            _logger.LogInformation("  🔄 Saving user {Email} to database...", email);
+            await _dbContext.SaveChangesAsync();
 
-        _dbContext.Users.Add(user);
-        await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation("✅ Demo user created: {Email} ({FullName})", email, fullName);
-        _logger.LogInformation("   Email: {Email}", email);
-        _logger.LogInformation("   Password: {Password}", password);
+            _logger.LogInformation("  ✅ Demo user created: {Email} ({FullName})", email, fullName);
+            _logger.LogInformation("     Email: {Email}", email);
+            _logger.LogInformation("     Password: {Password}", password);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "  ❌ EXCEPTION creating user {Email}: {Message}", email, ex.Message);
+            _logger.LogError("  📜 Stack trace: {StackTrace}", ex.StackTrace);
+            
+            if (ex.InnerException != null)
+            {
+                _logger.LogError("  💥 Inner exception: {InnerMessage}", ex.InnerException.Message);
+            }
+            
+            throw;
+        }
     }
 }

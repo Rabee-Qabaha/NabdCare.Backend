@@ -67,9 +67,14 @@ builder.Services.AddCors(options =>
     );
 });
 
-// Register the DB seed hosted service once (single registration)
-// This will create a scope and run the DbSeeder during startup.
-builder.Services.AddHostedService<DbSeedHostedService>();
+
+// Database seeding (only in Development/Production, not Testing)
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    // Register the DB seed hosted service once (single registration)
+    // This will create a scope and run the DbSeeder during startup.
+    builder.Services.AddHostedService<DbSeedHostedService>();
+}
 
 var app = builder.Build();
 
@@ -82,7 +87,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.UseRateLimiter();
+// Only use rate limiter in non-testing environments
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseRateLimiter();
+}
+
 app.UseSecurityHeaders();
 app.UseCors("AllowFrontend");
 
@@ -107,3 +117,5 @@ app.UseSwaggerUI(options =>
 });
 
 app.Run();
+
+public partial class Program { }
