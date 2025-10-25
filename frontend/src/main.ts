@@ -1,4 +1,3 @@
-// main.ts
 import { createApp } from "vue";
 import App from "@/App.vue";
 import router from "./router";
@@ -12,6 +11,7 @@ import ToastService from "primevue/toastservice";
 import "@/assets/styles.scss";
 import "@/assets/tailwind.css";
 import { useAuthStore } from "./stores/authStore";
+import { vPermission } from "./utils/permissions";
 
 async function bootstrap() {
   const app = createApp(App);
@@ -20,7 +20,7 @@ async function bootstrap() {
   app.use(pinia);
 
   const authStore = useAuthStore();
-  authStore.initAuth();
+  await authStore.initAuth();
 
   app.use(router);
   app.use(PrimeVue, {
@@ -33,6 +33,9 @@ async function bootstrap() {
   });
   app.use(ToastService);
   app.use(ConfirmationService);
+
+  // ✅ ADD THIS
+  app.directive("permission", vPermission);
 
   await router.isReady();
   app.mount("#app");

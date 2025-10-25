@@ -3,8 +3,8 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-export enum SubscriptionType {
-  Monthly = "Monthly",
-  Yearly = "Yearly",
-  Lifetime = "Lifetime",
+import { SubscriptionStatus } from "./subscription-status";
+
+export class UpdateClinicStatusDto {
+  status: SubscriptionStatus;
 }

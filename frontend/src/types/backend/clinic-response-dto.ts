@@ -3,16 +3,19 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
+import { SubscriptionStatus } from "./subscription-status";
+import { SubscriptionType } from "./subscription-type";
+
 export class ClinicResponseDto {
   id: string;
   name: string = "";
   email: string;
   phone: string;
   address: string;
-  status: string = "";
+  status: SubscriptionStatus;
   subscriptionStartDate: Date;
   subscriptionEndDate: Date;
-  subscriptionType: string = "";
+  subscriptionType: SubscriptionType;
   subscriptionFee: number;
-  branchCount: number = 1;
+  branchCount: number;
 }

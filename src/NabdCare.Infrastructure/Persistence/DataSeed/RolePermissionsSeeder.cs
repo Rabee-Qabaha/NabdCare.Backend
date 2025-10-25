@@ -9,7 +9,7 @@ namespace NabdCare.Infrastructure.Persistence.DataSeed;
 /// Seeds role-permission associations into the database.
 /// Maps permissions to system and template roles.
 /// Author: Rabee-Qabaha
-/// Updated: 2025-10-23 18:46:03 UTC
+/// Updated: 2025-10-25
 /// </summary>
 public class RolePermissionsSeeder : ISingleSeeder
 {
@@ -159,7 +159,10 @@ public class RolePermissionsSeeder : ISingleSeeder
                 "Roles.Edit",
                 "Roles.Delete",
                 "Roles.ManagePermissions",
-                
+
+                // Settings.ManageRoles (ADDED for SuperAdmin!)
+                "Settings.ManageRoles",
+
                 // ALL Permission Management
                 "Permissions.View",
                 "Permissions.Assign",
@@ -296,7 +299,10 @@ public class RolePermissionsSeeder : ISingleSeeder
                 "Roles.Edit",
                 "Roles.Delete",
                 "Roles.ManagePermissions",
-                
+
+                // Settings.ManageRoles (optional for Clinic Admin, add if needed)
+                // "Settings.ManageRoles", // Uncomment if you want Clinic Admin to manage roles
+
                 // Permissions
                 "Permissions.View",
                 "Permissions.Assign",

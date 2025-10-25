@@ -173,7 +173,7 @@ public class PermissionsSeeder : ISingleSeeder
             new() { Name = "Payments.Process", Description = "Process payments" },
             new() { Name = "Payments.Refund", Description = "Process refunds" },
             new() { Name = "Payments.ViewReports", Description = "View payment reports" },
-            
+
             new() { Name = "Invoices.View", Description = "View invoices" },
             new() { Name = "Invoices.Create", Description = "Create invoices" },
             new() { Name = "Invoices.Edit", Description = "Edit invoices" },
@@ -195,6 +195,7 @@ public class PermissionsSeeder : ISingleSeeder
             // ============================================
             new() { Name = "Settings.View", Description = "View system settings" },
             new() { Name = "Settings.Edit", Description = "Edit system settings" },
+            new() { Name = "Settings.ManageRoles", Description = "Manage all roles (SuperAdmin only)" }, // <-- ADDED LINE
 
             // ============================================
             // 📜 AUDIT LOGS

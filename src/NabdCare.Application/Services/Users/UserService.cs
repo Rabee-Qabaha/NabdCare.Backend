@@ -135,7 +135,7 @@ public class UserService : IUserService
         _logger.LogInformation("User {CurrentUserId} creating user {Email}", currentUserId, dto.Email);
 
         // Determine target clinic
-        var targetClinicId = await ValidateAndGetTargetClinicId(dto.ClinicId);
+        var targetClinicId = await ValidateAndGetTargetClinicId(dto.ClinicId, dto.RoleId);
 
         // Check if email already exists
         if (await _userRepository.EmailExistsAsync(dto.Email))
@@ -627,17 +627,32 @@ public class UserService : IUserService
     /// <summary>
     /// Validate and get target clinic ID for user creation
     /// </summary>
-    private async Task<Guid?> ValidateAndGetTargetClinicId(Guid? requestedClinicId)
+    private async Task<Guid?> ValidateAndGetTargetClinicId(Guid? requestedClinicId, Guid roleId)
     {
+        var role = await _roleRepository.GetRoleByIdAsync(roleId);
+        if (role == null)
+            throw new InvalidOperationException($"Role {roleId} does not exist");
+
         if (_tenantContext.IsSuperAdmin)
         {
-            // SuperAdmin must specify clinic ID
-            if (!requestedClinicId.HasValue)
-                throw new ArgumentException("SuperAdmin must specify clinic ID when creating users");
+            if (role.IsSystemRole)
+            {
+                // For system roles, clinicId must be null
+                if (requestedClinicId.HasValue)
+                    throw new ArgumentException("System users must not have a clinic ID");
 
-            return requestedClinicId.Value;
+                return null;
+            }
+            else
+            {
+                // For clinic/template roles, clinicId is required
+                if (!requestedClinicId.HasValue)
+                    throw new ArgumentException("SuperAdmin must specify clinic ID when creating clinic users");
+
+                return requestedClinicId.Value;
+            }
         }
-        
+    
         // ClinicAdmin can only create users in their own clinic
         if (!_tenantContext.ClinicId.HasValue)
             throw new UnauthorizedAccessException("You must belong to a clinic to create users");
@@ -645,7 +660,7 @@ public class UserService : IUserService
         if (requestedClinicId.HasValue && requestedClinicId != _tenantContext.ClinicId)
             throw new UnauthorizedAccessException("You can only create users in your own clinic");
 
-        return await Task.FromResult(_tenantContext.ClinicId.Value);
+        return _tenantContext.ClinicId.Value;
     }
 
     /// <summary>
@@ -657,10 +672,20 @@ public class UserService : IUserService
         if (role == null)
             throw new InvalidOperationException($"Role {roleId} does not exist");
 
-        // Cannot assign system roles
         if (role.IsSystemRole)
-            throw new InvalidOperationException("Cannot assign system roles to users");
+        {
+            // Only SuperAdmin can assign system roles, and only for system users (clinicId == null)
+            if (!_tenantContext.IsSuperAdmin)
+                throw new UnauthorizedAccessException("Only SuperAdmin can assign system roles");
 
+            if (clinicId != null)
+                throw new InvalidOperationException("System users must not have a clinic ID");
+
+            // All good: SuperAdmin creating a system user
+            return;
+        }
+
+        // For non-system roles:
         // Role must belong to the same clinic (or be a template)
         if (!role.IsTemplate && role.ClinicId != clinicId)
             throw new InvalidOperationException("Role does not belong to the specified clinic");

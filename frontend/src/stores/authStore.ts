@@ -1,32 +1,26 @@
 import { defineStore } from "pinia";
 import { ref, computed, watch } from "vue";
 import { AuthService } from "@/service/AuthService";
+import { apiService } from "@/service/apiService";
 import {
   getUserFromToken,
   isTokenExpired,
   type UserInfo,
 } from "@/utils/jwtUtils";
-import type { LoginRequestDto } from "@/types/backend";
-import { UserRole } from "@/types/backend";
+import type { LoginRequestDto, PermissionResponseDto } from "@/types/backend";
+import { UserRole } from "@/types/backend/user-role";
 
 export const useAuthStore = defineStore("auth", () => {
   const currentUser = ref<UserInfo | null>(null);
+  const permissions = ref<string[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
 
   const isLoggedIn = computed(() => {
-    // Fast fail: No user object
-    if (!currentUser.value) {
-      return false;
-    }
-
-    // Get token from secure storage
+    if (!currentUser.value) return false;
     const token = AuthService.getAccessToken();
-
-    // No token = not logged in
     if (!token) {
-      // ⚠️ Security: User exists but no token - clear user
       if (currentUser.value) {
         console.warn(
           "⚠️ User object exists but no token found - clearing state"
@@ -35,23 +29,18 @@ export const useAuthStore = defineStore("auth", () => {
       }
       return false;
     }
-
-    // Check token expiry
     if (isTokenExpired(token)) {
       console.warn("⚠️ Token expired - user will be logged out");
       return false;
     }
-
-    // ✅ All checks passed
     return true;
   });
 
-  // ✅ Enhanced: Watch for token expiry and auto-cleanup
   watch(isLoggedIn, (newValue, oldValue) => {
-    // User just got logged out
     if (oldValue === true && newValue === false) {
       console.log("🔒 User logged out - cleaning up");
       currentUser.value = null;
+      permissions.value = []; // ✅ ADD THIS
       AuthService.clearTokens();
     }
   });
@@ -67,12 +56,21 @@ export const useAuthStore = defineStore("auth", () => {
   );
 
   const role = computed<UserRole | null>(() => {
-    if (!currentUser.value?.role) return null;
-    const r = currentUser.value.role.toLowerCase();
+    if (!currentUser.value?.role) {
+      console.warn("⚠️ No role found in user:", currentUser.value);
+      return null;
+    }
+
+    const r = currentUser.value.role.toLowerCase().trim();
+
+    console.log("🔍 Normalizing role:", currentUser.value.role, "→", r);
+
     switch (r) {
       case "superadmin":
+      case "super admin":
         return UserRole.SuperAdmin;
       case "clinicadmin":
+      case "clinic admin":
         return UserRole.ClinicAdmin;
       case "doctor":
         return UserRole.Doctor;
@@ -81,14 +79,47 @@ export const useAuthStore = defineStore("auth", () => {
       case "receptionist":
         return UserRole.Receptionist;
       default:
+        console.warn("⚠️ Unknown role:", currentUser.value.role);
         return null;
     }
   });
 
+  // ✅ ADD THIS FUNCTION
+  /**
+   * Load user's effective permissions from backend
+   */
+  const loadPermissions = async (): Promise<void> => {
+    if (!currentUser.value) {
+      permissions.value = [];
+      return;
+    }
+
+    try {
+      const userPermissions =
+        await apiService.get<PermissionResponseDto[]>("/permissions/me");
+      permissions.value = userPermissions.map((p) => p.name);
+      console.log("✅ Loaded permissions:", permissions.value.length);
+    } catch (err) {
+      console.error("❌ Failed to load permissions:", err);
+      permissions.value = [];
+    }
+  };
+
+  // ✅ ADD THIS FUNCTION
+  /**
+   * Check if user has a specific permission
+   */
+  const hasPermission = (permissionName: string): boolean => {
+    // SuperAdmin has ALL permissions
+    if (isSuperAdmin.value) return true;
+    return permissions.value.includes(permissionName);
+  };
+
   /**
    * Initialize auth state on app load
    */
-  const initAuth = (): void => {
+  const initAuth = async (): Promise<void> => {
+    // ✅ MAKE IT async
     console.log("🔄 Initializing auth...");
 
     const token = AuthService.getAccessToken();
@@ -96,6 +127,7 @@ export const useAuthStore = defineStore("auth", () => {
     if (!token) {
       console.log("ℹ️ No token found");
       currentUser.value = null;
+      permissions.value = []; // ✅ ADD THIS
       isInitialized.value = true;
       return;
     }
@@ -104,14 +136,19 @@ export const useAuthStore = defineStore("auth", () => {
       console.log("⚠️ Token expired on init - clearing");
       AuthService.clearTokens();
       currentUser.value = null;
+      permissions.value = []; // ✅ ADD THIS
       isInitialized.value = true;
       return;
     }
 
-    // Valid token found
     currentUser.value = getUserFromToken(token);
-    console.log("✅ Auth initialized:", currentUser.value?.email);
 
+    // ✅ ADD THIS
+    if (currentUser.value) {
+      await loadPermissions();
+    }
+
+    console.log("✅ Auth initialized:", currentUser.value?.email);
     isInitialized.value = true;
   };
 
@@ -127,27 +164,25 @@ export const useAuthStore = defineStore("auth", () => {
     error.value = null;
 
     try {
-      // Call backend
       const tokens = await AuthService.login({
         email,
         password,
       } as LoginRequestDto);
 
-      // ✅ Extract and validate user from token
       const user = getUserFromToken(tokens.accessToken);
       if (!user) {
         throw new Error("Invalid token received from server");
       }
 
-      // ✅ Update state (token is already stored by AuthService)
       currentUser.value = user;
 
-      // ✅ DEBUG: Verify state
+      // ✅ ADD THIS
+      await loadPermissions();
+
       console.log("✅ Login successful");
       console.log("   User:", currentUser.value.email);
       console.log("   Role:", currentUser.value.role);
-      console.log("   isLoggedIn:", isLoggedIn.value);
-      console.log("   Token exists:", !!AuthService.getAccessToken());
+      console.log("   Permissions:", permissions.value.length); // ✅ ADD THIS
 
       return currentUser.value;
     } catch (err: any) {
@@ -173,6 +208,7 @@ export const useAuthStore = defineStore("auth", () => {
       console.error("❌ Logout error:", err);
     } finally {
       currentUser.value = null;
+      permissions.value = []; // ✅ ADD THIS
       AuthService.clearTokens();
       loading.value = false;
     }
@@ -182,6 +218,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   return {
     currentUser,
+    permissions, // ✅ ADD THIS
     loading,
     error,
     isInitialized,
@@ -193,6 +230,8 @@ export const useAuthStore = defineStore("auth", () => {
     initAuth,
     login,
     logout,
+    loadPermissions, // ✅ ADD THIS
+    hasPermission, // ✅ ADD THIS
     clearError,
   };
 });

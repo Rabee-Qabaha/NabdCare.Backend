@@ -2,114 +2,204 @@
   <Dialog
     :visible="visible"
     @update:visible="emit('update:visible', $event)"
-    header="Change Password"
+    header="Reset User Password"
     :modal="true"
-    :style="{ width: '400px' }"
+    :style="{ width: '500px' }"
+    class="p-4 bg-surface-0 dark:bg-surface-900 shadow-2xl rounded-xl"
   >
-    <div class="flex flex-col gap-6">
-      <div v-for="field in fields" :key="field.key">
-        <label :for="field.key" class="block font-bold mb-3">{{
-          field.label
-        }}</label>
-        <Password
-          :id="field.key"
-          v-model="localPasswords[field.key]"
-          toggleMask
-          :feedback="false"
-          class="w-full"
-          inputClass="w-full"
-          @input="fieldTouched[field.key] = true"
-          :invalid="getError(field.key)"
+    <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+      <div class="flex align-items-center gap-3">
+        <Avatar
+          :label="user.fullName?.charAt(0) || '?'"
+          shape="circle"
+          style="background-color: var(--primary-color); color: white"
         />
-        <small
-          v-if="getError(field.key) && field.key === 'currentPassword'"
-          class="text-red-500"
+        <div>
+          <div class="font-semibold text-900 dark:text-white">
+            {{ user.fullName }}
+          </div>
+          <div class="text-sm text-600 dark:text-400">{{ user.email }}</div>
+        </div>
+      </div>
+    </div>
+
+    <Message severity="info" :closable="false" class="mb-4">
+      As SuperAdmin, you can reset this user's password without knowing their
+      current password.
+    </Message>
+
+    <div class="flex flex-col gap-4">
+      <!-- Security Requirements and Password Fields Container -->
+      <div class="p-4 bg-surface-50 dark:bg-surface-800 rounded-lg">
+        <h4
+          class="text-lg font-bold text-900 dark:text-white mb-3 flex items-center gap-2"
         >
-          Current password is required.
-        </small>
-        <small
-          v-if="getError(field.key) && field.key === 'newPassword'"
-          class="text-red-500"
+          Set New Password
+        </h4>
+        <p class="text-sm text-600 dark:text-400 mb-3">
+          Password must meet the following security requirements:
+        </p>
+
+        <!-- Password Requirements List (Updated for correct bolding) -->
+        <ul
+          class="list-none p-0 m-0 text-sm text-700 dark:text-300 grid grid-cols-1 sm:grid-cols-2 gap-1 mb-4"
         >
-          New password is required.
-        </small>
-        <small
-          v-if="
-            getError(field.key) &&
-            field.key === 'confirmPassword' &&
-            !localPasswords.confirmPassword
-          "
-          class="text-red-500"
-        >
-          Confirmation is required.
-        </small>
-        <small
-          v-if="
-            getError(field.key) &&
-            field.key === 'confirmPassword' &&
-            localPasswords.confirmPassword !== localPasswords.newPassword
-          "
-          class="text-red-500"
-        >
-          Passwords do not match.
-        </small>
+          <li class="flex items-center gap-2">
+            <i
+              class="pi pi-check-circle"
+              :class="{
+                'text-green-500': isPasswordSecure.minLength,
+                'text-red-500': !isPasswordSecure.minLength,
+              }"
+            ></i>
+            Minimum <span class="font-bold">12 characters</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <i
+              class="pi pi-check-circle"
+              :class="{
+                'text-green-500': isPasswordSecure.uppercase,
+                'text-red-500': !isPasswordSecure.uppercase,
+              }"
+            ></i>
+            At least one <span class="font-bold">uppercase</span> letter
+          </li>
+          <li class="flex items-center gap-2">
+            <i
+              class="pi pi-check-circle"
+              :class="{
+                'text-green-500': isPasswordSecure.lowercase,
+                'text-red-500': !isPasswordSecure.lowercase,
+              }"
+            ></i>
+            At least one <span class="font-bold">lowercase</span> letter
+          </li>
+          <li class="flex items-center gap-2">
+            <i
+              class="pi pi-check-circle"
+              :class="{
+                'text-green-500': isPasswordSecure.digit,
+                'text-red-500': !isPasswordSecure.digit,
+              }"
+            ></i>
+            At least one <span class="font-bold">digit</span> (0-9)
+          </li>
+          <li class="flex items-center gap-2">
+            <i
+              class="pi pi-check-circle"
+              :class="{
+                'text-green-500': isPasswordSecure.specialChar,
+                'text-red-500': !isPasswordSecure.specialChar,
+              }"
+            ></i>
+            At least one <span class="font-bold">special character</span>
+          </li>
+        </ul>
+
+        <div class="grid gap-4">
+          <!-- New Password -->
+          <div class="col-12">
+            <label
+              for="newPassword"
+              class="block font-semibold mb-2 dark:text-white"
+              >New Password <span class="text-red-500">*</span></label
+            >
+            <Password
+              id="newPassword"
+              v-model="localPasswords.newPassword"
+              toggleMask
+              :feedback="true"
+              class="w-full"
+              inputClass="w-full"
+              placeholder="Enter new password"
+              @input="fieldTouched.newPassword = true"
+              :invalid="getError('newPassword')"
+            />
+            <small
+              v-if="getError('newPassword') && localPasswords.newPassword"
+              class="text-red-500"
+            >
+              Password does not meet all security requirements.
+            </small>
+            <small v-else-if="getError('newPassword')" class="text-red-500">
+              New password is required.
+            </small>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="col-12">
+            <label
+              for="confirmPassword"
+              class="block font-semibold mb-2 dark:text-white"
+              >Confirm New Password <span class="text-red-500">*</span></label
+            >
+            <Password
+              id="confirmPassword"
+              v-model="localPasswords.confirmPassword"
+              toggleMask
+              :feedback="false"
+              class="w-full"
+              inputClass="w-full"
+              placeholder="Re-enter new password"
+              @input="fieldTouched.confirmPassword = true"
+              :invalid="getError('confirmPassword')"
+            />
+            <small
+              v-if="
+                getError('confirmPassword') && !localPasswords.confirmPassword
+              "
+              class="text-red-500"
+            >
+              Password confirmation is required.
+            </small>
+            <small v-else-if="getError('confirmPassword')" class="text-red-500">
+              Passwords do not match.
+            </small>
+          </div>
+        </div>
       </div>
     </div>
 
     <template #footer>
-      <Button label="Cancel" icon="pi pi-times" text @click="onCancel" />
       <Button
-        label="Save"
-        icon="pi pi-check"
+        label="Cancel"
+        icon="pi pi-times"
+        severity="secondary"
+        outlined
+        @click="onCancel"
+      />
+      <Button
+        label="Reset Password"
+        icon="pi pi-key"
+        severity="warning"
         @click="onSave"
         :disabled="!isFormValid"
-        :loading="userStore.loading"
+        :loading="saving"
       />
     </template>
   </Dialog>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from "vue";
-import { useToast } from "primevue/usetoast";
-import { useAuthStore } from "@/stores/authStore";
-import { useUserStore } from "@/stores/userStore";
+import { reactive, computed, watch, ref } from "vue";
+import type { UserResponseDto } from "@/types/backend";
 
-const toast = useToast();
-const authStore = useAuthStore();
-const userStore = useUserStore();
+const props = defineProps<{
+  visible: boolean;
+  user: Partial<UserResponseDto>;
+}>();
 
-const props = defineProps<{ visible: boolean; user: { uid?: string } }>();
 const emit = defineEmits(["update:visible", "save", "cancel"]);
 
-type PasswordField = "currentPassword" | "newPassword" | "confirmPassword";
+// State
+const saving = ref(false);
 
-// Determine user permissions
-const isSelf = computed(() => props.user?.uid === authStore.currentUser?.sub);
-const isSuperAdmin = computed(() => authStore.isSuperAdmin);
-const showCurrentPassword = computed(() => isSelf.value && !isSuperAdmin.value);
-
-// Generate dynamic fields
-const fields = computed<{ key: PasswordField; label: string }[]>(() => {
-  const base: { key: PasswordField; label: string }[] = [
-    { key: "newPassword", label: "New Password" },
-    { key: "confirmPassword", label: "Confirm New Password" },
-  ];
-  if (showCurrentPassword.value) {
-    base.unshift({ key: "currentPassword", label: "Current Password" });
-  }
-  return base;
-});
-
-// Local state
-const localPasswords: Record<PasswordField, string> = reactive({
-  currentPassword: "",
+const localPasswords = reactive({
   newPassword: "",
   confirmPassword: "",
 });
 
-const fieldTouched: Record<PasswordField, boolean> = reactive({
-  currentPassword: false,
+const fieldTouched = reactive({
   newPassword: false,
   confirmPassword: false,
 });
@@ -118,68 +208,85 @@ const fieldTouched: Record<PasswordField, boolean> = reactive({
 watch(
   () => props.user,
   () => {
-    (Object.keys(localPasswords) as PasswordField[]).forEach(
-      (k) => (localPasswords[k] = "")
-    );
-    (Object.keys(fieldTouched) as PasswordField[]).forEach(
-      (k) => (fieldTouched[k] = false)
-    );
+    localPasswords.newPassword = "";
+    localPasswords.confirmPassword = "";
+    fieldTouched.newPassword = false;
+    fieldTouched.confirmPassword = false;
   },
   { deep: true }
 );
 
+// --- NEW SECURITY VALIDATION ---
+
+const isPasswordSecure = computed(() => {
+  const password = localPasswords.newPassword;
+  return {
+    minLength: password.length >= 12,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+    // Covers a wide range of common special characters
+    specialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+});
+
+const isNewPasswordSecure = computed(() => {
+  const security = isPasswordSecure.value;
+  return (
+    security.minLength &&
+    security.uppercase &&
+    security.lowercase &&
+    security.digit &&
+    security.specialChar
+  );
+});
+
 // Validation
-const getError = (key: PasswordField) => {
+const getError = (key: "newPassword" | "confirmPassword") => {
   if (!fieldTouched[key]) return false;
-  if (key === "currentPassword")
-    return showCurrentPassword.value && !localPasswords.currentPassword;
-  if (key === "newPassword") return !localPasswords.newPassword;
-  if (key === "confirmPassword")
+
+  if (key === "newPassword") {
+    // Check if empty OR if security requirements are not met (if not empty)
+    return !localPasswords.newPassword || !isNewPasswordSecure.value;
+  }
+
+  if (key === "confirmPassword") {
     return (
       !localPasswords.confirmPassword ||
       localPasswords.confirmPassword !== localPasswords.newPassword
     );
+  }
+
   return false;
 };
 
 const isFormValid = computed(() => {
-  const requireCurrent = showCurrentPassword.value;
   return (
-    (!requireCurrent || localPasswords.currentPassword) &&
     localPasswords.newPassword &&
+    isNewPasswordSecure.value &&
     localPasswords.confirmPassword &&
     localPasswords.newPassword === localPasswords.confirmPassword
   );
 });
 
-// Save handler
+// --- END NEW SECURITY VALIDATION ---
+
+// Handlers
 async function onSave() {
-  (Object.keys(fieldTouched) as PasswordField[]).forEach(
-    (k) => (fieldTouched[k] = true)
-  );
-  if (!isFormValid.value || !props.user.uid) return;
+  fieldTouched.newPassword = true;
+  fieldTouched.confirmPassword = true;
+
+  if (!isFormValid.value) return;
+
+  saving.value = true;
 
   try {
-    await userStore.changePassword(props.user.uid, localPasswords.newPassword);
-    toast.add({
-      severity: "success",
-      summary: "Password Changed",
-      detail: "Password updated successfully.",
-      life: 3000,
-    });
-    emit("save");
-    emit("update:visible", false);
-  } catch (error: any) {
-    toast.add({
-      severity: "error",
-      summary: "Error",
-      detail: error.message || "Failed to change password",
-      life: 3000,
-    });
+    emit("save", { newPassword: localPasswords.newPassword });
+  } finally {
+    saving.value = false;
   }
 }
 
-// Cancel handler
 function onCancel() {
   emit("cancel");
   emit("update:visible", false);

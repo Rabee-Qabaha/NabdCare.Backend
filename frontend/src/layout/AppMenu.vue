@@ -1,10 +1,11 @@
+// AppMenu.vue
 <script setup type="ts">
 import { ref, computed } from 'vue';
 import AppMenuItem from './AppMenuItem.vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { AuthService } from '@/service/AuthService';
-import { UserRole } from '@/types/backend';
+import { UserRole } from '@/types/backend/user-role';
 
 const router = useRouter();
 const authStore = useAuthStore();

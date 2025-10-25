@@ -1,3 +1,4 @@
+// ClientTopbar.vue
 <script setup type="ts">
 import { useLayout } from "@/layout/composables/layout";
 import AppConfigurator from "@/layout/AppConfigurator.vue";

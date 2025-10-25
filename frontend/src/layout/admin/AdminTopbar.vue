@@ -1,3 +1,4 @@
+// AdminTopbar.vue
 <script setup type="ts">
 import { useLayout } from "@/layout/composables/layout";
 import { ref } from "vue";

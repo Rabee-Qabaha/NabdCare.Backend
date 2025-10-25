@@ -4,7 +4,7 @@
  */
 
 import { Clinic } from "./clinic";
-import { UserRole } from "./user-role";
+import { Role } from "./role";
 import { UserPermission } from "./user-permission";
 
 export class User {
@@ -13,7 +13,8 @@ export class User {
   email: string = "";
   passwordHash: string = "";
   fullName: string = "";
-  role: UserRole;
+  roleId: string;
+  role: Role;
   isActive: boolean = true;
   createdByUserId: string;
   createdByUser: User;

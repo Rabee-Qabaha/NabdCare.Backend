@@ -1,28 +1,73 @@
-// src/utils/jwtUtils.ts
 import { jwtDecode, type JwtPayload } from "jwt-decode";
 
 export interface UserInfo extends JwtPayload {
-  sub: string;
-  email: string;
+  sub?: string;
+  email?: string;
   role?: string;
   clinicId?: string;
   fullName?: string;
-  jti?: string; // ✅ Unique token ID
+  jti?: string;
+
+  // ✅ Support for .NET claim names (what backend actually sends)
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"?: string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"?: string;
+  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
+  ClinicId?: string;
+  RoleId?: string;
 }
 
 /**
  * Decode and extract user info from access token
+ * ✅ Normalizes .NET claim names to simple property names
  */
 export function getUserFromToken(token: string): UserInfo | null {
   try {
     const decoded = jwtDecode<UserInfo>(token);
 
-    // ✅ Normalize clinicId casing (backend sends "ClinicId")
-    if ((decoded as any).ClinicId && !decoded.clinicId) {
-      decoded.clinicId = (decoded as any).ClinicId;
-    }
+    // ✅ CRITICAL: Normalize .NET claim names to simple properties
+    const normalized: UserInfo = {
+      ...decoded,
 
-    return decoded;
+      // Extract user ID
+      sub:
+        decoded.sub ||
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ],
+
+      // Extract email
+      email:
+        decoded.email ||
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+        ],
+
+      // Extract full name
+      fullName:
+        decoded.fullName ||
+        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
+
+      // ✅ THIS IS THE KEY FIX: Extract role from .NET claim
+      role:
+        decoded.role ||
+        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"],
+
+      // Extract clinic ID (backend sends "ClinicId" with capital C)
+      clinicId: decoded.clinicId || decoded["ClinicId"],
+    };
+
+    console.log("🔍 JWT Decoded:", {
+      raw: decoded,
+      normalized: {
+        email: normalized.email,
+        role: normalized.role,
+        fullName: normalized.fullName,
+        clinicId: normalized.clinicId,
+      },
+    });
+
+    return normalized;
   } catch (err) {
     console.error("❌ Invalid token:", err);
     return null;
@@ -38,8 +83,6 @@ export function isTokenExpired(token: string): boolean {
     if (!decoded.exp) return true;
 
     const currentTime = Date.now() / 1000;
-
-    // ✅ Consider clock skew (5 seconds buffer)
     return decoded.exp < currentTime + 5;
   } catch {
     return true;

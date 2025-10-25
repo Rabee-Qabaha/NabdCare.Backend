@@ -1,5 +1,5 @@
 import type { RouteRecordRaw } from "vue-router";
-import { UserRole } from "@/types/backend";
+import { UserRole } from "@/types/backend/user-role";
 
 export const superadminRoutes: RouteRecordRaw[] = [
   {

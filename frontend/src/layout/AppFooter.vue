@@ -1,3 +1,4 @@
+// AppFooter.vue
 <script setup type="ts"></script>
 
 <template>
