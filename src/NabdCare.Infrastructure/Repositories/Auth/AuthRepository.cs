@@ -20,32 +20,22 @@ public class AuthRepository : IAuthRepository
 
     public async Task<User?> AuthenticateUserAsync(string email, string password)
     {
-        // Normalize the email
         email = email.Trim().ToLower();
 
-        // ✅ FIXED: Include Role when fetching user
         var user = await _dbContext.Users
-            .Include(u => u.Role) // Load role relationship
+            .Include(u => u.Role)
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            .FirstOrDefaultAsync(u => u.Email == email);
 
-        if (user == null)
-            return null;
-
-        // ✅ FIXED: Allow SuperAdmin login even if inactive, otherwise require active
-        if (!user.IsActive && user.Role.Name != "SuperAdmin")
-            return null;
-
-        // Validate password
-        if (!_passwordService.VerifyPassword(user, password))
-            return null;
+        if (user == null) return null;
+        if (!user.IsActive && user.Role.Name != "SuperAdmin") return null;
+        if (!_passwordService.VerifyPassword(user, password)) return null;
 
         return user;
     }
-    
+
     public async Task<User?> AuthenticateUserByIdAsync(Guid userId)
     {
-        // ✅ FIXED: Include Role when fetching user
         return await _dbContext.Users
             .Include(u => u.Role)
             .IgnoreQueryFilters()
@@ -62,75 +52,92 @@ public class AuthRepository : IAuthRepository
     public async Task SaveRefreshTokenAsync(User user, RefreshToken token)
     {
         token.UserId = user.Id;
+        token.ClinicId = user.ClinicId; // null = SuperAdmin
+
         await _dbContext.RefreshTokens.AddAsync(token);
         await _dbContext.SaveChangesAsync();
     }
 
-    public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
-    {
-        return await _dbContext.RefreshTokens
-            .FirstOrDefaultAsync(rt => rt.Token == token && !rt.IsRevoked && rt.ExpiresAt > DateTime.UtcNow);
-    }
+    public Task<RefreshToken?> GetRefreshTokenAsync(string token)
+        => _dbContext.RefreshTokens.FirstOrDefaultAsync(rt =>
+            rt.Token == token &&
+            !rt.IsRevoked &&
+            rt.ExpiresAt > DateTime.UtcNow);
 
-    public async Task<RefreshToken?> GetRefreshTokenIncludingRevokedAsync(string token)
-    {
-        return await _dbContext.RefreshTokens
-            .FirstOrDefaultAsync(rt => rt.Token == token);
-    }
+    public Task<RefreshToken?> GetRefreshTokenIncludingRevokedAsync(string token)
+        => _dbContext.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == token);
 
     public async Task RevokeRefreshTokenAsync(string token, string revokedByIp, string reason)
     {
         var rt = await _dbContext.RefreshTokens
             .FirstOrDefaultAsync(rt2 => rt2.Token == token && !rt2.IsRevoked);
 
-        if (rt != null)
-        {
-            rt.IsRevoked = true;
-            rt.RevokedAt = DateTime.UtcNow;
-            rt.RevokedByIp = revokedByIp;
-            rt.ReasonRevoked = reason;
+        if (rt == null) return;
 
-            _dbContext.RefreshTokens.Update(rt);
-            await _dbContext.SaveChangesAsync();
-        }
+        rt.IsRevoked = true;
+        rt.RevokedAt = DateTime.UtcNow;
+        rt.RevokedByIp = revokedByIp;
+        rt.ReasonRevoked = reason;
+
+        _dbContext.RefreshTokens.Update(rt);
+        await _dbContext.SaveChangesAsync();
     }
 
-    public async Task RevokeTokenFamilyAsync(RefreshToken token)
+    public async Task MarkRefreshTokenReplacedAsync(string oldToken, string newToken, string ip)
     {
-        var toRevoke = await _dbContext.RefreshTokens
-            .Where(rt =>
-                rt.UserId == token.UserId &&
-                (rt.Token == token.Token ||
-                    rt.ReplacedByToken == token.Token ||
-                    false
-                ) &&
-                !rt.IsRevoked)
-            .ToListAsync();
+        var rt = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(x => x.Token == oldToken);
 
-        foreach (var rt in toRevoke)
+        if (rt == null) return;
+        rt.ReplacedByToken = newToken;
+        rt.IsRevoked = true;
+        rt.RevokedAt = DateTime.UtcNow;
+        rt.RevokedByIp = ip;
+        rt.ReasonRevoked = "ReplacedByNewToken";
+
+        _dbContext.RefreshTokens.Update(rt);
+        await _dbContext.SaveChangesAsync();
+    }
+
+    public async Task RevokeTokenFamilyAsync(RefreshToken start)
+    {
+        var current = start;
+        var chain = new List<RefreshToken>();
+
+        while (current != null)
+        {
+            chain.Add(current);
+            if (string.IsNullOrWhiteSpace(current.ReplacedByToken)) break;
+            current = await _dbContext.RefreshTokens
+                .FirstOrDefaultAsync(t => t.Token == current.ReplacedByToken);
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var rt in chain.Where(t => !t.IsRevoked))
         {
             rt.IsRevoked = true;
-            rt.RevokedAt = DateTime.UtcNow;
-            rt.RevokedByIp = token.RevokedByIp;
+            rt.RevokedAt = now;
+            rt.RevokedByIp = start.RevokedByIp ?? "System:ReuseProtection";
             rt.ReasonRevoked = "TokenFamilyRevoked";
         }
 
-        _dbContext.RefreshTokens.UpdateRange(toRevoke);
+        _dbContext.RefreshTokens.UpdateRange(chain);
         await _dbContext.SaveChangesAsync();
     }
-    
-    public async Task RevokeAllUserTokensAsync(Guid userId, string revokedByIp, string reason)
+
+    public async Task RevokeAllUserTokensAsync(Guid userId, string ip, string reason)
     {
         var tokens = await _dbContext.RefreshTokens
             .Where(rt => rt.UserId == userId && !rt.IsRevoked)
             .ToListAsync();
 
-        foreach (var token in tokens)
+        var now = DateTime.UtcNow;
+        foreach (var t in tokens)
         {
-            token.IsRevoked = true;
-            token.RevokedAt = DateTime.UtcNow;
-            token.RevokedByIp = revokedByIp;
-            token.ReasonRevoked = reason;
+            t.IsRevoked = true;
+            t.RevokedAt = now;
+            t.RevokedByIp = ip;
+            t.ReasonRevoked = reason;
         }
 
         _dbContext.RefreshTokens.UpdateRange(tokens);

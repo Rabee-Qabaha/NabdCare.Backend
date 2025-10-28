@@ -1,7 +1,6 @@
-using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
-using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Auth;
+using NabdCare.Application.Interfaces;
 using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Auth;
@@ -12,147 +11,86 @@ public class AuthService : IAuthService
     private readonly ITokenService _tokenService;
     private readonly ILogger<AuthService> _logger;
 
-    private const int RefreshTokenDays = 7;
+    private const int RefreshTokenDays = 30;
 
-    public AuthService(IAuthRepository authRepository, ITokenService tokenService, ILogger<AuthService> logger)
+    public AuthService(
+        IAuthRepository authRepository,
+        ITokenService tokenService,
+        ILogger<AuthService> logger)
     {
         _authRepository = authRepository;
         _tokenService = tokenService;
         _logger = logger;
     }
 
-    public async Task<(string accessToken, string refreshToken)> LoginAsync(string email, string password, string requestIp)
+    public async Task<(string accessToken, string refreshToken)> LoginAsync(string email, string password, string ip)
     {
-        try
+        var user = await _authRepository.AuthenticateUserAsync(email, password)
+                   ?? throw new UnauthorizedAccessException("Invalid credentials");
+
+        var accessToken = _tokenService.GenerateToken(
+            user.Id.ToString(), user.Email, user.Role.Name,
+            user.RoleId, user.ClinicId, user.FullName);
+
+        var refreshTokenValue = _tokenService.GenerateRefreshToken();
+        var refreshToken = new RefreshToken
         {
-            var user = await _authRepository.AuthenticateUserAsync(email, password);
-            if (user == null)
-            {
-                _logger.LogWarning("Login failed from IP {IP}", requestIp);
-                throw new UnauthorizedAccessException("Invalid credentials.");
-            }
+            UserId = user.Id,
+            Token = refreshTokenValue,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = ip,
+            ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenDays),
+            IsRevoked = false
+        };
 
-            // ✅ OPTIONAL: Revoke all existing refresh tokens for this user
-            // Might annoy users with multiple devices
-            await _authRepository.RevokeAllUserTokensAsync(user.Id, requestIp, "New login");
-
-            var token = _tokenService.GenerateToken(
-                user.Id.ToString(),
-                user.Email,
-                user.Role.Name,
-                user.Role.Id,
-                user.ClinicId,
-                user.FullName
-            );
-
-            var refreshToken = new RefreshToken
-            {
-                UserId = user.Id,
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenDays),
-                CreatedAt = DateTime.UtcNow,
-                CreatedByIp = requestIp,
-                IsRevoked = false
-            };
-
-            await _authRepository.SaveRefreshTokenAsync(user, refreshToken);
-            _logger.LogInformation("User {UserId} logged in successfully from IP {IP}", user.Id, requestIp);
-
-            return (token, refreshToken.Token);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error during login from IP {IP}", requestIp);
-            throw new InvalidOperationException("An error occurred during login. Please try again later.");
-        }
+        await _authRepository.SaveRefreshTokenAsync(user, refreshToken);
+        return (accessToken, refreshToken.Token);
     }
 
-    public async Task<(string accessToken, string refreshToken)> RefreshTokenAsync(string refreshTokenValue, string requestIp)
+    public async Task<(string accessToken, string refreshToken)> RefreshTokenAsync(string oldToken, string ip)
     {
-        try
+        var token = await _authRepository.GetRefreshTokenIncludingRevokedAsync(oldToken)
+                   ?? throw new UnauthorizedAccessException("Invalid refresh token");
+
+        if (token.ExpiresAt <= DateTime.UtcNow)
         {
-            var refreshToken = await _authRepository.GetRefreshTokenIncludingRevokedAsync(refreshTokenValue);
-            
-            if (refreshToken == null || refreshToken.ExpiresAt <= DateTime.UtcNow)
-            {
-                _logger.LogWarning("Invalid or expired refresh token from IP {IP}", requestIp);
-                throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
-            }
-
-            // Token reuse detection with family revocation
-            if (refreshToken.IsRevoked)
-            {
-                _logger.LogWarning("⚠️ Token reuse detected for user {UserId} from IP {IP} - Revoking token family", 
-                    refreshToken.UserId, requestIp);
-                await _authRepository.RevokeTokenFamilyAsync(refreshToken);
-                throw new UnauthorizedAccessException("Token reuse detected. All tokens have been revoked for security.");
-            }
-
-            var user = await _authRepository.AuthenticateUserByIdAsync(refreshToken.UserId);
-            if (user == null || !user.IsActive)
-            {
-                _logger.LogWarning("Refresh attempted for inactive user {UserId}", refreshToken.UserId);
-                throw new UnauthorizedAccessException("User is not active.");
-            }
-
-            // Revoke old token (rotation)
-            await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, requestIp, "Rotated");
-
-            //  Create new token with parent tracking
-            var newToken = new RefreshToken
-            {
-                UserId = user.Id,
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenDays),
-                CreatedAt = DateTime.UtcNow,
-                CreatedByIp = requestIp,
-                IsRevoked = false,
-                ReplacedByToken = refreshToken.Token
-            };
-
-            await _authRepository.SaveRefreshTokenAsync(user, newToken);
-
-            var token = _tokenService.GenerateToken(
-                user.Id.ToString(),
-                user.Email,
-                user.Role.Name,
-                user.Role.Id,
-                user.ClinicId,
-                user.FullName
-            );
-            
-            _logger.LogInformation("Refresh token rotated for user {UserId} from IP {IP}", user.Id, requestIp);
-
-            return (token, newToken.Token);
+            await _authRepository.RevokeRefreshTokenAsync(oldToken, ip, "Expired");
+            throw new UnauthorizedAccessException("Refresh token expired");
         }
-        catch (UnauthorizedAccessException)
+
+        if (token.IsRevoked)
         {
-            // Re-throw auth exceptions
-            throw;
+            await _authRepository.RevokeTokenFamilyAsync(token);
+            throw new UnauthorizedAccessException("Token reuse detected. Login required.");
         }
-        catch (Exception ex)
+
+        var user = await _authRepository.AuthenticateUserByIdAsync(token.UserId)
+                   ?? throw new UnauthorizedAccessException("User inactive");
+
+        var newValue = _tokenService.GenerateRefreshToken();
+
+        var newToken = new RefreshToken
         {
-            // Log but throw generic error
-            _logger.LogError(ex, "Unexpected error during token refresh from IP {IP}", requestIp);
-            throw new InvalidOperationException("An error occurred during token refresh. Please login again.");
-        }
+            UserId = user.Id,
+            Token = newValue,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = ip,
+            ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenDays),
+            IsRevoked = false
+        };
+
+        await _authRepository.SaveRefreshTokenAsync(user, newToken);
+        await _authRepository.MarkRefreshTokenReplacedAsync(oldToken, newValue, ip);
+
+        var accessToken = _tokenService.GenerateToken(
+            user.Id.ToString(), user.Email, user.Role.Name,
+            user.RoleId, user.ClinicId, user.FullName);
+
+        return (accessToken, newToken.Token);
     }
 
-    public async Task LogoutAsync(string refreshTokenValue, string requestIp)
+    public async Task LogoutAsync(string refreshTokenValue, string ip)
     {
-        try
-        {
-            await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, requestIp, "Logout");
-            _logger.LogInformation("Logout successful from IP {IP}", requestIp);
-        }
-        catch (Exception ex)
-        {
-            // Log error but don't throw (logout should always succeed from client perspective)
-            _logger.LogError(ex, "Error during logout from IP {IP} - ignoring", requestIp);
-        }
+        await _authRepository.RevokeRefreshTokenAsync(refreshTokenValue, ip, "Logout");
     }
 }

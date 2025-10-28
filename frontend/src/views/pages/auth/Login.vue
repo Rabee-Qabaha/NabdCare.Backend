@@ -39,7 +39,7 @@ const handleLogin = async (): Promise<void> => {
     toast.add({
       severity: "success",
       summary: "Welcome Back",
-      detail: `Hello, ${user.fullName}!`,
+      detail: `Hello, ${user.name}!`,
       life: 3000,
     });
 

@@ -7,15 +7,13 @@ namespace NabdCare.Api.Endpoints;
 /// <summary>
 /// Authentication endpoints for login, token refresh, and logout.
 /// Author: Rabee-Qabaha
-/// Updated: 2025-10-23 18:15:32 UTC
+/// Updated: 2025-10-26 ✅ Improved cookie security for dev & prod
 /// </summary>
 public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        // ✅ FIX: Remove /auth prefix (will be added by Program.cs)
         var authGroup = app.MapGroup("auth").WithTags("Authentication");
-        //                            ↑ No leading slash!
 
         // ============================================
         // LOGIN
@@ -25,7 +23,6 @@ public static class AuthEndpoints
             [FromServices] IAuthService authService,
             HttpContext http) =>
         {
-            // Basic validation
             if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             {
                 return Results.BadRequest(new
@@ -40,21 +37,22 @@ public static class AuthEndpoints
             }
 
             var ip = GetClientIp(http);
-            
             var (accessToken, refreshToken) = await authService.LoginAsync(req.Email, req.Password, ip);
 
-            // Set refresh token as httpOnly cookie
+            var isProd = !http.Request.Host.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase);
+
             http.Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7)
+                Secure = isProd,
+                SameSite = isProd ? SameSiteMode.Strict : SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddDays(7),
+                IsEssential = true
             });
 
             return Results.Ok(new AuthResponseDto(accessToken));
         })
-        .AllowAnonymous() // ✅ ADD THIS - Login doesn't require auth
+        .AllowAnonymous()
         .WithName("Login")
         .WithSummary("User login with email and password")
         .WithOpenApi()
@@ -84,21 +82,22 @@ public static class AuthEndpoints
             }
 
             var ip = GetClientIp(http);
-            
             var (newAccessToken, newRefreshToken) = await authService.RefreshTokenAsync(refreshToken, ip);
 
-            // Rotate cookie
+            var isProd = !http.Request.Host.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase);
+
             http.Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7)
+                Secure = isProd,
+                SameSite = isProd ? SameSiteMode.Strict : SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddDays(7),
+                IsEssential = true
             });
 
             return Results.Ok(new AuthResponseDto(newAccessToken));
         })
-        .AllowAnonymous() // ✅ ADD THIS - Refresh doesn't require auth
+        .AllowAnonymous()
         .WithName("RefreshToken")
         .WithSummary("Refresh access token using refresh token cookie")
         .WithOpenApi()
@@ -120,7 +119,7 @@ public static class AuthEndpoints
 
             return Results.NoContent();
         })
-        .RequireAuthorization() // ✅ Logout requires auth
+        .RequireAuthorization()
         .WithName("Logout")
         .WithSummary("Logout and revoke refresh token")
         .WithOpenApi();
@@ -128,7 +127,6 @@ public static class AuthEndpoints
 
     private static string GetClientIp(HttpContext http)
     {
-        // X-Forwarded-For header (if behind proxy)
         var xfwd = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
         if (!string.IsNullOrEmpty(xfwd))
         {
@@ -137,7 +135,6 @@ public static class AuthEndpoints
                 return first;
         }
 
-        // Fallback to connection remote IP
         return http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }

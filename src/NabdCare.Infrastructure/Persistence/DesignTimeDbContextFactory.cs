@@ -41,7 +41,9 @@ public class DesignTimeTenantContext : ITenantContext
     public string? UserEmail => "system@nabdcare.local";
     public bool IsSuperAdmin => true; // Allow all operations during migrations
     public string? UserRole => "SuperAdmin";
+    public Guid? RoleId { get; }
     public bool IsAuthenticated => false;
+    
 }
 
 /// <summary>
@@ -57,5 +59,10 @@ public class DesignTimeUserContext : IUserContext
     public string? GetCurrentUserRoleId()
     {
         return null; // No role ID during design-time/migrations
+    }
+
+    public string? GetCurrentUserEmail()
+    {
+        return null;
     }
 }

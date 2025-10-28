@@ -49,9 +49,12 @@ public static class JwtConfig
                 ValidIssuer = issuer,
                 ValidAudience = audience,
                 IssuerSigningKey = signingKey,
-                
-                // ✅ P0 FIX: Add clock skew tolerance for time sync issues
-                ClockSkew = TimeSpan.FromMinutes(5)
+
+                ClockSkew = TimeSpan.FromMinutes(5),
+
+                // ✅ REQUIRED when DefaultMapInboundClaims = false
+                NameClaimType = "name",
+                RoleClaimType = "role"
             };
 
             options.Events = new JwtBearerEvents

@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -18,17 +19,11 @@ public class JwtTokenService : ITokenService
     {
         _config = config;
         _logger = logger;
-        
-        // ✅ Validate JWT configuration on startup
         ValidateConfiguration();
     }
 
-    /// <summary>
-    /// Generates a signed JWT access token with clean, frontend-friendly claims.
-    /// </summary>
     public string GenerateToken(string userId, string email, string roleName, Guid roleId, Guid? clinicId, string fullName)
     {
-        // Prefer env vars (for Docker/prod), fallback to appsettings.json
         var key = Environment.GetEnvironmentVariable("JWT_KEY")
                   ?? _config["Jwt:Key"]
                   ?? throw new InvalidOperationException("JWT Key not configured");
@@ -44,105 +39,63 @@ public class JwtTokenService : ITokenService
         var expireMinutesStr = Environment.GetEnvironmentVariable("JWT_EXPIREMINUTES")
                                ?? _config["Jwt:ExpireMinutes"]
                                ?? "60";
+        _ = double.TryParse(expireMinutesStr, out var expireMinutes);
+        if (expireMinutes <= 0) expireMinutes = 60;
 
-        if (!double.TryParse(expireMinutesStr, out var expireMinutes))
-            expireMinutes = 60;
-
-        // ✅ Clean claim names for frontend simplicity
+        var now = DateTime.UtcNow;
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, userId),
-            new(ClaimTypes.Email, email),
-            new(ClaimTypes.Name, fullName),
-            new(ClaimTypes.Role, roleName),
-            new("RoleId", roleId.ToString()),
+            new(JwtRegisteredClaimNames.Sub, userId),                       
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new("email", email),
+            new("name", fullName),
+            new("role", roleName),
+            new("RoleId", roleId.ToString())
         };
-
-        // ✅ Only add ClinicId if it has a value (cleaner JWT)
+        
         if (clinicId.HasValue)
-        {
             claims.Add(new Claim("ClinicId", clinicId.Value.ToString()));
-        }
 
-        // Signing key
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
         var creds = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-        // Token
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
             claims: claims,
-            notBefore: DateTime.UtcNow,
-            expires: DateTime.UtcNow.AddMinutes(expireMinutes),
+            notBefore: now,
+            expires: now.AddMinutes(expireMinutes),
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    /// <summary>
-    /// Generates a cryptographically secure random refresh token
-    /// </summary>
     public string GenerateRefreshToken()
     {
-        // ✅ Generate 64 random bytes (512 bits) for maximum security
-        var randomBytes = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomBytes);
-        
-        // Convert to Base64 string for storage
-        return Convert.ToBase64String(randomBytes);
+        Span<byte> randomBytes = stackalloc byte[64];
+        RandomNumberGenerator.Fill(randomBytes);
+
+        // ✅ URL-safe Base64 for cookie/query compatibility
+        return WebEncoders.Base64UrlEncode(randomBytes);
     }
 
-    /// <summary>
-    /// Validates JWT configuration on application startup
-    /// </summary>
     private void ValidateConfiguration()
     {
-        var key = Environment.GetEnvironmentVariable("JWT_KEY")
-                  ?? _config["Jwt:Key"];
+        var key = Environment.GetEnvironmentVariable("JWT_KEY") ?? _config["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("JWT Key not configured");
+        if (key.Length < 32) throw new InvalidOperationException("JWT Key must be at least 32 characters (256-bit)");
 
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            _logger.LogCritical("❌ JWT Key is not configured. Set JWT_KEY environment variable or Jwt:Key in appsettings.json");
-            throw new InvalidOperationException("JWT Key not configured");
-        }
+        var weakPatterns = new[] { "secret", "password", "example", "test-key", "change-me", "your-secret" };
+        if (weakPatterns.Any(w => key.Contains(w, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Weak JWT key detected");
 
-        // Validate key strength
-        if (key.Length < 32)
-        {
-            _logger.LogCritical("❌ JWT Key is too short ({Length} chars). Must be at least 32 characters (256 bits)", key.Length);
-            throw new InvalidOperationException($"JWT Key must be at least 32 characters. Current length: {key.Length}");
-        }
-
-        // ✅ Warn if using weak/example keys
-        var weakKeyPatterns = new[] { "your-secret", "example", "test-key", "change-me", "secret", "password" };
-        if (weakKeyPatterns.Any(pattern => key.Contains(pattern, StringComparison.OrdinalIgnoreCase)))
-        {
-            _logger.LogCritical("❌ JWT Key appears to contain weak/example patterns. Use a strong random key.");
-            throw new InvalidOperationException("JWT Key appears to be weak or an example key");
-        }
-
-        // ✅ Validate other required settings
-        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _config["Jwt:Issuer"];
-        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? _config["Jwt:Audience"];
-
-        if (string.IsNullOrWhiteSpace(issuer))
-        {
-            _logger.LogCritical("❌ JWT Issuer is not configured");
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _config["Jwt:Issuer"]))
             throw new InvalidOperationException("JWT Issuer not configured");
-        }
 
-        if (string.IsNullOrWhiteSpace(audience))
-        {
-            _logger.LogCritical("❌ JWT Audience is not configured");
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? _config["Jwt:Audience"]))
             throw new InvalidOperationException("JWT Audience not configured");
-        }
 
-        _logger.LogInformation("✅ JWT configuration validated successfully");
-        _logger.LogInformation("   - Key length: {KeyLength} characters", key.Length);
-        _logger.LogInformation("   - Issuer: {Issuer}", issuer);
-        _logger.LogInformation("   - Audience: {Audience}", audience);
+        _logger.LogInformation("✅ JWT configuration validated.");
     }
 }

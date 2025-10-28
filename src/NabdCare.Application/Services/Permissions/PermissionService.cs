@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
+using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Permissions;
@@ -12,17 +13,20 @@ public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<PermissionService> _logger;
 
     public PermissionService(
         IPermissionRepository permissionRepository,
         IRoleRepository roleRepository, // ✅ Inject role repository
+        IUserRepository userRepository,
         IMapper mapper,
         ILogger<PermissionService> logger)
     {
         _permissionRepository = permissionRepository;
         _roleRepository = roleRepository;
+        _userRepository = userRepository;
         _mapper = mapper;
         _logger = logger;
     }
@@ -229,5 +233,13 @@ public class PermissionService : IPermissionService
         return effective.Any(p => p.Name.Equals(permissionName, StringComparison.OrdinalIgnoreCase));
     }
 
+    public async Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId)
+    {
+        var user = await _userRepository.GetByIdRawAsync(userId); // Ignore filters
+        if (user == null) return null;
+
+        return (user.RoleId, user.ClinicId);
+    }
+    
     #endregion
 }

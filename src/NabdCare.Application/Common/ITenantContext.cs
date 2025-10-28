@@ -31,6 +31,11 @@ public interface ITenantContext
     string? UserRole { get; }
 
     /// <summary>
+    /// Role GUID from JWT (matches DB)
+    /// </summary>
+    Guid? RoleId { get; }
+    
+    /// <summary>
     /// Whether there is an authenticated user in the current request
     /// </summary>
     bool IsAuthenticated { get; }

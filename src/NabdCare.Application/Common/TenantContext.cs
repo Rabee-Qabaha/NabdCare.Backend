@@ -14,45 +14,37 @@ public class TenantContext : ITenantContext
 
     private ClaimsPrincipal? User => _httpContextAccessor.HttpContext?.User;
 
-    public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
+    public bool IsAuthenticated =>
+        User?.Identity?.IsAuthenticated ?? false;
 
-    public Guid? ClinicId
-    {
-        get
-        {
-            var clinicIdClaim = User?.FindFirst("ClinicId")?.Value;
-            return Guid.TryParse(clinicIdClaim, out var clinicId) ? clinicId : null;
-        }
-    }
+    public Guid? ClinicId =>
+        TryGetGuid("ClinicId");
 
-    public Guid? UserId
-    {
-        get
-        {
-            // Try standard claim first, then custom "sub" claim
-            var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                              ?? User?.FindFirst("sub")?.Value;
-            
-            return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
-        }
-    }
+    public Guid? UserId =>
+        TryGetGuid(ClaimTypes.NameIdentifier) ??
+        TryGetGuid("sub");
 
     public string? UserEmail =>
-        User?.FindFirst(ClaimTypes.Email)?.Value 
-        ?? User?.FindFirst("email")?.Value;
-
-    public bool IsSuperAdmin
-    {
-        get
-        {
-            var role = User?.FindFirst(ClaimTypes.Role)?.Value 
-                       ?? User?.FindFirst("role")?.Value;
-
-            return string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
-        }
-    }
+        User?.FindFirst(ClaimTypes.Email)?.Value ??
+        User?.FindFirst("email")?.Value;
 
     public string? UserRole =>
-        User?.FindFirst(ClaimTypes.Role)?.Value 
-        ?? User?.FindFirst("role")?.Value;
+        User?.FindFirst(ClaimTypes.Role)?.Value ??
+        User?.FindFirst("role")?.Value;
+
+    public Guid? RoleId =>
+        TryGetGuid("RoleId");
+
+    public bool IsSuperAdmin =>
+        string.Equals(
+            UserRole,
+            "SuperAdmin",
+            StringComparison.OrdinalIgnoreCase
+        );
+
+    private Guid? TryGetGuid(string claimType)
+    {
+        var value = User?.FindFirst(claimType)?.Value;
+        return Guid.TryParse(value, out var guid) ? guid : null;
+    }
 }

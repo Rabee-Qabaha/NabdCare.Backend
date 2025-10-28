@@ -3,69 +3,30 @@ import { jwtDecode, type JwtPayload } from "jwt-decode";
 export interface UserInfo extends JwtPayload {
   sub?: string;
   email?: string;
+  name?: string;
   role?: string;
   clinicId?: string;
-  fullName?: string;
+  roleId?: string;
   jti?: string;
-
-  // ✅ Support for .NET claim names (what backend actually sends)
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"?: string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"?: string;
-  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
-  ClinicId?: string;
-  RoleId?: string;
 }
 
 /**
- * Decode and extract user info from access token
- * ✅ Normalizes .NET claim names to simple property names
+ * Decode and extract user details from JWT
+ * ✅ Uses clean claim names coming from backend
  */
 export function getUserFromToken(token: string): UserInfo | null {
   try {
     const decoded = jwtDecode<UserInfo>(token);
 
-    // ✅ CRITICAL: Normalize .NET claim names to simple properties
     const normalized: UserInfo = {
       ...decoded,
-
-      // Extract user ID
-      sub:
-        decoded.sub ||
-        decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ],
-
-      // Extract email
-      email:
-        decoded.email ||
-        decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
-        ],
-
-      // Extract full name
-      fullName:
-        decoded.fullName ||
-        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
-
-      // ✅ THIS IS THE KEY FIX: Extract role from .NET claim
-      role:
-        decoded.role ||
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"],
-
-      // Extract clinic ID (backend sends "ClinicId" with capital C)
-      clinicId: decoded.clinicId || decoded["ClinicId"],
+      sub: decoded.sub,
+      email: decoded.email,
+      name: decoded.name,
+      role: decoded.role,
+      clinicId: decoded.clinicId,
+      roleId: decoded.roleId,
     };
-
-    console.log("🔍 JWT Decoded:", {
-      raw: decoded,
-      normalized: {
-        email: normalized.email,
-        role: normalized.role,
-        fullName: normalized.fullName,
-        clinicId: normalized.clinicId,
-      },
-    });
 
     return normalized;
   } catch (err) {
@@ -82,15 +43,15 @@ export function isTokenExpired(token: string): boolean {
     const decoded = jwtDecode<JwtPayload>(token);
     if (!decoded.exp) return true;
 
-    const currentTime = Date.now() / 1000;
-    return decoded.exp < currentTime + 5;
+    const now = Date.now() / 1000;
+    return decoded.exp < now;
   } catch {
     return true;
   }
 }
 
 /**
- * Get token expiry time in milliseconds
+ * Get expiration timestamp (ms)
  */
 export function getTokenExpiryTime(token: string): number | null {
   try {
@@ -102,12 +63,12 @@ export function getTokenExpiryTime(token: string): number | null {
 }
 
 /**
- * Get time until token expires (in milliseconds)
+ * Get ms until expiry
  */
 export function getTimeUntilExpiry(token: string): number | null {
-  const expiryTime = getTokenExpiryTime(token);
-  if (!expiryTime) return null;
+  const expiresAt = getTokenExpiryTime(token);
+  if (!expiresAt) return null;
 
-  const timeUntil = expiryTime - Date.now();
-  return timeUntil > 0 ? timeUntil : 0;
+  const remaining = expiresAt - Date.now();
+  return remaining > 0 ? remaining : 0;
 }

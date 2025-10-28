@@ -22,4 +22,5 @@ public interface IPermissionService
 
     Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, Guid roleId);
     Task<bool> UserHasPermissionAsync(Guid userId, Guid roleId, string permissionName);
+    Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId);
 }

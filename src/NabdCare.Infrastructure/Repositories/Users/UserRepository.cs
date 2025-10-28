@@ -37,6 +37,14 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
     }
 
+    public async Task<User?> GetByIdRawAsync(Guid id)
+    {
+        return await _dbContext.Users
+            .IgnoreQueryFilters()
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
+    
     public async Task<User?> GetByEmailAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email))

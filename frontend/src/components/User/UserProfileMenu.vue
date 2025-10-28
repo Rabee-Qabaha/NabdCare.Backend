@@ -20,7 +20,7 @@ const currentUser = computed(() => authStore.currentUser);
 // Normalize role display
 const userRoleDisplay = computed(() => currentUser.value?.role);
 
-const userName = computed(() => currentUser.value?.fullName);
+const userName = computed(() => currentUser.value?.name);
 
 const profileMenuItems = [
   {

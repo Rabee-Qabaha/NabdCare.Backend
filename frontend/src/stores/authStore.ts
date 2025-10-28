@@ -1,3 +1,4 @@
+// frontend/src/stores/authStore.ts
 import { defineStore } from "pinia";
 import { ref, computed, watch } from "vue";
 import { AuthService } from "@/service/AuthService";

@@ -18,6 +18,11 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid userId);
     
     /// <summary>
+    /// Get user without tenant filters (security-only usage)
+    /// </summary>
+    Task<User?> GetByIdRawAsync(Guid id);
+    
+    /// <summary>
     /// Get user by email address
     /// </summary>
     Task<User?> GetByEmailAsync(string email);

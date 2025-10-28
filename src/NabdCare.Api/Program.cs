@@ -4,26 +4,32 @@ using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Configurations;
 using NabdCare.Api.Extensions;
 using NabdCare.Api.Middleware;
+using NabdCare.Api.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using DotNetEnv;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 
-DotNetEnv.Env.Load();
+// ✅ Disable legacy JWT claim mapping
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
+
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Bind configurations
+// Bind configuration objects
 builder.Services.Configure<FrontendSettings>(builder.Configuration);
 
-// Add services and application wiring (repositories, services, AutoMapper, validators, seeders)
+// Add services (DB, auth, repos, application services)
 builder.Services.AddNabdCareServices(builder.Configuration);
 
-// Controllers + JSON enum strings
+// Controllers + enum serialization as strings
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// Centralized model validation response
+// Handle FluentValidation model errors consistently
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -50,72 +56,88 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 
-// Authentication, rate limiting, swagger etc. (extension methods used in your project)
+// ✅ Auth + RBAC
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddRateLimiting(builder.Configuration);
+
+// ✅ Default: authenticated users required unless [AllowAnonymous]
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// ✅ Dynamic RBAC policy provider + handler
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+// ✅ Swagger
 SwaggerConfig.AddSwagger(builder.Services);
 
-// CORS
+// ✅ CORS configuration
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins(allowedOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials()
-    );
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
-
-// Database seeding (only in Development/Production, not Testing)
+// ✅ Seed DB only outside Test environment
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    // Register the DB seed hosted service once (single registration)
-    // This will create a scope and run the DbSeeder during startup.
     builder.Services.AddHostedService<DbSeedHostedService>();
 }
 
 var app = builder.Build();
 
-// Middleware pipeline
+// ✅ Global exception handling FIRST
 app.UseMiddleware<ErrorHandlingMiddleware>();
-app.UseMiddleware<SubscriptionValidationMiddleware>();
 
-if (!app.Environment.IsDevelopment())
+// ✅ Allow Swagger UI always
+app.UseSwagger();
+app.UseSwaggerUI(opts =>
 {
-    app.UseHttpsRedirection();
-}
+    opts.SwaggerEndpoint("/swagger/v1/swagger.json", "NabdCare API v1");
+    opts.RoutePrefix = "swagger";
+});
 
-// Only use rate limiter in non-testing environments
-if (!app.Environment.IsEnvironment("Testing"))
-{
-    app.UseRateLimiter();
-}
-
-app.UseSecurityHeaders();
-app.UseCors("AllowFrontend");
-
+// ✅ Reverse Proxy (Nginx/Traefik/Kubernetes)
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
+// ✅ Enforce HTTPS only in Prod
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+
+// ✅ CORS + Security Headers (CSP, XSS etc)
+app.UseCors("AllowFrontend");
+app.UseSecurityHeaders();
+
+// ✅ Authentication must run before authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map API groups
-var api = app.MapGroup("/api");
-api.MapAllEndpoints();
+// ✅ Audit logs AFTER auth to attach user identity
+app.UseMiddleware<AuditLoggingMiddleware>();
 
-// Swagger
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "NabdCare API v1");
-    options.RoutePrefix = "swagger";
-});
+// ✅ Subscription restrictions AFTER we know the user & tenant
+app.UseMiddleware<SubscriptionValidationMiddleware>();
+
+// ✅ Rate limiting after auth (not for Test env)
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseRateLimiter();
+
+// ✅ ✅ All endpoints mapped here
+app.MapGroup("/api")
+   .MapAllEndpoints();
+
 
 app.Run();
 
-public partial class Program { }
+public partial class Program {}

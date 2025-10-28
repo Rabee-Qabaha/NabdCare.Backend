@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NabdCare.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NabdCare.Infrastructure.Migrations
 {
     [DbContext(typeof(NabdCareDbContext))]
-    partial class NabdCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251026181704_AddClinicIdToRefreshTokens")]
+    partial class AddClinicIdToRefreshTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -76,12 +79,6 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.HasIndex("Action")
                         .HasDatabaseName("IX_AuditLogs_Action");
-
-                    b.HasIndex("Changes")
-                        .HasDatabaseName("IX_AuditLogs_Changes_GIN");
-
-                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Changes"), "gin");
-                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Changes"), new[] { "jsonb_path_ops" });
 
                     b.HasIndex("ClinicId")
                         .HasDatabaseName("IX_AuditLogs_ClinicId");

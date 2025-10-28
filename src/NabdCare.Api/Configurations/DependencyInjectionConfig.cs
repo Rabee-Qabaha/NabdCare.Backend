@@ -8,7 +8,6 @@ using NabdCare.Application.Interfaces.Clinics.Subscriptions;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Application.Interfaces.Users;
-using NabdCare.Application.mappings;
 using NabdCare.Application.Mappings;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
@@ -24,6 +23,11 @@ using NabdCare.Infrastructure.Repositories.Clinics;
 using NabdCare.Infrastructure.Repositories.Permissions;
 using NabdCare.Infrastructure.Repositories.Roles;
 using NabdCare.Infrastructure.Repositories.Users;
+using Microsoft.AspNetCore.Authorization;
+using NabdCare.Api.Authorization;
+using NabdCare.Application.Interfaces.Audit;
+using NabdCare.Application.mappings;
+using NabdCare.Infrastructure.Repositories.Audit;
 
 namespace NabdCare.Api.Configurations;
 
@@ -36,59 +40,64 @@ public static class DependencyInjectionConfig
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
         );
 
-        // HttpContextAccessor
+        // HttpContext Accessor
         services.AddHttpContextAccessor();
 
-        // Tenant & User context
+        // Tenant & User contexts
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<IUserContext, UserContext>();
 
-        // Auth services
+        // Auth
         services.AddScoped<IPasswordService, IdentityPasswordService>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IAuthService, AuthService>();
 
-        // User services
+        // Users
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IUserService, UserService>();
 
-        // Permission services
+        // Permissions
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IPermissionService, PermissionService>();
-        
-        // ✅ ADD THESE TWO LINES - Role services
+
+        // Roles
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IRoleService, RoleService>();
-        
-        // Role repository (already exists, keep it)
-        services.AddScoped<IRoleRepository, RoleRepository>();
-        
-        // Clinic services
+
+        // RBAC Authorization
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+        // Clinic
         services.AddScoped<IClinicRepository, ClinicRepository>();
         services.AddScoped<IClinicService, ClinicService>();
 
-        // Subscription services
+        // Subscriptions
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
-        // AutoMapper - ✅ ADD RoleProfile
-        services.AddAutoMapper(_ => { }, 
-            typeof(UserProfile), 
-            typeof(ClinicProfile), 
-            typeof(PermissionProfile), 
-            typeof(SubscriptionProfile),
-            typeof(RoleProfile));  // ✅ ADD THIS
+        // Audit
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        
+        // AutoMapper
+        services.AddAutoMapper(cfg => { },
+            typeof(UserProfile).Assembly,
+            typeof(ClinicProfile).Assembly,
+            typeof(PermissionProfile).Assembly,
+            typeof(SubscriptionProfile).Assembly,
+            typeof(RoleProfile).Assembly
+        );
 
-        // FluentValidation - ✅ This will automatically find Role validators
+        // FluentValidation
         services.AddValidatorsFromAssemblyContaining<UserValidator>();
 
-        // Seeder registrations
+        // Seeders
         services.AddScoped<DbSeeder>();
-        services.AddScoped<ISingleSeeder, RolesSeeder>();           // Order 1 - Create roles first
-        services.AddScoped<ISingleSeeder, PermissionsSeeder>();     // Order 2 - Create permissions
-        services.AddScoped<ISingleSeeder, RolePermissionsSeeder>(); // Order 3 - Assign permissions to roles
-        services.AddScoped<ISingleSeeder, SuperAdminSeeder>();      // Order 4 - Create SuperAdmin user
+        services.AddScoped<ISingleSeeder, RolesSeeder>();
+        services.AddScoped<ISingleSeeder, PermissionsSeeder>();
+        services.AddScoped<ISingleSeeder, RolePermissionsSeeder>();
+        services.AddScoped<ISingleSeeder, SuperAdminSeeder>();
 
         return services;
     }

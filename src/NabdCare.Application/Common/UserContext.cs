@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 
 namespace NabdCare.Application.Common;
 
@@ -14,13 +13,21 @@ public class UserContext : IUserContext
 
     public string GetCurrentUserId()
     {
-        return _httpContextAccessor.HttpContext?.User
-            .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+        // ✅ Prefer "sub" claim because DefaultMapInboundClaims=false
+        return _httpContextAccessor.HttpContext?.User?
+                   .FindFirst("sub")?.Value 
+               ?? "anonymous";
     }
 
     public string? GetCurrentUserRoleId()
     {
-        return _httpContextAccessor.HttpContext?.User
+        return _httpContextAccessor.HttpContext?.User?
             .FindFirst("RoleId")?.Value;
+    }
+
+    public string? GetCurrentUserEmail()
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .FindFirst("email")?.Value;
     }
 }

@@ -5,4 +5,5 @@ public interface IUserContext
     // Method to retrieve the current user's ID
     string GetCurrentUserId();
     string? GetCurrentUserRoleId();
+    string? GetCurrentUserEmail();
 }

@@ -17,14 +17,15 @@ namespace NabdCare.Api.Configurations
                     Description = "API documentation for NabdCare"
                 });
 
-                // ✅ JWT Authentication for Swagger
+                // ✅ Correct Bearer scheme so Swagger actually attaches the header
                 options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
                     Name = "Authorization",
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.Http,
-                    Scheme = "Bearer"
+                    Scheme = "bearer",            // <-- must be lowercase
+                    BearerFormat = "JWT"          // <-- helps some tooling
                 });
 
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -42,14 +43,7 @@ namespace NabdCare.Api.Configurations
                     }
                 });
 
-                // ✅ Make enums show as strings in Swagger UI
-                options.MapType<Enum>(() => new OpenApiSchema
-                {
-                    Type = "string",
-                    Enum = null // Swagger will infer actual enum names
-                });
-
-                // Optional: Include XML comments
+                // Optional: include XML comments
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 if (File.Exists(xmlPath))

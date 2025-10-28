@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Application.Common;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Roles;
@@ -9,13 +10,22 @@ namespace NabdCare.Infrastructure.Repositories.Roles;
 public class RoleRepository : IRoleRepository
 {
     private readonly NabdCareDbContext _dbContext;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<RoleRepository> _logger;
 
-    public RoleRepository(NabdCareDbContext dbContext, ILogger<RoleRepository> logger)
+    public RoleRepository(
+        NabdCareDbContext dbContext,
+        ITenantContext tenantContext,
+        ILogger<RoleRepository> logger)
     {
         _dbContext = dbContext;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
+
+    private bool IsSuperAdmin() => _tenantContext.IsSuperAdmin;
+    private Guid? CurrentClinicId => _tenantContext.ClinicId;
+    private string? CurrentUserId => _tenantContext.UserId?.ToString();
 
     #region QUERY METHODS
 
@@ -31,7 +41,7 @@ public class RoleRepository : IRoleRepository
     public async Task<IEnumerable<Role>> GetSystemRolesAsync()
     {
         return await _dbContext.Roles
-            .IgnoreQueryFilters() // System roles have no clinic
+            .IgnoreQueryFilters()
             .Where(r => r.IsSystemRole)
             .OrderBy(r => r.DisplayOrder)
             .ToListAsync();
@@ -40,7 +50,7 @@ public class RoleRepository : IRoleRepository
     public async Task<IEnumerable<Role>> GetTemplateRolesAsync()
     {
         return await _dbContext.Roles
-            .IgnoreQueryFilters() // Templates have no clinic
+            .IgnoreQueryFilters()
             .Where(r => r.IsTemplate)
             .OrderBy(r => r.DisplayOrder)
             .ToListAsync();
@@ -72,7 +82,7 @@ public class RoleRepository : IRoleRepository
     public async Task<int> GetRoleUserCountAsync(Guid roleId)
     {
         return await _dbContext.Users
-            .IgnoreQueryFilters() // Count all users, even deleted
+            .IgnoreQueryFilters()
             .CountAsync(u => u.RoleId == roleId && !u.IsDeleted);
     }
 
@@ -94,9 +104,7 @@ public class RoleRepository : IRoleRepository
             .Where(r => r.Name == name && r.ClinicId == clinicId);
 
         if (excludeRoleId.HasValue)
-        {
             query = query.Where(r => r.Id != excludeRoleId.Value);
-        }
 
         return await query.AnyAsync();
     }
@@ -107,25 +115,57 @@ public class RoleRepository : IRoleRepository
 
     public async Task<Role> CreateRoleAsync(Role role)
     {
-        _dbContext.Roles.Add(role);
+        await _dbContext.Roles.AddAsync(role);
         await _dbContext.SaveChangesAsync();
         return role;
     }
 
     public async Task<Role?> UpdateRoleAsync(Role role)
     {
-        _dbContext.Roles.Update(role);
+        var existing = await _dbContext.Roles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Id == role.Id);
+
+        if (existing == null)
+            return null;
+
+        if (existing.IsSystemRole && !IsSuperAdmin())
+            throw new UnauthorizedAccessException("System roles can only be modified by SuperAdmin");
+
+        if (!IsSuperAdmin())
+        {
+            if (existing.ClinicId == null || existing.ClinicId != CurrentClinicId)
+                throw new UnauthorizedAccessException("You can modify only roles belonging to your clinic");
+        }
+
+        _dbContext.Entry(existing).CurrentValues.SetValues(role);
+        existing.UpdatedAt = DateTime.UtcNow;
+        existing.UpdatedBy = CurrentUserId;
+
         await _dbContext.SaveChangesAsync();
-        return role;
+        return existing;
     }
 
     public async Task<bool> DeleteRoleAsync(Guid id)
     {
-        var role = await GetRoleByIdAsync(id);
+        var role = await _dbContext.Roles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Id == id);
+
         if (role == null)
             return false;
 
-        _dbContext.Roles.Remove(role);
+        if (role.IsSystemRole && !IsSuperAdmin())
+            throw new UnauthorizedAccessException("System roles cannot be deleted");
+
+        if (!IsSuperAdmin() && role.ClinicId != CurrentClinicId)
+            throw new UnauthorizedAccessException("You can delete only roles belonging to your clinic");
+
+        role.IsDeleted = true;
+        role.DeletedAt = DateTime.UtcNow;
+        role.DeletedBy = CurrentUserId;
+
+        _dbContext.Roles.Update(role);
         await _dbContext.SaveChangesAsync();
         return true;
     }
@@ -137,21 +177,30 @@ public class RoleRepository : IRoleRepository
     public async Task<IEnumerable<Guid>> GetRolePermissionIdsAsync(Guid roleId)
     {
         return await _dbContext.RolePermissions
-            .IgnoreQueryFilters()
-            .Where(rp => rp.RoleId == roleId && !rp.IsDeleted)
+            .Where(rp => rp.RoleId == roleId)
             .Select(rp => rp.PermissionId)
             .ToListAsync();
     }
 
     public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
-        // Check if already exists
-        var exists = await _dbContext.RolePermissions
+        var existing = await _dbContext.RolePermissions
             .IgnoreQueryFilters()
-            .AnyAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId && !rp.IsDeleted);
+            .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId);
 
-        if (exists)
+        if (existing != null)
+        {
+            if (existing.IsDeleted)
+            {
+                existing.IsDeleted = false;
+                existing.UpdatedAt = DateTime.UtcNow;
+                existing.UpdatedBy = CurrentUserId;
+                _dbContext.RolePermissions.Update(existing);
+                await _dbContext.SaveChangesAsync();
+            }
+
             return false;
+        }
 
         var rolePermission = new RolePermission
         {
@@ -159,11 +208,11 @@ public class RoleRepository : IRoleRepository
             RoleId = roleId,
             PermissionId = permissionId,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
+            CreatedBy = CurrentUserId,
             IsDeleted = false
         };
 
-        _dbContext.RolePermissions.Add(rolePermission);
+        await _dbContext.RolePermissions.AddAsync(rolePermission);
         await _dbContext.SaveChangesAsync();
         return true;
     }
@@ -172,65 +221,110 @@ public class RoleRepository : IRoleRepository
     {
         var rolePermission = await _dbContext.RolePermissions
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId && !rp.IsDeleted);
+            .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId);
 
         if (rolePermission == null)
             return false;
 
-        _dbContext.RolePermissions.Remove(rolePermission);
+        rolePermission.IsDeleted = true;
+        rolePermission.DeletedAt = DateTime.UtcNow;
+        rolePermission.DeletedBy = CurrentUserId;
+
+        _dbContext.RolePermissions.Update(rolePermission);
         await _dbContext.SaveChangesAsync();
         return true;
     }
 
     public async Task<int> BulkAssignPermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
-        var existingPermissionIds = await GetRolePermissionIdsAsync(roleId);
-        var newPermissionIds = permissionIds.Except(existingPermissionIds).ToList();
-
-        if (!newPermissionIds.Any())
-            return 0;
-
-        var rolePermissions = newPermissionIds.Select(permissionId => new RolePermission
+        if (!IsSuperAdmin())
         {
-            Id = Guid.NewGuid(),
-            RoleId = roleId,
-            PermissionId = permissionId,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
-            IsDeleted = false
-        }).ToList();
+            var role = await _dbContext.Roles.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.Id == roleId);
 
-        _dbContext.RolePermissions.AddRange(rolePermissions);
+            if (role == null || role.ClinicId != CurrentClinicId)
+                throw new UnauthorizedAccessException("You can assign permissions only to roles in your clinic");
+        }
+
+        var existing = await _dbContext.RolePermissions
+            .IgnoreQueryFilters()
+            .Where(rp => rp.RoleId == roleId)
+            .ToListAsync();
+
+        var newPermissionIds = permissionIds
+            .Except(existing.Select(x => x.PermissionId))
+            .ToList();
+
+        foreach (var permissionId in newPermissionIds)
+        {
+            var rp = new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = roleId,
+                PermissionId = permissionId,
+                CreatedBy = CurrentUserId,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+            await _dbContext.RolePermissions.AddAsync(rp);
+        }
+
         await _dbContext.SaveChangesAsync();
-
-        return rolePermissions.Count;
+        return newPermissionIds.Count;
     }
 
     public async Task<bool> SyncRolePermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
-        // Get existing permissions
+        if (!IsSuperAdmin())
+        {
+            var role = await _dbContext.Roles.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(r => r.Id == roleId);
+
+            if (role == null || role.ClinicId != CurrentClinicId)
+                throw new UnauthorizedAccessException("You can modify permissions only for roles in your clinic");
+        }
+
         var existing = await _dbContext.RolePermissions
             .IgnoreQueryFilters()
-            .Where(rp => rp.RoleId == roleId && !rp.IsDeleted)
+            .Where(rp => rp.RoleId == roleId)
             .ToListAsync();
 
-        // Remove all existing
-        _dbContext.RolePermissions.RemoveRange(existing);
-
-        // Add new permissions
-        var rolePermissions = permissionIds.Select(permissionId => new RolePermission
+        // Soft delete all existing
+        foreach (var rp in existing)
         {
-            Id = Guid.NewGuid(),
-            RoleId = roleId,
-            PermissionId = permissionId,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
-            IsDeleted = false
-        }).ToList();
+            rp.IsDeleted = true;
+            rp.DeletedAt = DateTime.UtcNow;
+            rp.DeletedBy = CurrentUserId;
+        }
 
-        _dbContext.RolePermissions.AddRange(rolePermissions);
+        _dbContext.RolePermissions.UpdateRange(existing);
+
+        // Reactivate or add new permissions
+        foreach (var permissionId in permissionIds)
+        {
+            var rp = existing.FirstOrDefault(x => x.PermissionId == permissionId);
+
+            if (rp != null)
+            {
+                rp.IsDeleted = false;
+                rp.UpdatedAt = DateTime.UtcNow;
+                rp.UpdatedBy = CurrentUserId;
+            }
+            else
+            {
+                await _dbContext.RolePermissions.AddAsync(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleId = roleId,
+                    PermissionId = permissionId,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = CurrentUserId,
+                    IsDeleted = false
+                });
+            }
+        }
+
         await _dbContext.SaveChangesAsync();
-
         return true;
     }
 

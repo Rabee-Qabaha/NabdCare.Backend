@@ -1,4 +1,3 @@
-// Middleware/SubscriptionValidationMiddleware.cs
 using Microsoft.AspNetCore.Http;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces.Clinics;
@@ -6,9 +5,6 @@ using NabdCare.Domain.Enums;
 
 namespace NabdCare.Api.Middleware;
 
-/// <summary>
-/// Middleware to block requests from clinics with invalid subscriptions
-/// </summary>
 public class SubscriptionValidationMiddleware
 {
     private readonly RequestDelegate _next;
@@ -23,29 +19,38 @@ public class SubscriptionValidationMiddleware
         ITenantContext tenantContext,
         IClinicRepository clinicRepository)
     {
-        // Skip for SuperAdmin
+        // ✅ Allow requests authenticated via JWT Bearer header (Swagger usage)
+        var hasJwtHeader = context.Request.Headers["Authorization"]
+            .Any(h => h.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase));
+
+        if (hasJwtHeader)
+        {
+            await _next(context);
+            return;
+        }
+
+        // ✅ Skip for SuperAdmin (always allowed)
         if (tenantContext.IsSuperAdmin)
         {
             await _next(context);
             return;
         }
 
-        // Skip for auth endpoints
+        // ✅ Skip checks for login/refresh/etc.
         if (context.Request.Path.StartsWithSegments("/api/auth"))
         {
             await _next(context);
             return;
         }
 
-        // Check clinic subscription status
         if (tenantContext.ClinicId.HasValue)
         {
             var clinic = await clinicRepository.GetByIdAsync(tenantContext.ClinicId.Value);
-            
-            if (clinic == null || 
-                clinic.Status == SubscriptionStatus.Expired ||
-                clinic.Status == SubscriptionStatus.Suspended ||
-                clinic.Status == SubscriptionStatus.Cancelled)
+
+            if (clinic == null ||
+                clinic.Status is SubscriptionStatus.Expired or
+                SubscriptionStatus.Suspended or
+                SubscriptionStatus.Cancelled)
             {
                 context.Response.StatusCode = 403;
                 await context.Response.WriteAsJsonAsync(new

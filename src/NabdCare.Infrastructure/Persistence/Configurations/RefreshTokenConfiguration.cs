@@ -12,15 +12,20 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 
         builder.HasKey(rt => rt.Id);
 
-        builder.Property(rt => rt.Token)
-            .IsRequired();
+        builder.Property(rt => rt.Token).IsRequired();
 
         builder.Property(rt => rt.CreatedAt)
             .HasDefaultValueSql("NOW()")
             .ValueGeneratedOnAdd();
 
+        // NEW
+        builder.Property(rt => rt.ClinicId).IsRequired(false);
+        builder.Property(rt => rt.IssuedForUserAgent).HasMaxLength(500);
+
         builder.HasIndex(rt => rt.Token).IsUnique();
         builder.HasIndex(rt => rt.UserId);
         builder.HasIndex(rt => rt.ExpiresAt);
+
+        builder.HasIndex(rt => rt.ClinicId);
     }
 }

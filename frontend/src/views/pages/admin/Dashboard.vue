@@ -109,7 +109,7 @@ onMounted(() => {
       <div class="flex align-items-center justify-content-between mb-4">
         <div>
           <h1 class="text-3xl font-bold text-900 m-0 mb-2">
-            Welcome back, {{ authStore.fullName }}! 👋
+            Welcome back, {{ authStore.currentUser.name }}! 👋
           </h1>
           <p class="text-600 text-lg m-0">
             Here's what's happening with NabdCare today
