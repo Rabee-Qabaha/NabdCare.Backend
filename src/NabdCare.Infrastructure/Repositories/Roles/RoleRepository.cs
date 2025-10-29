@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.Common;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Domain.Entities.Permissions;
-using NabdCare.Application.Common;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Roles;
@@ -12,22 +13,27 @@ public class RoleRepository : IRoleRepository
     private readonly NabdCareDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<RoleRepository> _logger;
+    private readonly IPermissionCacheInvalidator _cacheInvalidator; // 🧩 added
 
     public RoleRepository(
         NabdCareDbContext dbContext,
         ITenantContext tenantContext,
-        ILogger<RoleRepository> logger)
+        ILogger<RoleRepository> logger,
+        IPermissionCacheInvalidator cacheInvalidator) // 🧩 added
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     private bool IsSuperAdmin() => _tenantContext.IsSuperAdmin;
     private Guid? CurrentClinicId => _tenantContext.ClinicId;
     private string? CurrentUserId => _tenantContext.UserId?.ToString();
 
-    #region QUERY METHODS
+    // ============================================
+    // QUERY METHODS
+    // ============================================
 
     public async Task<IEnumerable<Role>> GetAllRolesAsync()
     {
@@ -109,9 +115,9 @@ public class RoleRepository : IRoleRepository
         return await query.AnyAsync();
     }
 
-    #endregion
-
-    #region COMMAND METHODS
+    // ============================================
+    // COMMAND METHODS
+    // ============================================
 
     public async Task<Role> CreateRoleAsync(Role role)
     {
@@ -170,9 +176,9 @@ public class RoleRepository : IRoleRepository
         return true;
     }
 
-    #endregion
-
-    #region PERMISSION MANAGEMENT
+    // ============================================
+    // PERMISSION MANAGEMENT
+    // ============================================
 
     public async Task<IEnumerable<Guid>> GetRolePermissionIdsAsync(Guid roleId)
     {
@@ -199,6 +205,7 @@ public class RoleRepository : IRoleRepository
                 await _dbContext.SaveChangesAsync();
             }
 
+            await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
             return false;
         }
 
@@ -214,6 +221,9 @@ public class RoleRepository : IRoleRepository
 
         await _dbContext.RolePermissions.AddAsync(rolePermission);
         await _dbContext.SaveChangesAsync();
+
+        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
+
         return true;
     }
 
@@ -232,6 +242,9 @@ public class RoleRepository : IRoleRepository
 
         _dbContext.RolePermissions.Update(rolePermission);
         await _dbContext.SaveChangesAsync();
+
+        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
+
         return true;
     }
 
@@ -270,6 +283,9 @@ public class RoleRepository : IRoleRepository
         }
 
         await _dbContext.SaveChangesAsync();
+
+        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
+
         return newPermissionIds.Count;
     }
 
@@ -289,7 +305,6 @@ public class RoleRepository : IRoleRepository
             .Where(rp => rp.RoleId == roleId)
             .ToListAsync();
 
-        // Soft delete all existing
         foreach (var rp in existing)
         {
             rp.IsDeleted = true;
@@ -299,7 +314,6 @@ public class RoleRepository : IRoleRepository
 
         _dbContext.RolePermissions.UpdateRange(existing);
 
-        // Reactivate or add new permissions
         foreach (var permissionId in permissionIds)
         {
             var rp = existing.FirstOrDefault(x => x.PermissionId == permissionId);
@@ -325,8 +339,9 @@ public class RoleRepository : IRoleRepository
         }
 
         await _dbContext.SaveChangesAsync();
+
+        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
+
         return true;
     }
-
-    #endregion
 }

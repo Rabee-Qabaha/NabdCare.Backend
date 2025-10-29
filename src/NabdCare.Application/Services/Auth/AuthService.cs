@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Interfaces;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Auth;
@@ -9,6 +10,7 @@ public class AuthService : IAuthService
 {
     private readonly IAuthRepository _authRepository;
     private readonly ITokenService _tokenService;
+    private readonly IPermissionService _permissionService;
     private readonly ILogger<AuthService> _logger;
 
     private const int RefreshTokenDays = 30;
@@ -16,10 +18,12 @@ public class AuthService : IAuthService
     public AuthService(
         IAuthRepository authRepository,
         ITokenService tokenService,
+        IPermissionService permissionService,
         ILogger<AuthService> logger)
     {
         _authRepository = authRepository;
         _tokenService = tokenService;
+        _permissionService = permissionService;
         _logger = logger;
     }
 
@@ -44,6 +48,11 @@ public class AuthService : IAuthService
         };
 
         await _authRepository.SaveRefreshTokenAsync(user, refreshToken);
+
+        // ✅ Warm-up: preload the user's effective permissions into memory cache
+        await _permissionService.GetUserEffectivePermissionsAsync(user.Id, user.RoleId);
+        _logger.LogInformation("Preloaded permission cache for user {UserId}", user.Id);
+
         return (accessToken, refreshToken.Token);
     }
 
@@ -85,6 +94,10 @@ public class AuthService : IAuthService
         var accessToken = _tokenService.GenerateToken(
             user.Id.ToString(), user.Email, user.Role.Name,
             user.RoleId, user.ClinicId, user.FullName);
+
+        // ✅ Optional: Warm up again in case roles/permissions changed
+        await _permissionService.GetUserEffectivePermissionsAsync(user.Id, user.RoleId);
+        _logger.LogInformation("Refreshed permission cache for user {UserId}", user.Id);
 
         return (accessToken, newToken.Token);
     }

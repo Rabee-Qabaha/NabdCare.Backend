@@ -1,6 +1,6 @@
 // src/views/pages/admin/Users.vue
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch, onBeforeUnmount } from "vue";
 import { useToast } from "primevue/usetoast";
 import { useConfirm } from "primevue/useconfirm";
 import { useUserStore } from "@/stores/userStore";
@@ -9,14 +9,13 @@ import UserDialog from "@/components/User/UserDialog.vue";
 import ChangePasswordDialog from "@/components/User/ChangePasswordDialog.vue";
 import EmptyState from "@/components/EmptyState.vue";
 import { formatDate } from "@/utils/uiHelpers";
-// IMPORTANT: Keep FilterMatchMode and FilterOperator for advanced filtering
 import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
 import type { UserResponseDto } from "@/types/backend";
 
-// PrimeVue Component Imports (Assuming these are registered globally or locally)
 import InputText from "primevue/inputtext";
 import Select from "primevue/select";
 import DatePicker from "primevue/datepicker";
+import Checkbox from "primevue/checkbox";
 
 const userStore = useUserStore();
 const toast = useToast();
@@ -28,7 +27,7 @@ const statusOptions = ref([
   { label: "Inactive", value: false, severity: "danger" },
 ]);
 
-// 1. ADVANCED FILTER INITIALIZATION: This structure enables the "Add Rule" button and match mode selection.
+// --- Initial Filter Structure ---
 const initialFilters = {
   global: { value: null, matchMode: FilterMatchMode.CONTAINS },
   fullName: {
@@ -47,48 +46,45 @@ const initialFilters = {
     operator: FilterOperator.AND,
     constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
   },
-  // Use EQUALS for boolean status
   isActive: {
     operator: FilterOperator.AND,
     constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }],
   },
-  // Use DATE_IS for exact date match or DATE_AFTER for custom date ranges
   createdAt: {
     operator: FilterOperator.AND,
     constraints: [{ value: null, matchMode: FilterMatchMode.DATE_IS }],
   },
 };
 
-// State
-const dt = ref<any>();
+// --- State ---
+const filters = ref(structuredClone(initialFilters));
+const filtersDialogVisible = ref(false);
 const userDialog = ref(false);
 const changePasswordDialog = ref(false);
 const deleteUserDialog = ref(false);
-
-// NEW STATE FOR BULK ACTIONS
 const bulkActionDialog = ref(false);
+
 const currentBulkAction = ref<"activate" | "deactivate" | "delete" | null>(
   null
 );
-
 const user = ref<Partial<UserResponseDto>>({});
-const selectedUsers = ref<UserResponseDto[]>([]);
+const selectedUserIds = ref<number[]>([]);
 
-// Initialize filters with the full structure
-const filters = ref({ ...initialFilters });
+// --- Infinite scroll setup ---
+const BATCH_SIZE = 20;
+const visibleCount = ref(BATCH_SIZE);
+const loadingMore = ref(false);
+const sentinel = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
 
-// Permissions
+// --- Permissions ---
 const canCreate = computed(() => hasPermission("Users.Create"));
 const canEdit = computed(() => hasPermission("Users.Edit"));
 const canDelete = computed(() => hasPermission("Users.Delete"));
 const canResetPassword = computed(() => hasPermission("Users.ResetPassword"));
 const canActivate = computed(() => hasPermission("Users.Activate"));
 
-// 2. CLEAR FILTERS: Must reset to the full initial structure
-function clearFilters(): void {
-  filters.value = { ...initialFilters };
-}
-
+// --- Fetch users ---
 const fetchUsers = async () => {
   try {
     await userStore.fetchUsers();
@@ -101,34 +97,28 @@ const fetchUsers = async () => {
     });
   }
 };
-
 onMounted(fetchUsers);
 
-// CRUD Handlers
+// --- CRUD logic ---
 function openNew() {
   user.value = {};
   userDialog.value = true;
 }
-
 function hideDialog() {
   userDialog.value = false;
 }
-
-function editUser(selectedUser: UserResponseDto) {
-  user.value = { ...selectedUser };
+function editUser(u: UserResponseDto) {
+  user.value = { ...u };
   userDialog.value = true;
 }
-
-function openChangePasswordDialog(selectedUser: UserResponseDto) {
-  user.value = { ...selectedUser };
+function openChangePasswordDialog(u: UserResponseDto) {
+  user.value = { ...u };
   changePasswordDialog.value = true;
 }
-
-function confirmDeleteUser(selectedUser: UserResponseDto) {
-  user.value = { ...selectedUser };
+function confirmDeleteUser(u: UserResponseDto) {
+  user.value = { ...u };
   deleteUserDialog.value = true;
 }
-
 async function deleteUser() {
   if (!user.value.id) return;
   try {
@@ -140,22 +130,19 @@ async function deleteUser() {
       life: 3000,
     });
     deleteUserDialog.value = false;
-    user.value = {};
-  } catch (error: any) {
+    await fetchUsers();
+  } catch (err: any) {
     toast.add({
       severity: "error",
       summary: "Error",
-      detail: error.message || "Failed to delete user",
+      detail: err.message || "Failed to delete user",
       life: 3000,
     });
   }
 }
-
-async function hardDeleteUser(selectedUser: UserResponseDto) {
-  console.log("selected user ", selectedUser);
-
+async function hardDeleteUser(u: UserResponseDto) {
   confirm.require({
-    message: `Are you sure you want to PERMANENTLY delete ${selectedUser.fullName}? This action CANNOT be undone!`,
+    message: `Permanently delete ${u.fullName}?`,
     header: "⚠️ Permanent Deletion",
     icon: "pi pi-exclamation-triangle",
     rejectLabel: "Cancel",
@@ -164,7 +151,7 @@ async function hardDeleteUser(selectedUser: UserResponseDto) {
     acceptProps: { severity: "danger" },
     accept: async () => {
       try {
-        await userStore.hardDeleteUser(selectedUser.id);
+        await userStore.hardDeleteUser(u.id);
         toast.add({
           severity: "success",
           summary: "Deleted",
@@ -172,47 +159,46 @@ async function hardDeleteUser(selectedUser: UserResponseDto) {
           life: 3000,
         });
         await fetchUsers();
-      } catch (error: any) {
+      } catch (err: any) {
         toast.add({
           severity: "error",
           summary: "Error",
-          detail: error.message || "Failed to delete user permanently",
+          detail: err.message || "Failed",
           life: 3000,
         });
       }
     },
   });
 }
-
-async function toggleUserStatus(selectedUser: UserResponseDto) {
+async function toggleUserStatus(u: UserResponseDto) {
   try {
-    if (selectedUser.isActive) {
-      await userStore.deactivateUser(selectedUser.id);
+    if (u.isActive) {
+      await userStore.deactivateUser(u.id);
       toast.add({
         severity: "success",
         summary: "Deactivated",
-        detail: `${selectedUser.fullName} has been deactivated`,
+        detail: `${u.fullName} deactivated`,
         life: 3000,
       });
     } else {
-      await userStore.activateUser(selectedUser.id);
+      await userStore.activateUser(u.id);
       toast.add({
         severity: "success",
         summary: "Activated",
-        detail: `${selectedUser.fullName} has been activated`,
+        detail: `${u.fullName} activated`,
         life: 3000,
       });
     }
-  } catch (error: any) {
+    await fetchUsers();
+  } catch (err: any) {
     toast.add({
       severity: "error",
       summary: "Error",
-      detail: error.message || "Failed to update user status",
+      detail: err.message || "Failed",
       life: 3000,
     });
   }
 }
-
 async function saveUser(newUser: any) {
   try {
     if (!newUser.id) {
@@ -220,7 +206,7 @@ async function saveUser(newUser: any) {
       toast.add({
         severity: "success",
         summary: "Created",
-        detail: `User ${newUser.email} created successfully`,
+        detail: `User ${newUser.email} created`,
         life: 3000,
       });
     } else {
@@ -228,11 +214,12 @@ async function saveUser(newUser: any) {
       toast.add({
         severity: "success",
         summary: "Updated",
-        detail: "User updated successfully",
+        detail: "User updated",
         life: 3000,
       });
     }
     userDialog.value = false;
+    await fetchUsers();
   } catch (err: any) {
     toast.add({
       severity: "error",
@@ -242,10 +229,8 @@ async function saveUser(newUser: any) {
     });
   }
 }
-
 async function handleChangePassword(data: { newPassword: string }) {
   if (!user.value.id) return;
-
   try {
     await userStore.adminResetPassword(user.value.id, data.newPassword);
     toast.add({
@@ -255,187 +240,246 @@ async function handleChangePassword(data: { newPassword: string }) {
       life: 3000,
     });
     changePasswordDialog.value = false;
-  } catch (error: any) {
+  } catch (err: any) {
     toast.add({
       severity: "error",
       summary: "Error",
-      detail: error.message || "Failed to reset password",
+      detail: err.message || "Failed",
       life: 3000,
     });
   }
 }
 
-// --- BULK ACTION INITIATORS (Set state for new dialog) ---
-function bulkActivate() {
-  if (selectedUsers.value.length === 0) return;
-  currentBulkAction.value = "activate";
-  bulkActionDialog.value = true;
+// --- Filters ---
+function resetFilters() {
+  filters.value = structuredClone(initialFilters);
+  visibleCount.value = BATCH_SIZE;
 }
-
-function bulkDeactivate() {
-  if (selectedUsers.value.length === 0) return;
-  currentBulkAction.value = "deactivate";
-  bulkActionDialog.value = true;
+function openFilters() {
+  filtersDialogVisible.value = true;
 }
-
-function bulkDelete() {
-  if (selectedUsers.value.length === 0) return;
-  currentBulkAction.value = "delete";
-  bulkActionDialog.value = true;
+function applyFilters() {
+  filtersDialogVisible.value = false;
+  visibleCount.value = BATCH_SIZE;
 }
+function clearFilters() {
+  resetFilters();
+  filtersDialogVisible.value = false;
+}
+function contains(h: any, n: any) {
+  if (!n) return true;
+  return String(h ?? "")
+    .toLowerCase()
+    .includes(String(n).toLowerCase());
+}
+function equals(a: any, b: any) {
+  if (b === null || b === undefined) return true;
+  return a === b;
+}
+function sameDate(a: any, b: any) {
+  if (!b) return true;
+  if (!a) return false;
+  const da = new Date(a);
+  const db = new Date(b);
+  return da.toDateString() === db.toDateString();
+}
+const filteredUsers = computed(() => {
+  const list = userStore.users || [];
+  const f = filters.value;
+  const global = f.global.value;
+  const name = f.fullName.constraints[0].value;
+  const email = f.email.constraints[0].value;
+  const role = f.roleName.constraints[0].value;
+  const clinic = f.clinicName.constraints[0].value;
+  const status = f.isActive.constraints[0].value;
+  const created = f.createdAt.constraints[0].value;
 
-// --- COMPUTED PROPERTIES FOR DYNAMIC BULK DIALOG ---
+  return list.filter((u) => {
+    const globalPass = global
+      ? [u.fullName, u.email, u.roleName, u.clinicName].some((val) =>
+          contains(val, global)
+        )
+      : true;
+    return (
+      globalPass &&
+      contains(u.fullName, name) &&
+      contains(u.email, email) &&
+      contains(u.roleName, role) &&
+      contains(u.clinicName, clinic) &&
+      equals(u.isActive, status) &&
+      sameDate(u.createdAt, created)
+    );
+  });
+});
+const visibleUsers = computed(() =>
+  filteredUsers.value.slice(0, visibleCount.value)
+);
+
+// --- Infinite Scroll ---
+function setupObserver() {
+  if (observer) observer.disconnect();
+  if (!sentinel.value) return;
+  observer = new IntersectionObserver(async (entries) => {
+    const [entry] = entries;
+    if (!entry.isIntersecting) return;
+    if (visibleCount.value < filteredUsers.value.length) {
+      loadingMore.value = true;
+      await new Promise((r) => setTimeout(r, 400));
+      visibleCount.value = Math.min(
+        visibleCount.value + BATCH_SIZE,
+        filteredUsers.value.length
+      );
+      loadingMore.value = false;
+    }
+  });
+  observer.observe(sentinel.value);
+}
+onMounted(setupObserver);
+onBeforeUnmount(() => observer?.disconnect());
+watch(sentinel, setupObserver);
+
+// --- Bulk Actions ---
+const bulkVisible = computed(() => selectedUserIds.value.length > 0);
 const bulkDialogData = computed(() => {
-  const count = selectedUsers.value.length;
+  const count = selectedUserIds.value.length;
   switch (currentBulkAction.value) {
     case "activate":
       return {
         header: "Confirm Bulk Activation",
-        // FIX: Ensure 'pi pi-' is included for the icon class
-        iconClass: "pi pi-check-circle text-green-500",
         actionLabel: "Activate",
-        // FIX: Ensure 'pi pi-' is included for the button icon prop
         actionIcon: "pi pi-check",
         severity: "success",
-        message: `Are you sure you want to activate ${count} selected user(s)?`,
-        showWarning: false,
+        message: `Activate ${count} selected users?`,
       };
     case "deactivate":
       return {
         header: "Confirm Bulk Deactivation",
-        // FIX: Ensure 'pi pi-' is included for the icon class
-        iconClass: "pi pi-ban text-orange-500",
         actionLabel: "Deactivate",
-        // FIX: Ensure 'pi pi-' is included for the button icon prop
         actionIcon: "pi pi-ban",
         severity: "warning",
-        message: `Are you sure you want to deactivate ${count} selected user(s)?`,
-        showWarning: false,
+        message: `Deactivate ${count} selected users?`,
       };
     case "delete":
       return {
         header: "Confirm Bulk Deletion",
-        // FIX: Ensure 'pi pi-' is included for the icon class
-        iconClass: "pi pi-trash text-red-500",
         actionLabel: "Delete",
-        // FIX: Ensure 'pi pi-' is included for the button icon prop
         actionIcon: "pi pi-trash",
         severity: "danger",
-        message: `Are you sure you want to delete ${count} selected user(s)?`,
-        showWarning: true,
+        message: `Delete ${count} selected users?`,
       };
     default:
       return {
         header: "",
-        iconClass: "",
         actionLabel: "",
         actionIcon: "",
         severity: "secondary",
         message: "",
-        showWarning: false,
       };
   }
 });
-
-// --- BULK ACTION CONFIRMATION HANDLER ---
+function bulkActivate() {
+  currentBulkAction.value = "activate";
+  bulkActionDialog.value = true;
+}
+function bulkDeactivate() {
+  currentBulkAction.value = "deactivate";
+  bulkActionDialog.value = true;
+}
+function bulkDelete() {
+  currentBulkAction.value = "delete";
+  bulkActionDialog.value = true;
+}
 async function handleBulkActionConfirm() {
+  const ids = [...selectedUserIds.value];
   const action = currentBulkAction.value;
+  if (!action || !ids.length) return;
   bulkActionDialog.value = false;
-  if (!action || selectedUsers.value.length === 0) return;
-  const userIds = selectedUsers.value.map((u) => u.id);
   const actionFn =
     action === "activate"
       ? userStore.activateUser
       : action === "deactivate"
         ? userStore.deactivateUser
         : userStore.deleteUser;
-  const actionDescription =
-    action === "activate"
-      ? "activated"
-      : action === "deactivate"
-        ? "deactivated"
-        : "deleted";
   try {
-    await Promise.all(userIds.map((id) => actionFn(id)));
-    await fetchUsers(); // <--- fix: guarantees table is up-to-date
+    await Promise.all(ids.map((id) => actionFn(id)));
     toast.add({
       severity: "success",
       summary: "Success",
-      detail: `${selectedUsers.value.length} users ${actionDescription} successfully.`,
+      detail: `${ids.length} users processed`,
       life: 3000,
     });
-    selectedUsers.value = [];
-  } catch (error: any) {
+    await fetchUsers();
+    selectedUserIds.value = [];
+  } catch (err: any) {
     toast.add({
       severity: "error",
       summary: "Error",
-      detail: error.message || `Bulk ${actionDescription} failed.`,
+      detail: err.message || "Bulk action failed",
       life: 3000,
     });
-  } finally {
-    currentBulkAction.value = null;
   }
+  currentBulkAction.value = null;
 }
 </script>
 
 <template>
-  <div class="card">
-    <!-- Header -->
-    <div class="mb-4">
-      <h2 class="text-3xl font-bold text-900 m-0 mb-2">Users Management</h2>
-      <p class="text-600 mb-4">Manage all users across all clinics</p>
+  <div class="p-4 md:p-6 space-y-4">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold">Users Management</h2>
+      <p class="text-600">Manage all users across all clinics</p>
     </div>
 
     <!-- Toolbar -->
-    <Toolbar class="mb-4">
-      <template #start>
-        <!-- Create User Button - Uses global primary theme color -->
+    <div
+      class="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+    >
+      <div class="flex flex-wrap gap-2">
         <Button
           v-if="canCreate"
           label="Create User"
           icon="pi pi-plus"
-          class="mr-2"
           @click="openNew"
         />
-
-        <!-- Bulk Actions -->
-        <template v-if="selectedUsers.length > 0">
+        <template v-if="bulkVisible">
           <Button
             v-if="canActivate"
             label="Activate Selected"
             icon="pi pi-check"
-            severity="success"
             outlined
-            class="mr-2"
+            severity="success"
             @click="bulkActivate"
           />
           <Button
             v-if="canActivate"
             label="Deactivate Selected"
             icon="pi pi-ban"
-            severity="warning"
             outlined
-            class="mr-2"
+            severity="warning"
             @click="bulkDeactivate"
           />
           <Button
             v-if="canDelete"
             label="Delete Selected"
             icon="pi pi-trash"
-            severity="danger"
             outlined
+            severity="danger"
             @click="bulkDelete"
           />
         </template>
-      </template>
+      </div>
 
-      <template #end>
+      <div class="flex flex-wrap gap-2">
+        <Button
+          icon="pi pi-sliders-h"
+          label="Filters"
+          outlined
+          @click="openFilters"
+        />
         <Button
           icon="pi pi-filter-slash"
           label="Clear Filters"
           outlined
-          class="mr-2"
-          @click="clearFilters"
+          @click="resetFilters"
         />
         <Button
           icon="pi pi-refresh"
@@ -444,342 +488,311 @@ async function handleBulkActionConfirm() {
           @click="fetchUsers"
           :loading="userStore.loading"
         />
-      </template>
-    </Toolbar>
+      </div>
+    </div>
 
-    <!-- Global Search -->
-    <div class="mb-4">
-      <IconField>
+    <!-- Search -->
+    <div>
+      <IconField class="w-full">
         <InputIcon><i class="pi pi-search" /></InputIcon>
         <InputText
-          v-model="filters['global'].value"
-          placeholder="Search users by name, email, role, or clinic..."
+          v-model="filters.global.value"
+          placeholder="Search users..."
           class="w-full"
         />
       </IconField>
     </div>
 
-    <!-- Users Table -->
-    <DataTable
-      ref="dt"
-      v-model:selection="selectedUsers"
-      v-model:filters="filters"
-      :value="userStore.users"
-      :loading="userStore.loading"
-      dataKey="id"
-      :paginator="true"
-      :rows="10"
-      filterDisplay="menu"
-      :globalFilterFields="['fullName', 'email', 'roleName', 'clinicName']"
-      paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-      :rowsPerPageOptions="[10, 25, 50, 100]"
-      currentPageReportTemplate="Showing {first} to {last} of {totalRecords} users"
+    <!-- Skeleton loader -->
+    <div
+      v-if="userStore.loading"
+      class="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
     >
-      <Column selectionMode="multiple" headerStyle="width: 3rem" />
-
-      <!-- Name Column - Custom InputText Filter -->
-      <Column
-        field="fullName"
-        header="Name"
-        sortable
-        filter
-        style="min-width: 14rem"
+      <Card
+        v-for="n in 8"
+        :key="n"
+        class="shadow-md flex flex-col justify-between h-full"
       >
-        <template #body="{ data }">
-          <div class="flex items-center gap-2">
-            <Avatar
-              :label="data.fullName?.charAt(0) || '?'"
-              shape="circle"
-              :class="data.isActive ? 'bg-green-500' : 'bg-gray-400'"
-              class="text-white"
+        <!-- Header (Title section) -->
+        <template #title>
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2">
+              <Skeleton shape="circle" size="2.5rem" animation="wave" />
+              <div class="flex flex-col gap-2">
+                <Skeleton width="8rem" height="1rem" animation="wave" />
+                <Skeleton width="6rem" height="0.8rem" animation="wave" />
+              </div>
+            </div>
+            <Skeleton
+              width="1.2rem"
+              height="1.2rem"
+              borderRadius="6px"
+              animation="wave"
             />
-            <span class="font-semibold">{{ data.fullName }}</span>
           </div>
         </template>
-        <!-- filterModel refers to the constraint object in the advanced filter structure -->
-        <template #filter="{ filterModel }">
-          <InputText
-            v-model="filterModel.value"
-            type="text"
-            placeholder="Search by Name"
-            class="w-full"
-          />
-        </template>
-      </Column>
 
-      <!-- Email Column - Custom InputText Filter -->
-      <Column
-        field="email"
-        header="Email"
-        sortable
-        filter
-        style="min-width: 16rem"
-      >
-        <template #body="{ data }">
-          <span class="text-600">{{ data.email }}</span>
+        <!-- Content (matches info layout of real card) -->
+        <template #content>
+          <div class="flex flex-col gap-2 mt-2 text-sm">
+            <div class="flex justify-between items-center">
+              <Skeleton width="4rem" height="0.9rem" animation="wave" />
+              <Skeleton width="5rem" height="0.9rem" animation="wave" />
+            </div>
+            <div class="flex justify-between items-center">
+              <Skeleton width="4rem" height="0.9rem" animation="wave" />
+              <Skeleton width="5rem" height="0.9rem" animation="wave" />
+            </div>
+            <div class="flex justify-between items-center">
+              <Skeleton width="4rem" height="0.9rem" animation="wave" />
+              <Skeleton width="5rem" height="0.9rem" />
+            </div>
+            <div class="flex justify-between items-center">
+              <Skeleton width="4rem" height="0.9rem" animation="wave" />
+              <Skeleton width="5rem" height="0.9rem" animation="wave" />
+            </div>
+          </div>
         </template>
-        <template #filter="{ filterModel }">
-          <InputText
-            v-model="filterModel.value"
-            type="text"
-            placeholder="Search by Email"
-            class="w-full"
-          />
-        </template>
-      </Column>
 
-      <!-- Role Column - Custom InputText Filter -->
-      <Column
-        field="roleName"
-        header="Role"
-        sortable
-        filter
-        style="min-width: 10rem"
-      >
-        <template #body="{ data }">
-          <Tag :value="data.roleName" severity="info" />
-        </template>
-        <template #filter="{ filterModel }">
-          <InputText
-            v-model="filterModel.value"
-            type="text"
-            placeholder="Filter by Role"
-            class="w-full"
-          />
-        </template>
-      </Column>
-
-      <!-- Clinic Column - Custom InputText Filter -->
-      <Column
-        field="clinicName"
-        header="Clinic"
-        sortable
-        filter
-        style="min-width: 14rem"
-      >
-        <template #body="{ data }">
-          <span v-if="data.clinicName">{{ data.clinicName }}</span>
-          <Tag v-else value="No Clinic" severity="secondary" />
-        </template>
-        <template #filter="{ filterModel }">
-          <InputText
-            v-model="filterModel.value"
-            type="text"
-            placeholder="Filter by Clinic"
-            class="w-full"
-          />
-        </template>
-      </Column>
-
-      <!-- Status Column - Custom Select Filter -->
-      <Column
-        field="isActive"
-        header="Status"
-        sortable
-        filter
-        style="min-width: 8rem"
-        dataType="boolean"
-      >
-        <template #body="{ data }">
-          <Tag
-            :value="data.isActive ? 'Active' : 'Inactive'"
-            :severity="data.isActive ? 'success' : 'danger'"
-          />
-        </template>
-        <template #filter="{ filterModel }">
-          <!-- Using Select for boolean/status filtering -->
-          <Select
-            v-model="filterModel.value"
-            :options="statusOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Select Status"
-            showClear
-            class="w-full"
-          >
-            <template #option="slotProps">
-              <Tag
-                :value="slotProps.option.label"
-                :severity="slotProps.option.severity"
-              />
-            </template>
-          </Select>
-        </template>
-      </Column>
-
-      <!-- Created Date Column - Custom DatePicker Filter -->
-      <Column
-        field="createdAt"
-        header="Created"
-        sortable
-        filter
-        dataType="date"
-        style="min-width: 10rem"
-      >
-        <template #body="{ data }">
-          <span class="text-600">{{ formatDate(data.createdAt) }}</span>
-        </template>
-        <template #filter="{ filterModel }">
-          <!-- Using DatePicker for date filtering. The match mode can be adjusted in the filter menu by the user. -->
-          <DatePicker
-            v-model="filterModel.value"
-            dateFormat="mm/dd/yy"
-            placeholder="Select Date"
-            showIcon
-            class="w-full"
-          />
-        </template>
-      </Column>
-
-      <!-- Actions Menu -->
-      <Column header="Actions" style="min-width: 8rem">
-        <template #body="{ data }">
-          <Button
-            icon="pi pi-ellipsis-v"
-            text
-            rounded
-            aria-label="Actions"
-            @click="(event) => ($refs['menu_' + data.id] as any)?.toggle(event)"
-          />
-          <Menu
-            :ref="'menu_' + data.id"
-            :model="
-              [
-                {
-                  label: 'Edit',
-                  icon: 'pi pi-pencil',
-                  command: () => editUser(data),
-                  visible: canEdit,
-                },
-                {
-                  label: data.isActive ? 'Deactivate' : 'Activate',
-                  icon: data.isActive ? 'pi pi-ban' : 'pi pi-check',
-                  command: () => toggleUserStatus(data),
-                  visible: canActivate,
-                },
-                {
-                  label: 'Reset Password',
-                  icon: 'pi pi-key',
-                  command: () => openChangePasswordDialog(data),
-                  visible: canResetPassword,
-                },
-                { separator: true, visible: canDelete },
-                {
-                  label: 'Delete',
-                  icon: 'pi pi-trash',
-                  command: () => confirmDeleteUser(data),
-                  visible: canDelete,
-                },
-                {
-                  label: 'Hard Delete',
-                  icon: 'pi pi-times-circle',
-                  command: () => hardDeleteUser(data),
-                  visible: canDelete,
-                },
-              ].filter((item) => item.visible !== false)
-            "
-            :popup="true"
-          />
-        </template>
-      </Column>
-
-      <template #empty>
-        <EmptyState
-          icon="pi pi-users"
-          title="No Users Found"
-          description="No users match your search criteria"
-        >
-          <template #action>
-            <Button
-              v-if="canCreate"
-              label="Create First User"
-              icon="pi pi-plus"
-              @click="openNew"
+        <!-- Footer (actions area) -->
+        <template #footer>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <Skeleton
+              width="2rem"
+              height="2rem"
+              borderRadius="50%"
+              animation="wave"
             />
-          </template>
-        </EmptyState>
-      </template>
+            <Skeleton
+              width="2rem"
+              height="2rem"
+              borderRadius="50%"
+              animation="wave"
+            />
+            <Skeleton
+              width="2rem"
+              height="2rem"
+              borderRadius="50%"
+              animation="wave"
+            />
+            <Skeleton
+              width="2rem"
+              height="2rem"
+              borderRadius="50%"
+              animation="wave"
+            />
+            <Skeleton
+              width="2rem"
+              height="2rem"
+              borderRadius="50%"
+              animation="wave"
+            />
+          </div>
+        </template>
+      </Card>
+    </div>
 
-      <template #loading>
-        <div class="flex items-center justify-center p-6">
-          <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
-        </div>
-      </template>
-    </DataTable>
+    <!-- Users grid -->
+    <div
+      v-else-if="visibleUsers.length"
+      class="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+    >
+      <Card v-for="u in visibleUsers" :key="u.id">
+        <template #title>
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2">
+              <Avatar
+                :label="u.fullName?.charAt(0)"
+                shape="circle"
+                :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'"
+                class="text-white"
+              />
+              <div>
+                <p class="font-semibold m-0">{{ u.fullName }}</p>
+                <p class="text-600 text-sm m-0">{{ u.email }}</p>
+              </div>
+            </div>
+            <Checkbox :value="u.id" v-model="selectedUserIds" />
+          </div>
+        </template>
 
-    <!-- Dialogs -->
+        <template #content>
+          <div class="flex flex-col gap-1 text-sm">
+            <div class="flex justify-between">
+              <span>Role:</span>
+              <Tag :value="u.roleName" severity="info" />
+            </div>
+            <div class="flex justify-between">
+              <span>Clinic:</span>
+              <span>{{ u.clinicName || "No Clinic" }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Status:</span>
+              <Tag
+                :value="u.isActive ? 'Active' : 'Inactive'"
+                :severity="u.isActive ? 'success' : 'danger'"
+              />
+            </div>
+            <div class="flex justify-between">
+              <span>Created:</span>
+              <span>{{ formatDate(u.createdAt) }}</span>
+            </div>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="flex flex-wrap gap-2">
+            <Button
+              v-if="canEdit"
+              icon="pi pi-pencil"
+              text
+              @click="editUser(u)"
+              v-tooltip.top="'Edit user'"
+            />
+            <Button
+              v-if="canActivate"
+              :icon="u.isActive ? 'pi pi-ban' : 'pi pi-check'"
+              text
+              @click="toggleUserStatus(u)"
+              v-tooltip.top="u.isActive ? 'Deactivate' : 'Activate'"
+            />
+            <Button
+              v-if="canResetPassword"
+              icon="pi pi-key"
+              text
+              @click="openChangePasswordDialog(u)"
+              v-tooltip.top="'Reset password'"
+            />
+            <Button
+              v-if="canDelete"
+              icon="pi pi-trash"
+              text
+              severity="danger"
+              @click="confirmDeleteUser(u)"
+              v-tooltip.top="'Soft delete'"
+            />
+            <Button
+              v-if="canDelete"
+              icon="pi pi-times-circle"
+              text
+              severity="danger"
+              @click="hardDeleteUser(u)"
+              v-tooltip.top="'Hard delete'"
+            />
+          </div>
+        </template>
+      </Card>
+    </div>
+
+    <!-- Empty state -->
+    <EmptyState
+      v-else
+      icon="pi pi-users"
+      title="No Users Found"
+      description="No users match your filters"
+    />
+
+    <div ref="sentinel" class="h-6"></div>
+    <div v-if="loadingMore" class="flex justify-center p-4">
+      <ProgressSpinner style="width: 40px; height: 40px" strokeWidth="4" />
+    </div>
+
+    <!-- Filters Dialog -->
+    <Dialog
+      v-model:visible="filtersDialogVisible"
+      header="Filters"
+      modal
+      :style="{ width: '400px', maxWidth: '95vw' }"
+    >
+      <div class="grid gap-3">
+        <InputText
+          v-model="filters.fullName.constraints[0].value"
+          placeholder="Full name"
+        />
+        <InputText
+          v-model="filters.email.constraints[0].value"
+          placeholder="Email"
+        />
+        <InputText
+          v-model="filters.roleName.constraints[0].value"
+          placeholder="Role"
+        />
+        <InputText
+          v-model="filters.clinicName.constraints[0].value"
+          placeholder="Clinic"
+        />
+        <Select
+          v-model="filters.isActive.constraints[0].value"
+          :options="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Status"
+          showClear
+        >
+          <template #option="slotProps"
+            ><Tag
+              :value="slotProps.option.label"
+              :severity="slotProps.option.severity"
+          /></template>
+        </Select>
+        <DatePicker
+          v-model="filters.createdAt.constraints[0].value"
+          dateFormat="mm/dd/yy"
+          placeholder="Created date"
+          showIcon
+          class="w-full"
+        />
+      </div>
+      <template #footer>
+        <Button
+          icon="pi pi-filter-slash"
+          label="Clear"
+          outlined
+          @click="clearFilters"
+        />
+        <Button icon="pi pi-check" label="Apply" @click="applyFilters" />
+      </template>
+    </Dialog>
+
+    <!-- User Dialogs -->
     <UserDialog
       v-model:visible="userDialog"
       :user="user"
       @save="saveUser"
       @cancel="hideDialog"
     />
-
     <ChangePasswordDialog
       v-model:visible="changePasswordDialog"
       :user="user"
       @save="handleChangePassword"
     />
 
-    <!-- Delete Confirmation (Single User) -->
     <Dialog
       v-model:visible="deleteUserDialog"
-      header="Confirm Deletion"
-      :modal="true"
+      header="Confirm Delete"
+      modal
       :style="{ width: '450px' }"
-      class="rounded-xl shadow-2xl"
     >
-      <div class="flex items-center gap-4">
-        <i class="pi pi-exclamation-triangle text-orange-500 text-3xl" />
-        <span>
-          Are you sure you want to delete <b>{{ user.fullName }}</b
-          >? <br /><span class="text-sm text-600"
-            >This user can be restored later.</span
-          >
-        </span>
-      </div>
+      <p>
+        Are you sure you want to delete <b>{{ user.fullName }}</b
+        >?
+      </p>
       <template #footer>
-        <Button
-          label="Cancel"
-          icon="pi pi-times"
-          outlined
-          @click="deleteUserDialog = false"
-        />
-        <Button
-          label="Delete"
-          icon="pi pi-trash"
-          severity="danger"
-          @click="deleteUser"
-        />
+        <Button label="Cancel" outlined @click="deleteUserDialog = false" />
+        <Button label="Delete" severity="danger" @click="deleteUser" />
       </template>
     </Dialog>
 
-    <!-- Bulk Action Confirmation Dialog (Unified) -->
+    <!-- Bulk Action Dialog -->
     <Dialog
       v-model:visible="bulkActionDialog"
       :header="bulkDialogData.header"
-      :modal="true"
+      modal
       :style="{ width: '450px' }"
-      class="rounded-xl shadow-2xl"
     >
-      <div class="flex items-center gap-4">
-        <span>
-          {{ bulkDialogData.message }}
-          <br />
-          <span v-if="bulkDialogData.showWarning" class="text-sm text-600">
-            This is a soft delete; users can be restored later.
-          </span>
-        </span>
-      </div>
+      <p>{{ bulkDialogData.message }}</p>
       <template #footer>
-        <Button
-          label="Cancel"
-          icon="pi pi-times"
-          severity="secondary"
-          outlined
-          @click="bulkActionDialog = false"
-        />
-        <!-- actionIcon is now correctly passed, e.g., 'pi pi-check' -->
+        <Button label="Cancel" outlined @click="bulkActionDialog = false" />
         <Button
           :label="bulkDialogData.actionLabel"
           :icon="bulkDialogData.actionIcon"
@@ -789,7 +802,6 @@ async function handleBulkActionConfirm() {
       </template>
     </Dialog>
 
-    <!-- Confirmation Service (Kept for hardDeleteUser) -->
     <ConfirmDialog />
   </div>
 </template>
