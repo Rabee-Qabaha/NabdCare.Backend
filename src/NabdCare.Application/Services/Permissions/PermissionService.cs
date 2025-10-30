@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
@@ -9,6 +10,9 @@ using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Permissions;
 
+/// <summary>
+/// Handles all application-level permission logic (CRUD + role/user linking).
+/// </summary>
 public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
@@ -19,7 +23,7 @@ public class PermissionService : IPermissionService
 
     public PermissionService(
         IPermissionRepository permissionRepository,
-        IRoleRepository roleRepository, // ✅ Inject role repository
+        IRoleRepository roleRepository,
         IUserRepository userRepository,
         IMapper mapper,
         ILogger<PermissionService> logger)
@@ -31,7 +35,35 @@ public class PermissionService : IPermissionService
         _logger = logger;
     }
 
-    #region Permission CRUD
+    // ============================================
+    // PAGINATED QUERIES
+    // ============================================
+
+    public async Task<PaginatedResult<PermissionResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination)
+    {
+        try
+        {
+            var result = await _permissionRepository.GetAllPagedAsync(pagination);
+            var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(result.Items);
+
+            return new PaginatedResult<PermissionResponseDto>
+            {
+                Items = mapped,
+                TotalCount = result.TotalCount,
+                HasMore = result.HasMore,
+                NextCursor = result.NextCursor
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve paged permissions.");
+            throw new InvalidOperationException("Failed to retrieve paginated permissions.", ex);
+        }
+    }
+
+    // ============================================
+    // BASIC CRUD
+    // ============================================
 
     public async Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
     {
@@ -107,15 +139,28 @@ public class PermissionService : IPermissionService
         }
     }
 
-    #endregion
+    // ============================================
+    // ROLE PERMISSIONS
+    // ============================================
 
-    #region Role/User Permission Management
+    public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByRoleAsync(Guid roleId)
+    {
+        try
+        {
+            var permissions = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
+            return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve permissions for role {RoleId}.", roleId);
+            throw new InvalidOperationException("Failed to retrieve role permissions.", ex);
+        }
+    }
 
     public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
         try
         {
-            // ✅ Validate role exists
             var role = await _roleRepository.GetRoleByIdAsync(roleId);
             if (role == null)
                 throw new KeyNotFoundException($"Role {roleId} not found.");
@@ -125,7 +170,7 @@ public class PermissionService : IPermissionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to assign permission {PermissionId} to role {RoleId}.", permissionId, roleId);
-            throw new InvalidOperationException($"Failed to assign permission to role.", ex);
+            throw new InvalidOperationException("Failed to assign permission to role.", ex);
         }
     }
 
@@ -133,7 +178,6 @@ public class PermissionService : IPermissionService
     {
         try
         {
-            // ✅ Validate role exists
             var role = await _roleRepository.GetRoleByIdAsync(roleId);
             if (role == null)
                 throw new KeyNotFoundException($"Role {roleId} not found.");
@@ -143,7 +187,25 @@ public class PermissionService : IPermissionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to remove permission {PermissionId} from role {RoleId}.", permissionId, roleId);
-            throw new InvalidOperationException($"Failed to remove permission from role.", ex);
+            throw new InvalidOperationException("Failed to remove permission from role.", ex);
+        }
+    }
+
+    // ============================================
+    // USER PERMISSIONS
+    // ============================================
+
+    public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByUserAsync(Guid userId)
+    {
+        try
+        {
+            var permissions = await _permissionRepository.GetPermissionsByUserAsync(userId);
+            return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve permissions for user {UserId}.", userId);
+            throw new InvalidOperationException("Failed to retrieve user permissions.", ex);
         }
     }
 
@@ -155,22 +217,19 @@ public class PermissionService : IPermissionService
         }
         catch (DbUpdateException ex)
         {
-            var errorMessage = ex.InnerException?.Message ?? ex.Message;
-        
-            // Check for foreign key violations
-            if (errorMessage.Contains("Users") && errorMessage.Contains("foreign key"))
-            {
-                _logger.LogWarning("User {UserId} not found when assigning permission.", userId);
+            var message = ex.InnerException?.Message ?? ex.Message;
+
+            if (message.Contains("Users") && message.Contains("foreign key"))
                 throw new KeyNotFoundException($"User with ID {userId} does not exist.");
-            }
-        
-            if (errorMessage.Contains("Permissions") && errorMessage.Contains("foreign key"))
-            {
-                _logger.LogWarning("Permission {PermissionId} not found.", permissionId);
+            if (message.Contains("Permissions") && message.Contains("foreign key"))
                 throw new KeyNotFoundException($"Permission with ID {permissionId} does not exist.");
-            }
-        
+
             _logger.LogError(ex, "Database error assigning permission {PermissionId} to user {UserId}.", permissionId, userId);
+            throw new InvalidOperationException("Failed to assign permission to user.", ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to assign permission {PermissionId} to user {UserId}.", permissionId, userId);
             throw new InvalidOperationException("Failed to assign permission to user.", ex);
         }
     }
@@ -187,22 +246,10 @@ public class PermissionService : IPermissionService
             throw new InvalidOperationException("Failed to remove permission from user.", ex);
         }
     }
-    
-    public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByRoleAsync(Guid roleId)
-    {
-        var permissions = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
-        return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
-    }
 
-    public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByUserAsync(Guid userId)
-    {
-        var permissions = await _permissionRepository.GetPermissionsByUserAsync(userId);
-        return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
-    }
-
-    #endregion
-
-    #region Effective Permissions
+    // ============================================
+    // EFFECTIVE PERMISSIONS
+    // ============================================
 
     public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, Guid roleId)
     {
@@ -212,8 +259,8 @@ public class PermissionService : IPermissionService
             var userPerms = await _permissionRepository.GetPermissionsByUserAsync(userId);
 
             var combined = rolePerms.Concat(userPerms)
-                                    .GroupBy(p => p.Id)
-                                    .Select(g => g.First());
+                .GroupBy(p => p.Id)
+                .Select(g => g.First());
 
             return _mapper.Map<IEnumerable<PermissionResponseDto>>(combined);
         }
@@ -235,11 +282,9 @@ public class PermissionService : IPermissionService
 
     public async Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId)
     {
-        var user = await _userRepository.GetByIdRawAsync(userId); // Ignore filters
+        var user = await _userRepository.GetByIdRawAsync(userId); // Ignoring filters
         if (user == null) return null;
 
         return (user.RoleId, user.ClinicId);
     }
-    
-    #endregion
 }

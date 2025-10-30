@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Domain.Entities.Permissions;
@@ -13,13 +14,13 @@ public class RoleRepository : IRoleRepository
     private readonly NabdCareDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<RoleRepository> _logger;
-    private readonly IPermissionCacheInvalidator _cacheInvalidator; // 🧩 added
+    private readonly IPermissionCacheInvalidator _cacheInvalidator;
 
     public RoleRepository(
         NabdCareDbContext dbContext,
         ITenantContext tenantContext,
         ILogger<RoleRepository> logger,
-        IPermissionCacheInvalidator cacheInvalidator) // 🧩 added
+        IPermissionCacheInvalidator cacheInvalidator)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
@@ -35,13 +36,79 @@ public class RoleRepository : IRoleRepository
     // QUERY METHODS
     // ============================================
 
-    public async Task<IEnumerable<Role>> GetAllRolesAsync()
+    public async Task<PaginatedResult<Role>> GetAllPagedAsync(PaginationRequestDto pagination)
     {
-        return await _dbContext.Roles
+        var query = _dbContext.Roles
             .Include(r => r.Clinic)
             .OrderBy(r => r.DisplayOrder)
             .ThenBy(r => r.Name)
-            .ToListAsync();
+            .AsQueryable();
+
+        // optional filter
+        if (!string.IsNullOrWhiteSpace(pagination.Filter))
+        {
+            var filter = pagination.Filter.ToLower();
+            query = query.Where(r => r.Name.ToLower().Contains(filter));
+        }
+
+        // sorting
+        if (!string.IsNullOrEmpty(pagination.SortBy))
+        {
+            query = pagination.SortBy.ToLower() switch
+            {
+                "name" => pagination.Descending ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
+                "displayorder" => pagination.Descending ? query.OrderByDescending(r => r.DisplayOrder) : query.OrderBy(r => r.DisplayOrder),
+                _ => query
+            };
+        }
+
+        var total = await query.CountAsync();
+        var roles = await query.Take(pagination.Limit).ToListAsync();
+
+        return new PaginatedResult<Role>
+        {
+            Items = roles,
+            TotalCount = total,
+            HasMore = roles.Count == pagination.Limit,
+            NextCursor = null
+        };
+    }
+
+    public async Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination)
+    {
+        var query = _dbContext.Roles
+            .Where(r => r.ClinicId == clinicId)
+            .Include(r => r.Clinic)
+            .OrderBy(r => r.DisplayOrder)
+            .ThenBy(r => r.Name)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(pagination.Filter))
+        {
+            var filter = pagination.Filter.ToLower();
+            query = query.Where(r => r.Name.ToLower().Contains(filter));
+        }
+
+        if (!string.IsNullOrEmpty(pagination.SortBy))
+        {
+            query = pagination.SortBy.ToLower() switch
+            {
+                "name" => pagination.Descending ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
+                "displayorder" => pagination.Descending ? query.OrderByDescending(r => r.DisplayOrder) : query.OrderBy(r => r.DisplayOrder),
+                _ => query
+            };
+        }
+
+        var total = await query.CountAsync();
+        var roles = await query.Take(pagination.Limit).ToListAsync();
+
+        return new PaginatedResult<Role>
+        {
+            Items = roles,
+            TotalCount = total,
+            HasMore = roles.Count == pagination.Limit,
+            NextCursor = null
+        };
     }
 
     public async Task<IEnumerable<Role>> GetSystemRolesAsync()
@@ -59,16 +126,6 @@ public class RoleRepository : IRoleRepository
             .IgnoreQueryFilters()
             .Where(r => r.IsTemplate)
             .OrderBy(r => r.DisplayOrder)
-            .ToListAsync();
-    }
-
-    public async Task<IEnumerable<Role>> GetClinicRolesAsync(Guid clinicId)
-    {
-        return await _dbContext.Roles
-            .Where(r => r.ClinicId == clinicId)
-            .Include(r => r.Clinic)
-            .OrderBy(r => r.DisplayOrder)
-            .ThenBy(r => r.Name)
             .ToListAsync();
     }
 
@@ -138,11 +195,8 @@ public class RoleRepository : IRoleRepository
         if (existing.IsSystemRole && !IsSuperAdmin())
             throw new UnauthorizedAccessException("System roles can only be modified by SuperAdmin");
 
-        if (!IsSuperAdmin())
-        {
-            if (existing.ClinicId == null || existing.ClinicId != CurrentClinicId)
-                throw new UnauthorizedAccessException("You can modify only roles belonging to your clinic");
-        }
+        if (!IsSuperAdmin() && (existing.ClinicId == null || existing.ClinicId != CurrentClinicId))
+            throw new UnauthorizedAccessException("You can modify only roles belonging to your clinic");
 
         _dbContext.Entry(existing).CurrentValues.SetValues(role);
         existing.UpdatedAt = DateTime.UtcNow;
@@ -205,7 +259,7 @@ public class RoleRepository : IRoleRepository
                 await _dbContext.SaveChangesAsync();
             }
 
-            await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
+            await _cacheInvalidator.InvalidateRoleAsync(roleId);
             return false;
         }
 
@@ -222,8 +276,7 @@ public class RoleRepository : IRoleRepository
         await _dbContext.RolePermissions.AddAsync(rolePermission);
         await _dbContext.SaveChangesAsync();
 
-        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
-
+        await _cacheInvalidator.InvalidateRoleAsync(roleId);
         return true;
     }
 
@@ -243,30 +296,18 @@ public class RoleRepository : IRoleRepository
         _dbContext.RolePermissions.Update(rolePermission);
         await _dbContext.SaveChangesAsync();
 
-        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
-
+        await _cacheInvalidator.InvalidateRoleAsync(roleId);
         return true;
     }
 
     public async Task<int> BulkAssignPermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
-        if (!IsSuperAdmin())
-        {
-            var role = await _dbContext.Roles.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(r => r.Id == roleId);
-
-            if (role == null || role.ClinicId != CurrentClinicId)
-                throw new UnauthorizedAccessException("You can assign permissions only to roles in your clinic");
-        }
-
         var existing = await _dbContext.RolePermissions
             .IgnoreQueryFilters()
             .Where(rp => rp.RoleId == roleId)
             .ToListAsync();
 
-        var newPermissionIds = permissionIds
-            .Except(existing.Select(x => x.PermissionId))
-            .ToList();
+        var newPermissionIds = permissionIds.Except(existing.Select(x => x.PermissionId)).ToList();
 
         foreach (var permissionId in newPermissionIds)
         {
@@ -283,23 +324,12 @@ public class RoleRepository : IRoleRepository
         }
 
         await _dbContext.SaveChangesAsync();
-
-        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
-
+        await _cacheInvalidator.InvalidateRoleAsync(roleId);
         return newPermissionIds.Count;
     }
 
     public async Task<bool> SyncRolePermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
-        if (!IsSuperAdmin())
-        {
-            var role = await _dbContext.Roles.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(r => r.Id == roleId);
-
-            if (role == null || role.ClinicId != CurrentClinicId)
-                throw new UnauthorizedAccessException("You can modify permissions only for roles in your clinic");
-        }
-
         var existing = await _dbContext.RolePermissions
             .IgnoreQueryFilters()
             .Where(rp => rp.RoleId == roleId)
@@ -317,7 +347,6 @@ public class RoleRepository : IRoleRepository
         foreach (var permissionId in permissionIds)
         {
             var rp = existing.FirstOrDefault(x => x.PermissionId == permissionId);
-
             if (rp != null)
             {
                 rp.IsDeleted = false;
@@ -339,9 +368,7 @@ public class RoleRepository : IRoleRepository
         }
 
         await _dbContext.SaveChangesAsync();
-
-        await _cacheInvalidator.InvalidateRoleAsync(roleId); // 🧩 Invalidate cache
-
+        await _cacheInvalidator.InvalidateRoleAsync(roleId);
         return true;
     }
 }

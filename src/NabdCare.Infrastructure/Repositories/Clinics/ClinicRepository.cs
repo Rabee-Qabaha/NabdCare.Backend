@@ -1,24 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;
+using NabdCare.Infrastructure.Utils;
 
 namespace NabdCare.Infrastructure.Repositories.Clinics;
 
 /// <summary>
-/// Production-ready clinic repository.
-/// Thin data access layer - no business logic, no try-catch.
+/// Production-ready clinic repository with cursor-based pagination,
+/// sorting, and filtering support. Thin data access layer - no business logic.
 /// </summary>
 public class ClinicRepository : IClinicRepository
 {
     private readonly NabdCareDbContext _dbContext;
     private readonly ILogger<ClinicRepository> _logger;
 
-    public ClinicRepository(
-        NabdCareDbContext dbContext,
-        ILogger<ClinicRepository> logger)
+    public ClinicRepository(NabdCareDbContext dbContext, ILogger<ClinicRepository> logger)
     {
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -37,64 +37,75 @@ public class ClinicRepository : IClinicRepository
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
     }
 
-    public async Task<IEnumerable<Clinic>> GetAllAsync()
+    public async Task<PaginatedResult<Clinic>> GetAllPagedAsync(PaginationRequestDto pagination)
     {
-        return await _dbContext.Clinics
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted)
-            .OrderBy(c => c.Name)
-            .AsNoTracking()
-            .ToListAsync();
+        var query = BaseClinicQuery();
+
+        query = ApplyFilterAndSorting(query, pagination);
+
+        return await PaginateAsync(query, pagination);
     }
 
-    public async Task<IEnumerable<Clinic>> GetByStatusAsync(SubscriptionStatus status)
+    public async Task<PaginatedResult<Clinic>> GetByStatusPagedAsync(SubscriptionStatus status, PaginationRequestDto pagination)
     {
-        return await _dbContext.Clinics
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted && c.Status == status)
-            .OrderBy(c => c.Name)
-            .AsNoTracking()
-            .ToListAsync();
+        var query = BaseClinicQuery()
+            .Where(c => c.Status == status);
+
+        query = ApplyFilterAndSorting(query, pagination);
+
+        return await PaginateAsync(query, pagination);
     }
 
-    public async Task<IEnumerable<Clinic>> GetActiveWithValidSubscriptionAsync()
+    public async Task<PaginatedResult<Clinic>> GetActiveWithValidSubscriptionPagedAsync(PaginationRequestDto pagination)
     {
         var now = DateTime.UtcNow;
-
-        return await _dbContext.Clinics
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted && 
+        var query = BaseClinicQuery()
+            .Where(c =>
                 c.Status == SubscriptionStatus.Active &&
-                c.Subscriptions.Any(s => 
-                    !s.IsDeleted && 
+                c.Subscriptions.Any(s =>
+                    !s.IsDeleted &&
                     s.Status == SubscriptionStatus.Active &&
-                    s.EndDate > now))
-            .OrderBy(c => c.Name)
-            .AsNoTracking()
-            .ToListAsync();
+                    s.EndDate > now));
+
+        query = ApplyFilterAndSorting(query, pagination);
+
+        return await PaginateAsync(query, pagination);
     }
 
-    public async Task<IEnumerable<Clinic>> GetWithExpiringSubscriptionsAsync(int withinDays)
+    public async Task<PaginatedResult<Clinic>> GetWithExpiringSubscriptionsPagedAsync(int withinDays, PaginationRequestDto pagination)
     {
         var now = DateTime.UtcNow;
         var expirationDate = now.AddDays(withinDays);
 
-        return await _dbContext.Clinics
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted && 
+        var query = BaseClinicQuery()
+            .Where(c =>
                 c.Status == SubscriptionStatus.Active &&
-                c.Subscriptions.Any(s => 
-                    !s.IsDeleted && 
+                c.Subscriptions.Any(s =>
+                    !s.IsDeleted &&
                     s.Status == SubscriptionStatus.Active &&
-                    s.EndDate > now && 
-                    s.EndDate <= expirationDate))
-            .OrderBy(c => c.Subscriptions
-                .Where(s => !s.IsDeleted && s.Status == SubscriptionStatus.Active)
-                .Min(s => s.EndDate))
-            .AsNoTracking()
-            .ToListAsync();
+                    s.EndDate > now &&
+                    s.EndDate <= expirationDate));
+
+        query = ApplyFilterAndSorting(query, pagination);
+
+        return await PaginateAsync(query, pagination);
     }
 
+    public async Task<PaginatedResult<Clinic>> GetWithExpiredSubscriptionsPagedAsync(PaginationRequestDto pagination)
+    {
+        var now = DateTime.UtcNow;
+        var query = BaseClinicQuery()
+            .Where(c =>
+                c.Subscriptions.Any(s =>
+                    !s.IsDeleted &&
+                    s.Status == SubscriptionStatus.Active &&
+                    s.EndDate <= now));
+
+        query = ApplyFilterAndSorting(query, pagination);
+
+        return await PaginateAsync(query, pagination);
+    }
+    
     public async Task<IEnumerable<Clinic>> GetWithExpiredSubscriptionsAsync()
     {
         var now = DateTime.UtcNow;
@@ -102,47 +113,31 @@ public class ClinicRepository : IClinicRepository
         return await _dbContext.Clinics
             .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
             .Where(c => !c.IsDeleted && 
-                c.Subscriptions.Any(s => 
-                    !s.IsDeleted && 
-                    s.Status == SubscriptionStatus.Active &&
-                    s.EndDate <= now))
+                        c.Subscriptions.Any(s => 
+                            !s.IsDeleted && 
+                            s.Status == SubscriptionStatus.Active &&
+                            s.EndDate <= now))
             .OrderBy(c => c.Name)
             .AsNoTracking()
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Clinic>> GetPagedAsync(int page, int pageSize)
-    {
-        if (page < 1) page = 1;
-        if (pageSize < 1) pageSize = 20;
-        if (pageSize > 100) pageSize = 100;
-
-        return await _dbContext.Clinics
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted)
-            .OrderBy(c => c.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .AsNoTracking()
-            .ToListAsync();
-    }
-
-    public async Task<IEnumerable<Clinic>> SearchAsync(string query)
+    public async Task<PaginatedResult<Clinic>> SearchPagedAsync(string query, PaginationRequestDto pagination)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return Enumerable.Empty<Clinic>();
+            return new PaginatedResult<Clinic> { Items = Enumerable.Empty<Clinic>(), TotalCount = 0, HasMore = false };
 
-        var searchTerm = query.Trim().ToLower();
+        var search = query.Trim().ToLower();
 
-        return await _dbContext.Clinics
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted && 
-                (c.Name.ToLower().Contains(searchTerm) ||
-                 (c.Email != null && c.Email.ToLower().Contains(searchTerm)) ||
-                 (c.Phone != null && c.Phone.Contains(searchTerm))))
-            .OrderBy(c => c.Name)
-            .AsNoTracking()
-            .ToListAsync();
+        var dbQuery = BaseClinicQuery()
+            .Where(c =>
+                c.Name.ToLower().Contains(search) ||
+                (c.Email != null && c.Email.ToLower().Contains(search)) ||
+                (c.Phone != null && c.Phone.Contains(search)));
+
+        dbQuery = ApplyFilterAndSorting(dbQuery, pagination);
+
+        return await PaginateAsync(dbQuery, pagination);
     }
 
     public async Task<bool> ExistsByNameAsync(string name, Guid? excludeId = null)
@@ -150,15 +145,13 @@ public class ClinicRepository : IClinicRepository
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
-        var normalizedName = name.Trim().ToLower();
-
-        var query = _dbContext.Clinics
-            .Where(c => !c.IsDeleted && c.Name.ToLower() == normalizedName);
+        var normalized = name.Trim().ToLower();
+        var query = _dbContext.Clinics.Where(c => !c.IsDeleted && c.Name.ToLower() == normalized);
 
         if (excludeId.HasValue)
             query = query.Where(c => c.Id != excludeId.Value);
 
-        return await query.AsNoTracking().AnyAsync();
+        return await query.AnyAsync();
     }
 
     public async Task<bool> ExistsByEmailAsync(string email, Guid? excludeId = null)
@@ -166,26 +159,17 @@ public class ClinicRepository : IClinicRepository
         if (string.IsNullOrWhiteSpace(email))
             return false;
 
-        var normalizedEmail = email.Trim().ToLower();
-
-        var query = _dbContext.Clinics
-            .Where(c => !c.IsDeleted && c.Email != null && c.Email.ToLower() == normalizedEmail);
+        var normalized = email.Trim().ToLower();
+        var query = _dbContext.Clinics.Where(c => !c.IsDeleted && c.Email != null && c.Email.ToLower() == normalized);
 
         if (excludeId.HasValue)
             query = query.Where(c => c.Id != excludeId.Value);
 
-        return await query.AsNoTracking().AnyAsync();
+        return await query.AnyAsync();
     }
 
     public async Task<bool> ExistsAsync(Guid id)
-    {
-        if (id == Guid.Empty)
-            return false;
-
-        return await _dbContext.Clinics
-            .AsNoTracking()
-            .AnyAsync(c => c.Id == id && !c.IsDeleted);
-    }
+        => id != Guid.Empty && await _dbContext.Clinics.AnyAsync(c => c.Id == id && !c.IsDeleted);
 
     #endregion
 
@@ -193,40 +177,24 @@ public class ClinicRepository : IClinicRepository
 
     public async Task<Clinic> CreateAsync(Clinic clinic)
     {
-        if (clinic == null)
-            throw new ArgumentNullException(nameof(clinic));
-
         await _dbContext.Clinics.AddAsync(clinic);
         await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation("Clinic {ClinicId} created in database", clinic.Id);
-
+        _logger.LogInformation("Clinic {ClinicId} created", clinic.Id);
         return clinic;
     }
 
     public async Task<Clinic> UpdateAsync(Clinic clinic)
     {
-        if (clinic == null)
-            throw new ArgumentNullException(nameof(clinic));
-
         _dbContext.Clinics.Update(clinic);
         await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation("Clinic {ClinicId} updated in database", clinic.Id);
-
+        _logger.LogInformation("Clinic {ClinicId} updated", clinic.Id);
         return clinic;
     }
 
     public async Task<bool> SoftDeleteAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            return false;
-
-        var clinic = await _dbContext.Clinics
-            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
-
-        if (clinic == null)
-            return false;
+        var clinic = await _dbContext.Clinics.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+        if (clinic == null) return false;
 
         clinic.IsDeleted = true;
         clinic.DeletedAt = DateTime.UtcNow;
@@ -234,25 +202,19 @@ public class ClinicRepository : IClinicRepository
         _dbContext.Clinics.Update(clinic);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Clinic {ClinicId} soft deleted in database", id);
-
+        _logger.LogInformation("Clinic {ClinicId} soft deleted", id);
         return true;
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            return false;
-
         var clinic = await _dbContext.Clinics.FirstOrDefaultAsync(c => c.Id == id);
-        if (clinic == null)
-            return false;
+        if (clinic == null) return false;
 
         _dbContext.Clinics.Remove(clinic);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogWarning("Clinic {ClinicId} PERMANENTLY DELETED from database", id);
-
+        _logger.LogWarning("Clinic {ClinicId} permanently deleted", id);
         return true;
     }
 
@@ -260,32 +222,84 @@ public class ClinicRepository : IClinicRepository
 
     #region STATISTICS
 
-    public async Task<int> GetTotalCountAsync()
-    {
-        return await _dbContext.Clinics
-            .AsNoTracking()
-            .CountAsync(c => !c.IsDeleted);
-    }
+    public async Task<int> GetTotalCountAsync() =>
+        await _dbContext.Clinics.CountAsync(c => !c.IsDeleted);
 
-    public async Task<int> GetCountByStatusAsync(SubscriptionStatus status)
-    {
-        return await _dbContext.Clinics
-            .AsNoTracking()
-            .CountAsync(c => !c.IsDeleted && c.Status == status);
-    }
+    public async Task<int> GetCountByStatusAsync(SubscriptionStatus status) =>
+        await _dbContext.Clinics.CountAsync(c => !c.IsDeleted && c.Status == status);
 
     public async Task<int> GetActiveCountAsync()
     {
         var now = DateTime.UtcNow;
+        return await _dbContext.Clinics.CountAsync(c =>
+            !c.IsDeleted &&
+            c.Status == SubscriptionStatus.Active &&
+            c.Subscriptions.Any(s => !s.IsDeleted && s.Status == SubscriptionStatus.Active && s.EndDate > now));
+    }
 
-        return await _dbContext.Clinics
-            .AsNoTracking()
-            .CountAsync(c => !c.IsDeleted && 
-                c.Status == SubscriptionStatus.Active &&
-                c.Subscriptions.Any(s => 
-                    !s.IsDeleted && 
-                    s.Status == SubscriptionStatus.Active &&
-                    s.EndDate > now));
+    #endregion
+
+    #region PRIVATE HELPERS
+
+    private IQueryable<Clinic> BaseClinicQuery()
+    {
+        return _dbContext.Clinics
+            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
+            .Where(c => !c.IsDeleted);
+    }
+
+    private static IQueryable<Clinic> ApplyFilterAndSorting(IQueryable<Clinic> query, PaginationRequestDto pagination)
+    {
+        // ✅ Apply text filter if provided
+        if (!string.IsNullOrWhiteSpace(pagination.Filter))
+        {
+            var filter = pagination.Filter.ToLower();
+            query = query.Where(c =>
+                c.Name.ToLower().Contains(filter) ||
+                (c.Email != null && c.Email.ToLower().Contains(filter)) ||
+                (c.Phone != null && c.Phone.Contains(filter)));
+        }
+
+        // ✅ Dynamic sorting support
+        if (!string.IsNullOrWhiteSpace(pagination.SortBy))
+        {
+            query = pagination.Descending
+                ? query.OrderByDescendingDynamic(pagination.SortBy)
+                : query.OrderByDynamic(pagination.SortBy);
+        }
+        else
+        {
+            query = query.OrderBy(c => c.Name);
+        }
+
+        return query;
+    }
+
+    private async Task<PaginatedResult<Clinic>> PaginateAsync(IQueryable<Clinic> query, PaginationRequestDto pagination)
+    {
+        var limit = pagination.Limit <= 0 ? 20 : pagination.Limit > 100 ? 100 : pagination.Limit;
+        Guid? cursorGuid = null;
+
+        if (!string.IsNullOrEmpty(pagination.Cursor) && Guid.TryParse(pagination.Cursor, out var parsed))
+            cursorGuid = parsed;
+
+        if (cursorGuid.HasValue)
+            query = query.Where(c => c.Id.CompareTo(cursorGuid.Value) > 0);
+
+        var items = await query.Take(limit + 1).AsNoTracking().ToListAsync();
+        bool hasMore = items.Count > limit;
+
+        if (hasMore) items.RemoveAt(items.Count - 1);
+        var nextCursor = hasMore ? items.Last().Id.ToString() : null;
+        var totalCount = await _dbContext.Clinics.CountAsync(c => !c.IsDeleted);
+
+        return new PaginatedResult<Clinic>
+        {
+            Items = items,
+            HasMore = hasMore,
+            NextCursor = nextCursor,
+            TotalCount = totalCount
+        };
     }
 
     #endregion

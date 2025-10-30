@@ -1,3 +1,5 @@
+using NabdCare.Application.Common;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Interfaces.Roles;
@@ -8,12 +10,15 @@ public interface IRoleRepository
     // QUERY METHODS
     // ============================================
     
-    Task<IEnumerable<Role>> GetAllRolesAsync();
+    Task<PaginatedResult<Role>> GetAllPagedAsync(PaginationRequestDto pagination);
+    Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination);
+
     Task<IEnumerable<Role>> GetSystemRolesAsync();
     Task<IEnumerable<Role>> GetTemplateRolesAsync();
-    Task<IEnumerable<Role>> GetClinicRolesAsync(Guid clinicId);
+
     Task<Role?> GetRoleByIdAsync(Guid id);
     Task<Role?> GetRoleByNameAsync(string name, Guid? clinicId = null);
+
     Task<int> GetRoleUserCountAsync(Guid roleId);
     Task<int> GetRolePermissionCountAsync(Guid roleId);
     Task<bool> RoleExistsAsync(Guid id);

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Clinics;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 
 namespace NabdCare.Api.Endpoints;
@@ -84,11 +85,9 @@ public static class ClinicEndpoints
             if (clinic == null)
                 return Results.NotFound(new { Error = $"Clinic {id} not found" });
 
-            // SuperAdmin can view all clinics
             if (tenantContext.IsSuperAdmin)
                 return Results.Ok(clinic);
 
-            // Clinic users can only view their own clinic
             if (tenantContext.ClinicId.HasValue && tenantContext.ClinicId == id)
                 return Results.Ok(clinic);
 
@@ -105,55 +104,58 @@ public static class ClinicEndpoints
         .Produces(StatusCodes.Status404NotFound);
 
         // ============================================
-        // GET ALL CLINICS (SuperAdmin Only)
+        // GET ALL CLINICS (SuperAdmin Only, Paginated)
         // ============================================
         group.MapGet("/", async (
+            [AsParameters] PaginationRequestDto pagination,
             [FromServices] IClinicService service) =>
         {
-            var clinics = await service.GetAllClinicsAsync();
-            return Results.Ok(clinics);
+            var result = await service.GetAllClinicsPagedAsync(pagination);
+            return Results.Ok(result);
         })
-        .RequireAuthorization()
-        .WithName("GetAllClinics")
-        .WithSummary("Get all clinics (SuperAdmin only)")
-        .WithDescription("Returns a list of all clinics in the system.")
-        .Produces<IEnumerable<ClinicResponseDto>>(StatusCodes.Status200OK)
+        .RequirePermission("Clinics.ViewAll")
+        .WithName("GetAllClinicsPaged")
+        .WithSummary("Get all clinics (SuperAdmin only, paginated)")
+        .WithDescription("Returns a paginated list of all clinics.")
+        .Produces<PaginatedResult<ClinicResponseDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // GET ACTIVE CLINICS (SuperAdmin Only)
+        // GET ACTIVE CLINICS (SuperAdmin Only, Paginated)
         // ============================================
         group.MapGet("/active", async (
+            [AsParameters] PaginationRequestDto pagination,
             [FromServices] IClinicService service) =>
         {
-            var clinics = await service.GetActiveClinicsAsync();
-            return Results.Ok(clinics);
+            var result = await service.GetActiveClinicsPagedAsync(pagination);
+            return Results.Ok(result);
         })
-        .RequireAuthorization()
-        .WithName("GetActiveClinics")
-        .WithSummary("Get all active clinics (SuperAdmin only)")
-        .WithDescription("Returns only clinics with Active status.")
-        .Produces<IEnumerable<ClinicResponseDto>>(StatusCodes.Status200OK)
+        .RequirePermission("Clinics.ViewAll")
+        .WithName("GetActiveClinicsPaged")
+        .WithSummary("Get all active clinics (SuperAdmin only, paginated)")
+        .WithDescription("Returns paginated list of active clinics with valid subscriptions.")
+        .Produces<PaginatedResult<ClinicResponseDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // SEARCH CLINICS (SuperAdmin Only)
+        // SEARCH CLINICS (SuperAdmin Only, Paginated)
         // ============================================
         group.MapGet("/search", async (
             [FromQuery] string? query,
+            [AsParameters] PaginationRequestDto pagination,
             [FromServices] IClinicService service) =>
         {
             if (string.IsNullOrWhiteSpace(query))
                 return Results.BadRequest(new { Error = "Search query is required" });
 
-            var clinics = await service.SearchClinicsAsync(query);
-            return Results.Ok(clinics);
+            var result = await service.SearchClinicsPagedAsync(query, pagination);
+            return Results.Ok(result);
         })
         .RequirePermission("Clinics.ViewAll")
-        .WithName("SearchClinics")
-        .WithSummary("Search clinics by name, email, or phone (SuperAdmin only)")
-        .WithDescription("Searches clinics using name, email, or phone number.")
-        .Produces<IEnumerable<ClinicResponseDto>>(StatusCodes.Status200OK)
+        .WithName("SearchClinicsPaged")
+        .WithSummary("Search clinics (SuperAdmin only, paginated)")
+        .WithDescription("Searches clinics by name, email, or phone with pagination.")
+        .Produces<PaginatedResult<ClinicResponseDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);
 
@@ -174,7 +176,6 @@ public static class ClinicEndpoints
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
-            // SuperAdmin can update any clinic, ClinicAdmin can only update own clinic
             if (!tenantContext.IsSuperAdmin && tenantContext.ClinicId != id)
                 return Results.Forbid();
 

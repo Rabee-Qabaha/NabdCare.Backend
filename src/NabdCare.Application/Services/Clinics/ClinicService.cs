@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.DTOs.Clinics.Subscriptions;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Enums;
@@ -43,175 +44,72 @@ public class ClinicService : IClinicService
             throw new ArgumentException("Clinic ID cannot be empty", nameof(id));
 
         var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {CurrentUserId} retrieving clinic {ClinicId}", currentUserId, id);
-
         var clinic = await _clinicRepository.GetByIdAsync(id);
+
         if (clinic == null)
         {
             _logger.LogWarning("Clinic {ClinicId} not found", id);
             return null;
         }
 
-        // Multi-tenant security: SuperAdmin can view all, others only their own
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != id)
-        {
-            _logger.LogWarning("User {CurrentUserId} (ClinicId: {UserClinicId}) attempted to access clinic {ClinicId} without permission",
-                currentUserId, _tenantContext.ClinicId, id);
             throw new UnauthorizedAccessException("You can only view your own clinic");
-        }
 
         return _mapper.Map<ClinicResponseDto>(clinic);
     }
 
-    public async Task<IEnumerable<ClinicResponseDto>> GetAllClinicsAsync()
+    public async Task<PaginatedResult<ClinicResponseDto>> GetAllClinicsPagedAsync(PaginationRequestDto pagination)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
+        EnsureSuperAdmin();
 
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view all clinics", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view all clinics");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving all clinics", currentUserId);
-
-        var clinics = await _clinicRepository.GetAllAsync();
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieved {Count} clinics", currentUserId, clinicsList.Count);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
+        var result = await _clinicRepository.GetAllPagedAsync(pagination);
+        return MapPaginated(result);
     }
 
-    public async Task<IEnumerable<ClinicResponseDto>> GetClinicsByStatusAsync(SubscriptionStatus status)
+    public async Task<PaginatedResult<ClinicResponseDto>> GetClinicsByStatusPagedAsync(SubscriptionStatus status, PaginationRequestDto pagination)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
+        EnsureSuperAdmin();
 
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view clinics by status", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view clinics by status");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving clinics with status {Status}", currentUserId, status);
-
-        var clinics = await _clinicRepository.GetByStatusAsync(status);
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("Retrieved {Count} clinics with status {Status}", clinicsList.Count, status);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
+        var result = await _clinicRepository.GetByStatusPagedAsync(status, pagination);
+        return MapPaginated(result);
     }
 
-    public async Task<IEnumerable<ClinicResponseDto>> GetActiveClinicsAsync()
+    public async Task<PaginatedResult<ClinicResponseDto>> GetActiveClinicsPagedAsync(PaginationRequestDto pagination)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
+        EnsureSuperAdmin();
 
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view active clinics", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view all clinics");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving active clinics with valid subscriptions", currentUserId);
-
-        var clinics = await _clinicRepository.GetActiveWithValidSubscriptionAsync();
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieved {Count} active clinics", currentUserId, clinicsList.Count);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
+        var result = await _clinicRepository.GetActiveWithValidSubscriptionPagedAsync(pagination);
+        return MapPaginated(result);
     }
 
-    public async Task<IEnumerable<ClinicResponseDto>> GetClinicsWithExpiringSubscriptionsAsync(int withinDays)
+    public async Task<PaginatedResult<ClinicResponseDto>> GetClinicsWithExpiringSubscriptionsPagedAsync(int withinDays, PaginationRequestDto pagination)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
-
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view expiring subscriptions", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view expiring subscriptions");
-        }
+        EnsureSuperAdmin();
 
         if (withinDays < 1 || withinDays > 365)
             throw new ArgumentException("Days must be between 1 and 365", nameof(withinDays));
 
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving clinics with subscriptions expiring within {Days} days", 
-            currentUserId, withinDays);
-
-        var clinics = await _clinicRepository.GetWithExpiringSubscriptionsAsync(withinDays);
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("Retrieved {Count} clinics with expiring subscriptions", clinicsList.Count);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
+        var result = await _clinicRepository.GetWithExpiringSubscriptionsPagedAsync(withinDays, pagination);
+        return MapPaginated(result);
     }
 
-    public async Task<IEnumerable<ClinicResponseDto>> GetClinicsWithExpiredSubscriptionsAsync()
+    public async Task<PaginatedResult<ClinicResponseDto>> GetClinicsWithExpiredSubscriptionsPagedAsync(PaginationRequestDto pagination)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
+        EnsureSuperAdmin();
 
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view expired subscriptions", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view expired subscriptions");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving clinics with expired subscriptions", currentUserId);
-
-        var clinics = await _clinicRepository.GetWithExpiredSubscriptionsAsync();
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("Retrieved {Count} clinics with expired subscriptions", clinicsList.Count);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
+        var result = await _clinicRepository.GetWithExpiredSubscriptionsPagedAsync(pagination);
+        return MapPaginated(result);
     }
 
-    public async Task<IEnumerable<ClinicResponseDto>> GetPagedClinicsAsync(int page, int pageSize)
+    public async Task<PaginatedResult<ClinicResponseDto>> SearchClinicsPagedAsync(string query, PaginationRequestDto pagination)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
-
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view paged clinics", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view all clinics");
-        }
-
-        if (page < 1) page = 1;
-        if (pageSize < 1 || pageSize > 100) pageSize = 20;
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving clinics page {Page} (size {PageSize})",
-            currentUserId, page, pageSize);
-
-        var clinics = await _clinicRepository.GetPagedAsync(page, pageSize);
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("Retrieved {Count} clinics for page {Page}", clinicsList.Count, page);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
-    }
-
-    public async Task<IEnumerable<ClinicResponseDto>> SearchClinicsAsync(string query)
-    {
-        var currentUserId = _userContext.GetCurrentUserId();
-
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to search clinics", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can search clinics");
-        }
+        EnsureSuperAdmin();
 
         if (string.IsNullOrWhiteSpace(query))
             throw new ArgumentException("Search query cannot be empty", nameof(query));
 
-        _logger.LogInformation("SuperAdmin {CurrentUserId} searching clinics with query: {Query}", currentUserId, query);
-
-        var clinics = await _clinicRepository.SearchAsync(query);
-        var clinicsList = clinics.ToList();
-
-        _logger.LogInformation("Search returned {Count} clinics", clinicsList.Count);
-
-        return _mapper.Map<IEnumerable<ClinicResponseDto>>(clinicsList);
+        var result = await _clinicRepository.SearchPagedAsync(query, pagination);
+        return MapPaginated(result);
     }
 
     #endregion
@@ -682,6 +580,25 @@ public class ClinicService : IClinicService
         if (dto.BranchCount < 1)
             throw new ArgumentException("Branch count must be at least 1", nameof(dto.BranchCount));
     }
+    private void EnsureSuperAdmin()
+    {
+        var userId = _userContext.GetCurrentUserId();
+        if (!_tenantContext.IsSuperAdmin)
+        {
+            _logger.LogWarning("Non-SuperAdmin user {UserId} attempted a restricted action", userId);
+            throw new UnauthorizedAccessException("Only SuperAdmin can perform this action");
+        }
+    }
 
+    private PaginatedResult<ClinicResponseDto> MapPaginated(PaginatedResult<Clinic> result)
+    {
+        return new PaginatedResult<ClinicResponseDto>
+        {
+            Items = _mapper.Map<IEnumerable<ClinicResponseDto>>(result.Items),
+            HasMore = result.HasMore,
+            NextCursor = result.NextCursor,
+            TotalCount = result.TotalCount
+        };
+    }
     #endregion
 }

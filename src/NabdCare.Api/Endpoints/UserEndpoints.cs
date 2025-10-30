@@ -49,13 +49,12 @@ public static class UserEndpoints
         // GET PAGED USERS (Multi-Tenant Smart Logic)
         // ============================================
         group.MapGet("/paged", async (
-            [FromQuery] int limit,
-            [FromQuery] string? cursor,
+            [AsParameters] PaginationRequestDto request,
             [FromQuery] Guid? clinicId,
             [FromServices] IUserService userService,
             [FromServices] ITenantContext tenantContext) =>
         {
-            if (limit <= 0)
+            if (request.Limit <= 0)
                 return Results.BadRequest(new { Error = "Limit must be greater than 0" });
 
             PaginatedResult<UserResponseDto> result;
@@ -64,13 +63,13 @@ public static class UserEndpoints
             {
                 // SuperAdmin can view all users, or filter by clinic
                 result = clinicId.HasValue
-                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, limit, cursor)
-                    : await userService.GetAllPagedAsync(limit, cursor);
+                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, request.Limit, request.Cursor)
+                    : await userService.GetAllPagedAsync(request.Limit, request.Cursor);
             }
             else if (tenantContext.ClinicId.HasValue)
             {
                 // ClinicAdmin can only view their own clinic
-                result = await userService.GetByClinicIdPagedAsync(tenantContext.ClinicId.Value, limit, cursor);
+                result = await userService.GetByClinicIdPagedAsync(tenantContext.ClinicId.Value, request.Limit, request.Cursor);
             }
             else
             {
@@ -94,15 +93,14 @@ public static class UserEndpoints
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}/paged", async (
             Guid clinicId,
-            [FromQuery] int limit,
-            [FromQuery] string? cursor,
+            [AsParameters] PaginationRequestDto request,
             [FromServices] IUserService userService,
             [FromServices] ITenantContext tenantContext) =>
         {
             if (clinicId == Guid.Empty)
                 return Results.BadRequest(new { Error = "Invalid clinic ID" });
 
-            if (limit <= 0)
+            if (request.Limit <= 0)
                 return Results.BadRequest(new { Error = "Limit must be greater than 0" });
 
             if (!tenantContext.IsSuperAdmin)
@@ -110,7 +108,7 @@ public static class UserEndpoints
                     new { Error = "Only SuperAdmin can view other clinics' users" },
                     statusCode: StatusCodes.Status403Forbidden);
 
-            var result = await userService.GetByClinicIdPagedAsync(clinicId, limit, cursor);
+            var result = await userService.GetByClinicIdPagedAsync(clinicId, request.Limit, request.Cursor);
             return Results.Ok(result);
         })
         .RequirePermission("Users.ViewAll")

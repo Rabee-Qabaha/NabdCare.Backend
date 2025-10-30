@@ -127,7 +127,8 @@ public static class DependencyInjectionConfig
             typeof(ClinicProfile).Assembly,
             typeof(PermissionProfile).Assembly,
             typeof(SubscriptionProfile).Assembly,
-            typeof(RoleProfile).Assembly
+            typeof(RoleProfile).Assembly,
+            typeof(AuditLogMappingProfile).Assembly
         );
 
         // ===============================

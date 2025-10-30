@@ -3,6 +3,7 @@ using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Api.Extensions;
+using NabdCare.Application.DTOs.Pagination;
 
 namespace NabdCare.Api.Endpoints;
 
@@ -12,17 +13,48 @@ public static class PermissionEndpoints
     {
         var group = app.MapGroup("/permissions").WithTags("Permissions");
 
+// ============================================
+        // 📄 GET ALL PERMISSIONS (PAGINATED)
         // ============================================
-        // 📋 GET ALL PERMISSIONS
+        group.MapGet("/paged", async (
+            [AsParameters] PaginationRequestDto pagination,
+            [FromServices] IPermissionService service) =>
+        {
+            try
+            {
+                var result = await service.GetAllPagedAsync(pagination);
+                return Results.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, title: "Failed to retrieve paged permissions");
+            }
+        })
+        .RequirePermission("Permissions.View")
+        .Produces<PaginatedResult<PermissionResponseDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithSummary("Get all permissions (paginated, supports filter/sort/cursor)");
+
+        // ============================================
+        // 📋 GET ALL PERMISSIONS (LEGACY - NON PAGED)
         // ============================================
         group.MapGet("/", async (
             [FromServices] IPermissionService service) =>
         {
-            var result = await service.GetAllPermissionsAsync();
-            return Results.Ok(result);
+            try
+            {
+                var result = await service.GetAllPermissionsAsync();
+                return Results.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, title: "Failed to retrieve all permissions");
+            }
         })
         .RequirePermission("Permissions.View")
-        .WithSummary("Get all permissions");
+        .Produces<IEnumerable<PermissionResponseDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithSummary("Get all permissions (non-paginated)");
 
         // ============================================
         // 📊 GET PERMISSIONS GROUPED BY CATEGORY
@@ -30,20 +62,29 @@ public static class PermissionEndpoints
         group.MapGet("/grouped", async (
             [FromServices] IPermissionService service) =>
         {
-            var permissions = await service.GetAllPermissionsAsync();
-            
-            var grouped = permissions
-                .GroupBy(p => p.Name.Split('.')[0]) // Group by prefix (e.g., "Users", "Patients")
-                .OrderBy(g => g.Key)
-                .Select(g => new
-                {
-                    Category = g.Key,
-                    Permissions = g.OrderBy(p => p.Name).ToList()
-                });
+            try
+            {
+                var permissions = await service.GetAllPermissionsAsync();
 
-            return Results.Ok(grouped);
+                var grouped = permissions
+                    .GroupBy(p => p.Name.Split('.')[0]) // e.g. "Users.Create" → "Users"
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        Category = g.Key,
+                        Permissions = g.OrderBy(p => p.Name).ToList()
+                    });
+
+                return Results.Ok(grouped);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, title: "Failed to retrieve grouped permissions");
+            }
         })
         .RequirePermission("Permissions.View")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status403Forbidden)
         .WithSummary("Get permissions grouped by category (Users, Patients, etc.)");
 
         // ============================================

@@ -1,4 +1,5 @@
 using NabdCare.Application.DTOs.Clinics;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Interfaces.Clinics;
@@ -12,92 +13,57 @@ public interface IClinicService
     // ============================================
     // QUERY METHODS
     // ============================================
-    
+
     /// <summary>
     /// Get clinic by ID (tenant-filtered for non-SuperAdmin)
     /// </summary>
     Task<ClinicResponseDto?> GetClinicByIdAsync(Guid id);
-    
+
     /// <summary>
-    /// Get all clinics (SuperAdmin only)
+    /// Get all clinics (SuperAdmin only) - paginated
     /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> GetAllClinicsAsync();
-    
+    Task<PaginatedResult<ClinicResponseDto>> GetAllClinicsPagedAsync(PaginationRequestDto pagination);
+
     /// <summary>
-    /// Get clinics by subscription status (SuperAdmin only)
+    /// Get clinics by subscription status (SuperAdmin only) - paginated
     /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> GetClinicsByStatusAsync(SubscriptionStatus status);
-    
+    Task<PaginatedResult<ClinicResponseDto>> GetClinicsByStatusPagedAsync(SubscriptionStatus status, PaginationRequestDto pagination);
+
     /// <summary>
-    /// Get active clinics with valid subscriptions (SuperAdmin only)
+    /// Get active clinics with valid subscriptions (SuperAdmin only) - paginated
     /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> GetActiveClinicsAsync();
-    
+    Task<PaginatedResult<ClinicResponseDto>> GetActiveClinicsPagedAsync(PaginationRequestDto pagination);
+
     /// <summary>
-    /// Get clinics with expiring subscriptions (SuperAdmin only)
+    /// Get clinics with expiring subscriptions (SuperAdmin only) - paginated
     /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> GetClinicsWithExpiringSubscriptionsAsync(int withinDays);
-    
+    Task<PaginatedResult<ClinicResponseDto>> GetClinicsWithExpiringSubscriptionsPagedAsync(int withinDays, PaginationRequestDto pagination);
+
     /// <summary>
-    /// Get clinics with expired subscriptions (SuperAdmin only)
+    /// Get clinics with expired subscriptions (SuperAdmin only) - paginated
     /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> GetClinicsWithExpiredSubscriptionsAsync();
-    
+    Task<PaginatedResult<ClinicResponseDto>> GetClinicsWithExpiredSubscriptionsPagedAsync(PaginationRequestDto pagination);
+
     /// <summary>
-    /// Get paginated clinics (SuperAdmin only)
+    /// Search clinics by name, email, or phone (SuperAdmin only) - paginated
     /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> GetPagedClinicsAsync(int page, int pageSize);
-    
-    /// <summary>
-    /// Search clinics by name, email, or phone (SuperAdmin only)
-    /// </summary>
-    Task<IEnumerable<ClinicResponseDto>> SearchClinicsAsync(string query);
+    Task<PaginatedResult<ClinicResponseDto>> SearchClinicsPagedAsync(string query, PaginationRequestDto pagination);
 
     // ============================================
     // COMMAND METHODS
     // ============================================
-    
-    /// <summary>
-    /// Create new clinic with initial subscription (SuperAdmin only)
-    /// </summary>
+
     Task<ClinicResponseDto> CreateClinicAsync(CreateClinicRequestDto dto);
-    
-    /// <summary>
-    /// Update clinic (SuperAdmin or own clinic only)
-    /// </summary>
     Task<ClinicResponseDto?> UpdateClinicAsync(Guid id, UpdateClinicRequestDto dto);
-    
-    /// <summary>
-    /// Update clinic subscription status (SuperAdmin only)
-    /// </summary>
     Task<ClinicResponseDto?> UpdateClinicStatusAsync(Guid id, UpdateClinicStatusDto dto);
-    
-    /// <summary>
-    /// Activate clinic (SuperAdmin only)
-    /// </summary>
     Task<ClinicResponseDto?> ActivateClinicAsync(Guid id);
-    
-    /// <summary>
-    /// Suspend clinic (SuperAdmin only)
-    /// </summary>
     Task<ClinicResponseDto?> SuspendClinicAsync(Guid id);
-    
-    /// <summary>
-    /// Soft delete clinic (SuperAdmin only)
-    /// </summary>
     Task<bool> SoftDeleteClinicAsync(Guid id);
-    
-    /// <summary>
-    /// Permanently delete clinic (SuperAdmin only)
-    /// </summary>
     Task<bool> DeleteClinicAsync(Guid id);
 
     // ============================================
     // STATISTICS
     // ============================================
-    
-    /// <summary>
-    /// Get clinic statistics (SuperAdmin only)
-    /// </summary>
+
     Task<ClinicStatisticsDto?> GetClinicStatisticsAsync(Guid id);
 }

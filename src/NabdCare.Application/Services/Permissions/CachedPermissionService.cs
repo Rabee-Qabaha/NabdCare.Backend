@@ -1,10 +1,15 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
 
 namespace NabdCare.Application.Services.Permissions;
 
+/// <summary>
+/// Wraps PermissionService with in-memory caching for performance.
+/// Caches user, role, and effective permissions with time-based invalidation.
+/// </summary>
 public class CachedPermissionService : IPermissionService
 {
     private readonly PermissionService _inner;
@@ -32,48 +37,42 @@ public class CachedPermissionService : IPermissionService
     private static string KeyUser(Guid userId) => $"perm:user:{userId}";
 
     // ===============================================================
-    // Effective Permissions (User + Role)
+    // PAGINATED PERMISSIONS
     // ===============================================================
+
+    public Task<PaginatedResult<PermissionResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination)
+        => _inner.GetAllPagedAsync(pagination);
+
+    // ===============================================================
+    // EFFECTIVE PERMISSIONS (User + Role)
+    // ===============================================================
+
     public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, Guid roleId)
     {
         var cacheKey = Key(userId, roleId);
 
-        // Try to read from cache
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached))
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached) && cached != null && cached.Any())
         {
-            // ✅ only return if not null AND not empty
-            if (cached != null && cached.Any())
-            {
-                _logger.LogDebug("✅ Cache hit for user {UserId}, role {RoleId} ({Count} permissions)", userId, roleId, cached.Count());
-                return cached;
-            }
-            else
-            {
-                _logger.LogDebug("⚠️ Cache hit but empty for user {UserId}, role {RoleId} — refreshing from source", userId, roleId);
-            }
+            _logger.LogDebug("✅ Cache hit for effective permissions (User {UserId}, Role {RoleId})", userId, roleId);
+            return cached;
         }
 
-        // Load fresh data
         var fresh = (await _inner.GetUserEffectivePermissionsAsync(userId, roleId)).ToList();
 
-        // ✅ Don’t cache empty results
         if (fresh.Count == 0)
         {
-            _logger.LogWarning("🚫 No permissions found for user {UserId}, role {RoleId}. Skipping cache.", userId, roleId);
+            _logger.LogWarning("⚠️ No permissions found for User {UserId}, Role {RoleId}. Skipping cache.", userId, roleId);
             return fresh;
         }
 
-        // Add to cache
-        var options = new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, fresh, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = DefaultTtl,
             SlidingExpiration = SlidingTtl,
             Size = Math.Max(1, fresh.Count)
-        };
+        });
 
-        _cache.Set(cacheKey, fresh, options);
-        _logger.LogDebug("🧠 Cached {Count} permissions for user {UserId}, role {RoleId}", fresh.Count, userId, roleId);
-
+        _logger.LogDebug("🧠 Cached {Count} effective permissions for User {UserId}, Role {RoleId}", fresh.Count, userId, roleId);
         return fresh;
     }
 
@@ -84,79 +83,85 @@ public class CachedPermissionService : IPermissionService
     }
 
     // ===============================================================
-    // Cache Invalidation Helpers
+    // CACHE INVALIDATION
     // ===============================================================
+
     public void InvalidateUser(Guid userId, Guid roleId)
     {
         _cache.Remove(Key(userId, roleId));
-        _logger.LogDebug("🧹 Invalidated permission cache for user {UserId}, role {RoleId}", userId, roleId);
+        _logger.LogDebug("🧹 Invalidated effective permission cache (User {UserId}, Role {RoleId})", userId, roleId);
     }
 
     public void InvalidateRole(Guid roleId)
     {
         _cache.Remove(KeyRole(roleId));
-        _logger.LogDebug("🧹 Invalidated role permission cache for role {RoleId}", roleId);
+        _logger.LogDebug("🧹 Invalidated role permission cache (Role {RoleId})", roleId);
     }
 
     public void InvalidateUserPermissions(Guid userId)
     {
         _cache.Remove(KeyUser(userId));
-        _logger.LogDebug("🧹 Invalidated user-specific permission cache for user {UserId}", userId);
+        _logger.LogDebug("🧹 Invalidated user permission cache (User {UserId})", userId);
     }
 
     // ===============================================================
-    // Role-Level Caching
+    // ROLE-LEVEL CACHING
     // ===============================================================
+
     public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByRoleAsync(Guid roleId)
     {
         var cacheKey = KeyRole(roleId);
 
         if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached) && cached != null)
+        {
+            _logger.LogDebug("✅ Cache hit for role {RoleId} permissions", roleId);
             return cached;
+        }
 
         var fresh = (await _inner.GetPermissionsByRoleAsync(roleId)).ToList();
 
-        var options = new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, fresh, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = RoleTtl,
             SlidingExpiration = SlidingTtl,
-            Size = fresh.Count
-        };
+            Size = Math.Max(1, fresh.Count)
+        });
 
-        _cache.Set(cacheKey, fresh, options);
-        _logger.LogDebug("🧠 Cached role permissions for role {RoleId}", roleId);
-
+        _logger.LogDebug("🧠 Cached {Count} permissions for role {RoleId}", fresh.Count, roleId);
         return fresh;
     }
 
     // ===============================================================
-    // User-Level Caching
+    // USER-LEVEL CACHING
     // ===============================================================
+
     public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByUserAsync(Guid userId)
     {
         var cacheKey = KeyUser(userId);
 
         if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached) && cached != null)
+        {
+            _logger.LogDebug("✅ Cache hit for user {UserId} permissions", userId);
             return cached;
+        }
 
         var fresh = (await _inner.GetPermissionsByUserAsync(userId)).ToList();
 
-        var options = new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, fresh, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = UserTtl,
             SlidingExpiration = SlidingTtl,
-            Size = fresh.Count
-        };
+            Size = Math.Max(1, fresh.Count)
+        });
 
-        _cache.Set(cacheKey, fresh, options);
-        _logger.LogDebug("🧠 Cached user-specific permissions for user {UserId}", userId);
-
+        _logger.LogDebug("🧠 Cached {Count} user permissions for user {UserId}", fresh.Count, userId);
         return fresh;
     }
 
     // ===============================================================
-    // Pass-through CRUD operations
+    // PASS-THROUGH CRUD OPERATIONS
     // ===============================================================
+
     public Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
         => _inner.GetAllPermissionsAsync();
 
@@ -172,20 +177,41 @@ public class CachedPermissionService : IPermissionService
     public Task<bool> DeletePermissionAsync(Guid id)
         => _inner.DeletePermissionAsync(id);
 
-    public Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
-        => _inner.AssignPermissionToRoleAsync(roleId, permissionId);
+    // ===============================================================
+    // ROLE / USER ASSIGNMENTS
+    // ===============================================================
 
-    public Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
-        => _inner.RemovePermissionFromRoleAsync(roleId, permissionId);
+    public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
+    {
+        var result = await _inner.AssignPermissionToRoleAsync(roleId, permissionId);
+        InvalidateRole(roleId);
+        return result;
+    }
 
-    public Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId)
-        => _inner.AssignPermissionToUserAsync(userId, permissionId);
+    public async Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
+    {
+        var result = await _inner.RemovePermissionFromRoleAsync(roleId, permissionId);
+        InvalidateRole(roleId);
+        return result;
+    }
 
-    public Task<bool> RemovePermissionFromUserAsync(Guid userId, Guid permissionId)
-        => _inner.RemovePermissionFromUserAsync(userId, permissionId);
+    public async Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId)
+    {
+        var result = await _inner.AssignPermissionToUserAsync(userId, permissionId);
+        InvalidateUserPermissions(userId);
+        return result;
+    }
 
-    public Task<bool> UserHasPermissionAsync(Guid userId, Guid roleId, string permissionName, CancellationToken _ = default)
-        => _inner.UserHasPermissionAsync(userId, roleId, permissionName);
+    public async Task<bool> RemovePermissionFromUserAsync(Guid userId, Guid permissionId)
+    {
+        var result = await _inner.RemovePermissionFromUserAsync(userId, permissionId);
+        InvalidateUserPermissions(userId);
+        return result;
+    }
+
+    // ===============================================================
+    // AUTHORIZATION HELPERS
+    // ===============================================================
 
     public Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId)
         => _inner.GetUserForAuthorizationAsync(userId);

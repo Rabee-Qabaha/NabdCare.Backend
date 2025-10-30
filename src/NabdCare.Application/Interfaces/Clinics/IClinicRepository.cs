@@ -1,3 +1,4 @@
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Enums;
 
@@ -12,57 +13,57 @@ public interface IClinicRepository
     // ============================================
     // QUERY METHODS
     // ============================================
-    
+
     /// <summary>
     /// Get clinic by ID with subscriptions
     /// </summary>
     Task<Clinic?> GetByIdAsync(Guid id);
-    
+
     /// <summary>
-    /// Get all clinics (SuperAdmin only)
+    /// Get all clinics (SuperAdmin only) with pagination, sorting, and filtering
     /// </summary>
-    Task<IEnumerable<Clinic>> GetAllAsync();
-    
+    Task<PaginatedResult<Clinic>> GetAllPagedAsync(PaginationRequestDto pagination);
+
     /// <summary>
-    /// Get clinics by subscription status
+    /// Get clinics by subscription status (Active, Pending, etc.)
     /// </summary>
-    Task<IEnumerable<Clinic>> GetByStatusAsync(SubscriptionStatus status);
-    
+    Task<PaginatedResult<Clinic>> GetByStatusPagedAsync(SubscriptionStatus status, PaginationRequestDto pagination);
+
     /// <summary>
     /// Get clinics with active status and valid subscription (EndDate > Now)
     /// </summary>
-    Task<IEnumerable<Clinic>> GetActiveWithValidSubscriptionAsync();
-    
+    Task<PaginatedResult<Clinic>> GetActiveWithValidSubscriptionPagedAsync(PaginationRequestDto pagination);
+
     /// <summary>
     /// Get clinics with expiring subscriptions (within days)
     /// </summary>
-    Task<IEnumerable<Clinic>> GetWithExpiringSubscriptionsAsync(int withinDays);
+    Task<PaginatedResult<Clinic>> GetWithExpiringSubscriptionsPagedAsync(int withinDays, PaginationRequestDto pagination);
+
+    /// <summary>
+    /// Get clinics with expired subscriptions pagination
+    /// </summary>
+    Task<PaginatedResult<Clinic>> GetWithExpiredSubscriptionsPagedAsync(PaginationRequestDto pagination);
     
     /// <summary>
-    /// Get clinics with expired subscriptions
+    /// Get clinics with expired subscriptions return all for the background job
     /// </summary>
     Task<IEnumerable<Clinic>> GetWithExpiredSubscriptionsAsync();
-    
-    /// <summary>
-    /// Get paginated clinics
-    /// </summary>
-    Task<IEnumerable<Clinic>> GetPagedAsync(int page, int pageSize);
-    
+
     /// <summary>
     /// Search clinics by name, email, or phone
     /// </summary>
-    Task<IEnumerable<Clinic>> SearchAsync(string query);
-    
+    Task<PaginatedResult<Clinic>> SearchPagedAsync(string query, PaginationRequestDto pagination);
+
     /// <summary>
     /// Check if clinic name exists (excluding specified ID)
     /// </summary>
     Task<bool> ExistsByNameAsync(string name, Guid? excludeId = null);
-    
+
     /// <summary>
     /// Check if clinic email exists (excluding specified ID)
     /// </summary>
     Task<bool> ExistsByEmailAsync(string email, Guid? excludeId = null);
-    
+
     /// <summary>
     /// Check if clinic exists by ID
     /// </summary>
@@ -71,43 +72,17 @@ public interface IClinicRepository
     // ============================================
     // COMMAND METHODS
     // ============================================
-    
-    /// <summary>
-    /// Create new clinic
-    /// </summary>
+
     Task<Clinic> CreateAsync(Clinic clinic);
-    
-    /// <summary>
-    /// Update existing clinic
-    /// </summary>
     Task<Clinic> UpdateAsync(Clinic clinic);
-    
-    /// <summary>
-    /// Soft delete clinic (can be restored)
-    /// </summary>
     Task<bool> SoftDeleteAsync(Guid id);
-    
-    /// <summary>
-    /// Permanently delete clinic (irreversible)
-    /// </summary>
     Task<bool> DeleteAsync(Guid id);
 
     // ============================================
     // STATISTICS
     // ============================================
-    
-    /// <summary>
-    /// Get total count of clinics
-    /// </summary>
+
     Task<int> GetTotalCountAsync();
-    
-    /// <summary>
-    /// Get count by subscription status
-    /// </summary>
     Task<int> GetCountByStatusAsync(SubscriptionStatus status);
-    
-    /// <summary>
-    /// Get count of clinics with active subscriptions
-    /// </summary>
     Task<int> GetActiveCountAsync();
 }
