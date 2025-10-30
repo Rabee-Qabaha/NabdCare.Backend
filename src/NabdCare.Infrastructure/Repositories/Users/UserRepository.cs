@@ -1,15 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Users;
 
-/// <summary>
-/// Production-ready user repository - thin data access layer.
-/// No try-catch: exceptions bubble up to service layer.
-/// </summary>
 public class UserRepository : IUserRepository
 {
     private readonly NabdCareDbContext _dbContext;
@@ -44,7 +43,7 @@ public class UserRepository : IUserRepository
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Id == id);
     }
-    
+
     public async Task<User?> GetByEmailAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -59,29 +58,102 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail && !u.IsDeleted);
     }
 
-    public async Task<IEnumerable<User>> GetAllAsync()
+    /// <summary>
+    /// Cursor-based pagination for all users (SuperAdmin).
+    /// Ordered by CreatedAt then Id for stable keyset pagination.
+    /// </summary>
+    public async Task<PaginatedResult<User>> GetAllPagedAsync(int limit, string? cursor)
     {
-        return await _dbContext.Users
+        if (limit <= 0) limit = 20;
+        if (limit > 100) limit = 100;
+
+        var (createdAtCursor, idCursor) = DecodeCursor(cursor);
+
+        var query = _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Where(u => !u.IsDeleted)
-            .OrderBy(u => u.FullName)
-            .AsNoTracking()
+            .AsNoTracking();
+
+        if (createdAtCursor.HasValue && idCursor.HasValue)
+        {
+            query = query.Where(u =>
+                (u.CreatedAt > createdAtCursor.Value) ||
+                (u.CreatedAt == createdAtCursor.Value && u.Id.CompareTo(idCursor.Value) > 0));
+        }
+
+        var users = await query
+            .OrderBy(u => u.CreatedAt)
+            .ThenBy(u => u.Id)
+            .Take(limit + 1)
             .ToListAsync();
+
+        var hasMore = users.Count > limit;
+        if (hasMore) users.RemoveAt(users.Count - 1);
+
+        string? nextCursor = hasMore && users.LastOrDefault() is { } last
+            ? EncodeCursor(last.CreatedAt, last.Id)
+            : null;
+
+        var totalCount = await _dbContext.Users.CountAsync(u => !u.IsDeleted);
+
+        return new PaginatedResult<User>
+        {
+            Items = users,
+            HasMore = hasMore,
+            NextCursor = nextCursor,
+            TotalCount = totalCount
+        };
     }
 
-    public async Task<IEnumerable<User>> GetByClinicIdAsync(Guid clinicId)
+    /// <summary>
+    /// Cursor-based pagination filtered by clinic.
+    /// </summary>
+    public async Task<PaginatedResult<User>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor)
     {
         if (clinicId == Guid.Empty)
-            return Enumerable.Empty<User>();
+            throw new ArgumentException("Clinic ID cannot be empty.", nameof(clinicId));
 
-        return await _dbContext.Users
+        if (limit <= 0) limit = 20;
+        if (limit > 100) limit = 100;
+
+        var (createdAtCursor, idCursor) = DecodeCursor(cursor);
+
+        var query = _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Where(u => u.ClinicId == clinicId && !u.IsDeleted)
-            .OrderBy(u => u.FullName)
-            .AsNoTracking()
+            .AsNoTracking();
+
+        if (createdAtCursor.HasValue && idCursor.HasValue)
+        {
+            query = query.Where(u =>
+                (u.CreatedAt > createdAtCursor.Value) ||
+                (u.CreatedAt == createdAtCursor.Value && u.Id.CompareTo(idCursor.Value) > 0));
+        }
+
+        var users = await query
+            .OrderBy(u => u.CreatedAt)
+            .ThenBy(u => u.Id)
+            .Take(limit + 1)
             .ToListAsync();
+
+        var hasMore = users.Count > limit;
+        if (hasMore) users.RemoveAt(users.Count - 1);
+
+        string? nextCursor = hasMore && users.LastOrDefault() is { } last
+            ? EncodeCursor(last.CreatedAt, last.Id)
+            : null;
+
+        var totalCount = await _dbContext.Users.CountAsync(u => u.ClinicId == clinicId && !u.IsDeleted);
+
+        return new PaginatedResult<User>
+        {
+            Items = users,
+            HasMore = hasMore,
+            NextCursor = nextCursor,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<bool> EmailExistsAsync(string email)
@@ -115,14 +187,12 @@ public class UserRepository : IUserRepository
         if (user == null)
             throw new ArgumentNullException(nameof(user));
 
-        // Normalize email
         user.Email = user.Email.Trim().ToLower();
 
         await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("User {UserId} created in database", user.Id);
-
         return user;
     }
 
@@ -131,7 +201,6 @@ public class UserRepository : IUserRepository
         if (user == null)
             throw new ArgumentNullException(nameof(user));
 
-        // Normalize email if changed
         if (!string.IsNullOrWhiteSpace(user.Email))
             user.Email = user.Email.Trim().ToLower();
 
@@ -139,7 +208,6 @@ public class UserRepository : IUserRepository
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("User {UserId} updated in database", user.Id);
-
         return user;
     }
 
@@ -148,9 +216,7 @@ public class UserRepository : IUserRepository
         if (userId == Guid.Empty)
             return false;
 
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
-
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
         if (user == null)
             return false;
 
@@ -161,7 +227,6 @@ public class UserRepository : IUserRepository
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("User {UserId} soft deleted in database", userId);
-
         return true;
     }
 
@@ -178,8 +243,53 @@ public class UserRepository : IUserRepository
         await _dbContext.SaveChangesAsync();
 
         _logger.LogWarning("User {UserId} PERMANENTLY DELETED from database", userId);
-
         return true;
+    }
+
+    #endregion
+
+    #region PRIVATE HELPERS
+
+    private static (DateTime? createdAt, Guid? id) DecodeCursor(string? cursor)
+    {
+        if (string.IsNullOrWhiteSpace(cursor))
+            return (null, null);
+
+        try
+        {
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+
+            if (dict == null) return (null, null);
+
+            DateTime? createdAt = dict.TryGetValue("createdAt", out var caStr) &&
+                                  DateTime.TryParse(caStr, out var parsedCa)
+                ? parsedCa
+                : null;
+
+            Guid? id = dict.TryGetValue("id", out var idStr) &&
+                        Guid.TryParse(idStr, out var parsedId)
+                ? parsedId
+                : null;
+
+            return (createdAt, id);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    private static string EncodeCursor(DateTime createdAt, Guid id)
+    {
+        var payload = new Dictionary<string, string>
+        {
+            ["createdAt"] = createdAt.ToString("O"),
+            ["id"] = id.ToString()
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
 
     #endregion

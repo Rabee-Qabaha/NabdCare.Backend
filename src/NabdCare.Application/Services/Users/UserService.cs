@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Users;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Roles;
@@ -15,7 +16,7 @@ namespace NabdCare.Application.Services.Users;
 /// </summary>
 public class UserService : IUserService
 {
-    private readonly IUserRepository _userRepository;
+        private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IPasswordService _passwordService;
     private readonly ITenantContext _tenantContext;
@@ -61,7 +62,7 @@ public class UserService : IUserService
         // Multi-tenant security check
         if (!CanAccessUser(user))
         {
-            _logger.LogWarning("User {CurrentUserId} attempted to access user {UserId} without permission", 
+            _logger.LogWarning("User {CurrentUserId} attempted to access user {UserId} without permission",
                 currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to view this user");
         }
@@ -69,47 +70,71 @@ public class UserService : IUserService
         return _mapper.Map<UserResponseDto>(user);
     }
 
-    public async Task<IEnumerable<UserResponseDto>> GetUsersByClinicIdAsync(Guid? clinicId)
+    public async Task<PaginatedResult<UserResponseDto>> GetAllPagedAsync(int limit, string? cursor)
     {
         var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {CurrentUserId} retrieving users for clinic {ClinicId}", 
-            currentUserId, clinicId);
 
-        IEnumerable<User> users;
+        if (!_tenantContext.IsSuperAdmin)
+        {
+            _logger.LogWarning("User {CurrentUserId} attempted to access GetAllPagedAsync without SuperAdmin rights", currentUserId);
+            throw new UnauthorizedAccessException("Only SuperAdmin can view all users");
+        }
 
+        var result = await _userRepository.GetAllPagedAsync(limit, cursor);
+
+        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieved {Count} users (HasMore={HasMore})",
+            currentUserId, result.Items.Count(), result.HasMore);
+
+        return new PaginatedResult<UserResponseDto>
+        {
+            Items = _mapper.Map<IEnumerable<UserResponseDto>>(result.Items),
+            HasMore = result.HasMore,
+            NextCursor = result.NextCursor,
+            TotalCount = result.TotalCount
+        };
+    }
+
+    public async Task<PaginatedResult<UserResponseDto>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor)
+    {
+        var currentUserId = _userContext.GetCurrentUserId();
+
+        if (clinicId == Guid.Empty)
+            throw new ArgumentException("Clinic ID cannot be empty", nameof(clinicId));
+
+        // Access control:
         if (_tenantContext.IsSuperAdmin)
         {
-            // SuperAdmin can view all users or filter by clinic
-            users = clinicId.HasValue 
-                ? await _userRepository.GetByClinicIdAsync(clinicId.Value)
-                : await _userRepository.GetAllAsync();
-            
-            var usersList = users.ToList();
-            _logger.LogInformation("SuperAdmin {CurrentUserId} retrieved {Count} users", 
-                currentUserId, usersList.Count);
+            // ok
         }
-        else if (_tenantContext.ClinicId.HasValue)
+        else if (_tenantContext.ClinicId.HasValue && _tenantContext.ClinicId.Value == clinicId)
         {
-            // ClinicAdmin can only view users in their clinic
-            users = await _userRepository.GetByClinicIdAsync(_tenantContext.ClinicId.Value);
-            
-            var usersList = users.ToList();
-            _logger.LogInformation("Clinic user {CurrentUserId} retrieved {Count} users from clinic {ClinicId}", 
-                currentUserId, usersList.Count, _tenantContext.ClinicId.Value);
+            // ok
         }
         else
         {
-            _logger.LogWarning("User {CurrentUserId} has no tenant context", currentUserId);
-            throw new UnauthorizedAccessException("You don't have permission to view users");
+            _logger.LogWarning("User {CurrentUserId} attempted to query clinic {ClinicId} without permission",
+                currentUserId, clinicId);
+            throw new UnauthorizedAccessException("You don't have permission to view this clinic's users");
         }
 
-        return _mapper.Map<IEnumerable<UserResponseDto>>(users);
+        var result = await _userRepository.GetByClinicIdPagedAsync(clinicId, limit, cursor);
+
+        _logger.LogInformation("User {CurrentUserId} retrieved {Count} users from clinic {ClinicId} (HasMore={HasMore})",
+            currentUserId, result.Items.Count(), clinicId, result.HasMore);
+
+        return new PaginatedResult<UserResponseDto>
+        {
+            Items = _mapper.Map<IEnumerable<UserResponseDto>>(result.Items),
+            HasMore = result.HasMore,
+            NextCursor = result.NextCursor,
+            TotalCount = result.TotalCount
+        };
     }
 
     public async Task<UserResponseDto?> GetCurrentUserAsync()
     {
         var currentUserId = _userContext.GetCurrentUserId();
-        
+
         if (string.IsNullOrEmpty(currentUserId) || !Guid.TryParse(currentUserId, out var userId))
         {
             _logger.LogWarning("Invalid current user ID: {CurrentUserId}", currentUserId);
@@ -125,7 +150,6 @@ public class UserService : IUserService
 
     public async Task<UserResponseDto> CreateUserAsync(CreateUserRequestDto dto)
     {
-        // Input validation
         if (dto == null)
             throw new ArgumentNullException(nameof(dto));
 
@@ -134,20 +158,16 @@ public class UserService : IUserService
         var currentUserId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {CurrentUserId} creating user {Email}", currentUserId, dto.Email);
 
-        // Determine target clinic
         var targetClinicId = await ValidateAndGetTargetClinicId(dto.ClinicId, dto.RoleId);
 
-        // Check if email already exists
         if (await _userRepository.EmailExistsAsync(dto.Email))
         {
             _logger.LogWarning("Attempted to create user with duplicate email: {Email}", dto.Email);
             throw new InvalidOperationException($"A user with email '{dto.Email}' already exists");
         }
 
-        // Validate role exists and user can assign it
         await ValidateRoleAssignment(dto.RoleId, targetClinicId);
 
-        // Create user entity first (without password hash)
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -161,12 +181,11 @@ public class UserService : IUserService
             IsDeleted = false
         };
 
-        // Hash password with user entity
         user.PasswordHash = _passwordService.HashPassword(user, dto.Password);
 
         var created = await _userRepository.CreateAsync(user);
-        
-        _logger.LogInformation("User {CurrentUserId} successfully created user {NewUserId} ({Email}) in clinic {ClinicId}", 
+
+        _logger.LogInformation("User {CurrentUserId} successfully created user {NewUserId} ({Email}) in clinic {ClinicId}",
             currentUserId, created.Id, created.Email, targetClinicId);
 
         return _mapper.Map<UserResponseDto>(created);
@@ -174,7 +193,6 @@ public class UserService : IUserService
 
     public async Task<UserResponseDto?> UpdateUserAsync(Guid id, UpdateUserRequestDto dto)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
@@ -194,21 +212,19 @@ public class UserService : IUserService
             return null;
         }
 
-        // Multi-tenant authorization check
         if (!CanManageUser(user.ClinicId))
         {
-            _logger.LogWarning("User {CurrentUserId} attempted to update user {UserId} without permission", 
+            _logger.LogWarning("User {CurrentUserId} attempted to update user {UserId} without permission",
                 currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to update this user");
         }
 
-        // Update fields
         user.FullName = dto.FullName.Trim();
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = currentUserId;
 
         var updated = await _userRepository.UpdateAsync(user);
-        
+
         _logger.LogInformation("User {CurrentUserId} successfully updated user {UserId}", currentUserId, id);
 
         return _mapper.Map<UserResponseDto>(updated);
@@ -216,7 +232,6 @@ public class UserService : IUserService
 
     public async Task<UserResponseDto?> UpdateUserRoleAsync(Guid id, Guid roleId)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
@@ -224,7 +239,7 @@ public class UserService : IUserService
             throw new ArgumentException("Role ID cannot be empty", nameof(roleId));
 
         var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {CurrentUserId} updating role for user {UserId} to {RoleId}", 
+        _logger.LogInformation("User {CurrentUserId} updating role for user {UserId} to {RoleId}",
             currentUserId, id, roleId);
 
         var user = await _userRepository.GetByIdAsync(id);
@@ -234,25 +249,22 @@ public class UserService : IUserService
             return null;
         }
 
-        // Multi-tenant authorization check
         if (!CanManageUser(user.ClinicId))
         {
-            _logger.LogWarning("User {CurrentUserId} attempted to update role for user {UserId} without permission", 
+            _logger.LogWarning("User {CurrentUserId} attempted to update role for user {UserId} without permission",
                 currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to update this user's role");
         }
 
-        // Validate new role
         await ValidateRoleAssignment(roleId, user.ClinicId);
 
-        // Update role
         user.RoleId = roleId;
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = currentUserId;
 
         var updated = await _userRepository.UpdateAsync(user);
-        
-        _logger.LogInformation("User {CurrentUserId} successfully updated role for user {UserId} to {RoleId}", 
+
+        _logger.LogInformation("User {CurrentUserId} successfully updated role for user {UserId} to {RoleId}",
             currentUserId, id, roleId);
 
         return _mapper.Map<UserResponseDto>(updated);
@@ -260,7 +272,6 @@ public class UserService : IUserService
 
     public async Task<UserResponseDto?> ActivateUserAsync(Guid id)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
@@ -274,29 +285,26 @@ public class UserService : IUserService
             return null;
         }
 
-        // Multi-tenant authorization check
         if (!CanManageUser(user.ClinicId))
         {
-            _logger.LogWarning("User {CurrentUserId} attempted to activate user {UserId} without permission", 
+            _logger.LogWarning("User {CurrentUserId} attempted to activate user {UserId} without permission",
                 currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to activate this user");
         }
 
-        // Check if already active
         if (user.IsActive)
         {
             _logger.LogInformation("User {UserId} is already active", id);
             return _mapper.Map<UserResponseDto>(user);
         }
 
-        // Activate user
         user.IsActive = true;
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = currentUserId;
 
         var updated = await _userRepository.UpdateAsync(user);
-        
-        _logger.LogInformation("User {CurrentUserId} successfully activated user {UserId} ({Email})", 
+
+        _logger.LogInformation("User {CurrentUserId} successfully activated user {UserId} ({Email})",
             currentUserId, id, user.Email);
 
         return _mapper.Map<UserResponseDto>(updated);
@@ -304,7 +312,6 @@ public class UserService : IUserService
 
     public async Task<UserResponseDto?> DeactivateUserAsync(Guid id)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
@@ -318,36 +325,32 @@ public class UserService : IUserService
             return null;
         }
 
-        // Prevent self-deactivation
         if (user.Id.ToString() == currentUserId)
         {
             _logger.LogWarning("User {CurrentUserId} attempted to deactivate themselves", currentUserId);
             throw new InvalidOperationException("You cannot deactivate your own account");
         }
 
-        // Multi-tenant authorization check
         if (!CanManageUser(user.ClinicId))
         {
-            _logger.LogWarning("User {CurrentUserId} attempted to deactivate user {UserId} without permission", 
+            _logger.LogWarning("User {CurrentUserId} attempted to deactivate user {UserId} without permission",
                 currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to deactivate this user");
         }
 
-        // Check if already inactive
         if (!user.IsActive)
         {
             _logger.LogInformation("User {UserId} is already inactive", id);
             return _mapper.Map<UserResponseDto>(user);
         }
 
-        // Deactivate user
         user.IsActive = false;
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = currentUserId;
 
         var updated = await _userRepository.UpdateAsync(user);
-        
-        _logger.LogInformation("User {CurrentUserId} successfully deactivated user {UserId} ({Email})", 
+
+        _logger.LogInformation("User {CurrentUserId} successfully deactivated user {UserId} ({Email})",
             currentUserId, id, user.Email);
 
         return _mapper.Map<UserResponseDto>(updated);
@@ -355,7 +358,6 @@ public class UserService : IUserService
 
     public async Task<bool> SoftDeleteUserAsync(Guid id)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
@@ -369,29 +371,26 @@ public class UserService : IUserService
             return false;
         }
 
-        // Prevent self-deletion
         if (user.Id.ToString() == currentUserId)
         {
             _logger.LogWarning("User {CurrentUserId} attempted to delete themselves", currentUserId);
             throw new InvalidOperationException("You cannot delete your own account");
         }
 
-        // Multi-tenant authorization check
         if (!CanManageUser(user.ClinicId))
         {
-            _logger.LogWarning("User {CurrentUserId} attempted to delete user {UserId} without permission", 
+            _logger.LogWarning("User {CurrentUserId} attempted to delete user {UserId} without permission",
                 currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to delete this user");
         }
 
-        // Set audit fields before soft delete
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow;
         user.DeletedBy = currentUserId;
 
         await _userRepository.UpdateAsync(user);
-        
-        _logger.LogInformation("User {CurrentUserId} successfully soft deleted user {UserId} ({Email})", 
+
+        _logger.LogInformation("User {CurrentUserId} successfully soft deleted user {UserId} ({Email})",
             currentUserId, id, user.Email);
 
         return true;
@@ -399,16 +398,14 @@ public class UserService : IUserService
 
     public async Task<bool> HardDeleteUserAsync(Guid id)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
         var currentUserId = _userContext.GetCurrentUserId();
 
-        // Only SuperAdmin can hard delete
         if (!_tenantContext.IsSuperAdmin)
         {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to hard delete user {UserId}", 
+            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to hard delete user {UserId}",
                 currentUserId, id);
             throw new UnauthorizedAccessException("Only SuperAdmin can permanently delete users");
         }
@@ -422,19 +419,17 @@ public class UserService : IUserService
             return false;
         }
 
-        // Prevent self-deletion
         if (user.Id.ToString() == currentUserId)
         {
             _logger.LogWarning("SuperAdmin {CurrentUserId} attempted to permanently delete themselves", currentUserId);
             throw new InvalidOperationException("You cannot permanently delete your own account");
         }
 
-        // Permanently delete
         var deleted = await _userRepository.DeleteAsync(id);
-        
+
         if (deleted)
         {
-            _logger.LogWarning("⚠️ SuperAdmin {CurrentUserId} PERMANENTLY DELETED user {UserId} ({Email})", 
+            _logger.LogWarning("⚠️ SuperAdmin {CurrentUserId} PERMANENTLY DELETED user {UserId} ({Email})",
                 currentUserId, id, user.Email);
         }
 

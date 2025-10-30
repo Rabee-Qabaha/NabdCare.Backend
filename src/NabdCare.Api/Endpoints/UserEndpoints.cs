@@ -2,16 +2,17 @@
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Users;
 using NabdCare.Application.Interfaces.Users;
 
 namespace NabdCare.Api.Endpoints;
 
 /// <summary>
-/// Production-ready user management endpoints with consistent permission naming.
-/// Error handling is delegated to ErrorHandlingMiddleware.
-/// Author: Rabee-Qabaha
-/// Updated: 2025-10-23 19:50:00 UTC
+/// Production-ready user management endpoints with cursor-based pagination,
+/// consistent permission naming, and clean architecture design.
+/// Author: Rabee Qabaha
+/// Updated: 2025-10-29 22:30 UTC
 /// </summary>
 public static class UserEndpoints
 {
@@ -45,24 +46,31 @@ public static class UserEndpoints
         .Produces(StatusCodes.Status409Conflict);
 
         // ============================================
-        // GET ALL USERS (Multi-Tenant Filtered)
+        // GET PAGED USERS (Multi-Tenant Smart Logic)
         // ============================================
-        group.MapGet("/", async (
+        group.MapGet("/paged", async (
+            [FromQuery] int limit,
+            [FromQuery] string? cursor,
+            [FromQuery] Guid? clinicId,
             [FromServices] IUserService userService,
             [FromServices] ITenantContext tenantContext) =>
         {
-            // ✅ FIX: Use correct logic based on tenant context
-            IEnumerable<UserResponseDto> users;
-            
+            if (limit <= 0)
+                return Results.BadRequest(new { Error = "Limit must be greater than 0" });
+
+            PaginatedResult<UserResponseDto> result;
+
             if (tenantContext.IsSuperAdmin)
             {
-                // SuperAdmin: Get ALL users
-                users = await userService.GetUsersByClinicIdAsync(null);
+                // SuperAdmin can view all users, or filter by clinic
+                result = clinicId.HasValue
+                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, limit, cursor)
+                    : await userService.GetAllPagedAsync(limit, cursor);
             }
             else if (tenantContext.ClinicId.HasValue)
             {
-                // ClinicAdmin: Get only clinic users
-                users = await userService.GetUsersByClinicIdAsync(tenantContext.ClinicId.Value);
+                // ClinicAdmin can only view their own clinic
+                result = await userService.GetByClinicIdPagedAsync(tenantContext.ClinicId.Value, limit, cursor);
             }
             else
             {
@@ -71,13 +79,45 @@ public static class UserEndpoints
                     statusCode: StatusCodes.Status403Forbidden);
             }
 
-            return Results.Ok(users);
+            return Results.Ok(result);
         })
         .RequirePermission("Users.View")
-        .WithName("GetAllUsers")
-        .WithSummary("Get all users")
-        .WithDescription("SuperAdmin: All users. ClinicAdmin: Only clinic users.")
-        .Produces<IEnumerable<UserResponseDto>>()
+        .WithName("GetPagedUsers")
+        .WithSummary("Get paged users (multi-tenant aware)")
+        .WithDescription("Cursor-based pagination for users. SuperAdmin: all or by clinic. ClinicAdmin: own clinic only.")
+        .Produces<PaginatedResult<UserResponseDto>>()
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status403Forbidden);
+
+        // ============================================
+        // GET USERS BY CLINIC (SuperAdmin Only, Paged)
+        // ============================================
+        group.MapGet("/clinic/{clinicId:guid}/paged", async (
+            Guid clinicId,
+            [FromQuery] int limit,
+            [FromQuery] string? cursor,
+            [FromServices] IUserService userService,
+            [FromServices] ITenantContext tenantContext) =>
+        {
+            if (clinicId == Guid.Empty)
+                return Results.BadRequest(new { Error = "Invalid clinic ID" });
+
+            if (limit <= 0)
+                return Results.BadRequest(new { Error = "Limit must be greater than 0" });
+
+            if (!tenantContext.IsSuperAdmin)
+                return Results.Json(
+                    new { Error = "Only SuperAdmin can view other clinics' users" },
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            var result = await userService.GetByClinicIdPagedAsync(clinicId, limit, cursor);
+            return Results.Ok(result);
+        })
+        .RequirePermission("Users.ViewAll")
+        .WithName("GetUsersByClinicPaged")
+        .WithSummary("Get users in a specific clinic (paged, SuperAdmin only)")
+        .Produces<PaginatedResult<UserResponseDto>>()
+        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
@@ -91,44 +131,18 @@ public static class UserEndpoints
                 return Results.BadRequest(new { Error = "Invalid user ID" });
 
             var user = await userService.GetUserByIdAsync(id);
-            return user is not null 
-                ? Results.Ok(user) 
+            return user is not null
+                ? Results.Ok(user)
                 : Results.NotFound(new { Error = $"User {id} not found" });
         })
         .RequirePermission("Users.ViewDetails")
         .WithName("GetUserById")
         .WithSummary("Get user by ID")
-        .WithDescription("Returns user details. Multi-tenant filtered automatically.")
+        .WithDescription("Returns detailed user info. Automatically respects multi-tenant access control.")
         .Produces<UserResponseDto>()
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
-
-        // ============================================
-        // GET USERS BY CLINIC (SuperAdmin Only)
-        // ============================================
-        group.MapGet("/clinic/{clinicId:guid}", async (
-            Guid clinicId,
-            [FromServices] IUserService userService,
-            [FromServices] ITenantContext tenantContext) =>
-        {
-            if (clinicId == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid clinic ID" });
-
-            if (!tenantContext.IsSuperAdmin)
-                return Results.Json(
-                    new { Error = "Missing required permission: Users.ViewAll" },
-                    statusCode: StatusCodes.Status403Forbidden);
-
-            var users = await userService.GetUsersByClinicIdAsync(clinicId);
-            return Results.Ok(users);
-        })
-        .RequirePermission("Users.ViewAll")
-        .WithName("GetUsersByClinic")
-        .WithSummary("Get all users in a specific clinic (SuperAdmin only)")
-        .Produces<IEnumerable<UserResponseDto>>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
         // GET CURRENT USER (Me)
@@ -137,38 +151,32 @@ public static class UserEndpoints
             [FromServices] IUserService userService,
             [FromServices] IUserContext userContext) =>
         {
-            // ✅ FIX: Proper error handling for user ID
             var userIdStr = userContext.GetCurrentUserId();
-            
+
             if (string.IsNullOrEmpty(userIdStr) || userIdStr == "anonymous")
-            {
                 return Results.Json(
                     new { Error = "User not authenticated" },
                     statusCode: StatusCodes.Status401Unauthorized);
-            }
 
             if (!Guid.TryParse(userIdStr, out var userId))
-            {
                 return Results.Json(
                     new { Error = "Invalid user ID format" },
                     statusCode: StatusCodes.Status400BadRequest);
-            }
 
             var user = await userService.GetUserByIdAsync(userId);
-            
-            return user is not null 
-                ? Results.Ok(user) 
+            return user is not null
+                ? Results.Ok(user)
                 : Results.NotFound(new { Error = "User not found" });
         })
         .RequireAuthorization()
         .WithName("GetCurrentUser")
-        .WithSummary("Get current authenticated user's details")
+        .WithSummary("Get current authenticated user's info")
         .Produces<UserResponseDto>()
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status404NotFound);
 
         // ============================================
-        // UPDATE USER
+        // UPDATE USER (keep same as before)
         // ============================================
         group.MapPut("/{id:guid}", async (
             Guid id,
@@ -184,14 +192,13 @@ public static class UserEndpoints
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
             var updatedUser = await userService.UpdateUserAsync(id, dto);
-            return updatedUser is not null 
-                ? Results.Ok(updatedUser) 
+            return updatedUser is not null
+                ? Results.Ok(updatedUser)
                 : Results.NotFound(new { Error = $"User {id} not found" });
         })
         .RequirePermission("Users.Edit")
         .WithName("UpdateUser")
         .WithSummary("Update user details")
-        .WithDescription("Update user information. Multi-tenant access control applied.")
         .Produces<UserResponseDto>()
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)

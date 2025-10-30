@@ -1,4 +1,5 @@
-﻿using NabdCare.Domain.Entities.Users;
+﻿using NabdCare.Application.DTOs.Pagination;
+using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Application.Interfaces.Users;
 
@@ -11,37 +12,39 @@ public interface IUserRepository
     // ============================================
     // QUERY METHODS
     // ============================================
-    
+
     /// <summary>
     /// Get user by ID with related entities (Clinic, Role)
     /// </summary>
     Task<User?> GetByIdAsync(Guid userId);
-    
+
     /// <summary>
     /// Get user without tenant filters (security-only usage)
     /// </summary>
     Task<User?> GetByIdRawAsync(Guid id);
-    
+
     /// <summary>
     /// Get user by email address
     /// </summary>
     Task<User?> GetByEmailAsync(string email);
-    
+
     /// <summary>
-    /// Get all users (SuperAdmin only)
+    /// Get paginated users for all clinics (SuperAdmin only).
+    /// Cursor-based pagination for high scalability.
     /// </summary>
-    Task<IEnumerable<User>> GetAllAsync();
-    
+    Task<PaginatedResult<User>> GetAllPagedAsync(int limit, string? cursor);
+
     /// <summary>
-    /// Get users by clinic ID. If null, returns all users.
+    /// Get paginated users for a specific clinic.
+    /// Used by ClinicAdmin or system features limited to one clinic.
     /// </summary>
-    Task<IEnumerable<User>> GetByClinicIdAsync(Guid clinicId);
-    
+    Task<PaginatedResult<User>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor);
+
     /// <summary>
     /// Check if email already exists (case-insensitive)
     /// </summary>
     Task<bool> EmailExistsAsync(string email);
-    
+
     /// <summary>
     /// Check if user exists by ID
     /// </summary>
@@ -50,22 +53,22 @@ public interface IUserRepository
     // ============================================
     // COMMAND METHODS
     // ============================================
-    
+
     /// <summary>
     /// Create a new user
     /// </summary>
     Task<User> CreateAsync(User user);
-    
+
     /// <summary>
     /// Update existing user
     /// </summary>
     Task<User> UpdateAsync(User user);
-    
+
     /// <summary>
     /// Soft delete user (marks as deleted, can be restored)
     /// </summary>
     Task<bool> SoftDeleteAsync(Guid userId);
-    
+
     /// <summary>
     /// Permanently delete user (irreversible)
     /// </summary>

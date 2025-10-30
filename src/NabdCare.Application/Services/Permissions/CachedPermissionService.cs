@@ -38,20 +38,41 @@ public class CachedPermissionService : IPermissionService
     {
         var cacheKey = Key(userId, roleId);
 
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached) && cached != null)
-            return cached;
+        // Try to read from cache
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached))
+        {
+            // ✅ only return if not null AND not empty
+            if (cached != null && cached.Any())
+            {
+                _logger.LogDebug("✅ Cache hit for user {UserId}, role {RoleId} ({Count} permissions)", userId, roleId, cached.Count());
+                return cached;
+            }
+            else
+            {
+                _logger.LogDebug("⚠️ Cache hit but empty for user {UserId}, role {RoleId} — refreshing from source", userId, roleId);
+            }
+        }
 
+        // Load fresh data
         var fresh = (await _inner.GetUserEffectivePermissionsAsync(userId, roleId)).ToList();
 
+        // ✅ Don’t cache empty results
+        if (fresh.Count == 0)
+        {
+            _logger.LogWarning("🚫 No permissions found for user {UserId}, role {RoleId}. Skipping cache.", userId, roleId);
+            return fresh;
+        }
+
+        // Add to cache
         var options = new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = DefaultTtl,
             SlidingExpiration = SlidingTtl,
-            Size = fresh.Count
+            Size = Math.Max(1, fresh.Count)
         };
 
         _cache.Set(cacheKey, fresh, options);
-        _logger.LogDebug("🧠 Cached effective permissions for user {UserId}, role {RoleId}", userId, roleId);
+        _logger.LogDebug("🧠 Cached {Count} permissions for user {UserId}, role {RoleId}", fresh.Count, userId, roleId);
 
         return fresh;
     }
