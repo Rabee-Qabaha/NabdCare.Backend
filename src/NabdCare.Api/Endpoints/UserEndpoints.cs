@@ -2,18 +2,14 @@
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
+using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Users;
 using NabdCare.Application.Interfaces.Users;
+using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Api.Endpoints;
 
-/// <summary>
-/// Production-ready user management endpoints with cursor-based pagination,
-/// consistent permission naming, and clean architecture design.
-/// Author: Rabee Qabaha
-/// Updated: 2025-10-29 22:30 UTC
-/// </summary>
 public static class UserEndpoints
 {
     public static void MapUserEndpoints(this IEndpointRouteBuilder app)
@@ -27,26 +23,42 @@ public static class UserEndpoints
         group.MapPost("/", async (
             [FromBody] CreateUserRequestDto dto,
             [FromServices] IUserService userService,
+            [FromServices] ITenantContext tenantContext,
             [FromServices] IValidator<CreateUserRequestDto> validator) =>
         {
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
+            // ✅ ABAC check: ClinicAdmin can only create in their own clinic
+            if (!tenantContext.IsSuperAdmin && dto.ClinicId != tenantContext.ClinicId)
+                return Results.Forbid();
+
             var user = await userService.CreateUserAsync(dto);
             return Results.Created($"/api/users/{user.Id}", user);
         })
-        .RequirePermission("Users.Create")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Create)
+        .WithAbac(
+            Permissions.Users.Create,
+            "create",
+            async ctx =>
+            {
+                var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                return await Task.FromResult(tenant.IsSuperAdmin
+                    ? null
+                    : new User { ClinicId = tenant.ClinicId });
+            })
         .WithName("CreateUser")
         .WithSummary("Create a new user")
-        .WithDescription("SuperAdmin: Create user in any clinic. ClinicAdmin: Create user in own clinic only.")
+        .WithDescription("SuperAdmin: any clinic. ClinicAdmin: own clinic only.")
         .Produces<UserResponseDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status409Conflict);
 
         // ============================================
-        // GET PAGED USERS (Multi-Tenant Smart Logic)
+        // GET PAGED USERS (ABAC + Multi-Tenant)
         // ============================================
         group.MapGet("/paged", async (
             [AsParameters] PaginationRequestDto request,
@@ -61,15 +73,17 @@ public static class UserEndpoints
 
             if (tenantContext.IsSuperAdmin)
             {
-                // SuperAdmin can view all users, or filter by clinic
                 result = clinicId.HasValue
                     ? await userService.GetByClinicIdPagedAsync(clinicId.Value, request.Limit, request.Cursor)
                     : await userService.GetAllPagedAsync(request.Limit, request.Cursor);
             }
             else if (tenantContext.ClinicId.HasValue)
             {
-                // ClinicAdmin can only view their own clinic
-                result = await userService.GetByClinicIdPagedAsync(tenantContext.ClinicId.Value, request.Limit, request.Cursor);
+                result = await userService.GetByClinicIdPagedAsync(
+                    tenantContext.ClinicId.Value,
+                    request.Limit,
+                    request.Cursor
+                );
             }
             else
             {
@@ -80,16 +94,26 @@ public static class UserEndpoints
 
             return Results.Ok(result);
         })
-        .RequirePermission("Users.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.View)
+        .WithAbac<User>(
+            Permissions.Users.View,
+            "list",
+            async ctx =>
+            {
+                var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                return await Task.FromResult(tenant.IsSuperAdmin
+                    ? null
+                    : new User { ClinicId = tenant.ClinicId });
+            })
         .WithName("GetPagedUsers")
-        .WithSummary("Get paged users (multi-tenant aware)")
-        .WithDescription("Cursor-based pagination for users. SuperAdmin: all or by clinic. ClinicAdmin: own clinic only.")
+        .WithSummary("Get paged users (multi-tenant + ABAC enforced)")
         .Produces<PaginatedResult<UserResponseDto>>()
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // GET USERS BY CLINIC (SuperAdmin Only, Paged)
+        // GET USERS BY CLINIC (SuperAdmin Only)
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}/paged", async (
             Guid clinicId,
@@ -100,20 +124,26 @@ public static class UserEndpoints
             if (clinicId == Guid.Empty)
                 return Results.BadRequest(new { Error = "Invalid clinic ID" });
 
-            if (request.Limit <= 0)
-                return Results.BadRequest(new { Error = "Limit must be greater than 0" });
-
             if (!tenantContext.IsSuperAdmin)
-                return Results.Json(
-                    new { Error = "Only SuperAdmin can view other clinics' users" },
-                    statusCode: StatusCodes.Status403Forbidden);
+                return Results.Forbid();
 
             var result = await userService.GetByClinicIdPagedAsync(clinicId, request.Limit, request.Cursor);
             return Results.Ok(result);
         })
-        .RequirePermission("Users.ViewAll")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.ViewAll)
+        .WithAbac<User>(
+            Permissions.Users.ViewAll,
+            "list",
+            async ctx =>
+            {
+                var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                return await Task.FromResult(tenant.IsSuperAdmin
+                    ? null
+                    : new User { ClinicId = tenant.ClinicId });
+            })
         .WithName("GetUsersByClinicPaged")
-        .WithSummary("Get users in a specific clinic (paged, SuperAdmin only)")
+        .WithSummary("Get users in a specific clinic (paged)")
         .Produces<PaginatedResult<UserResponseDto>>()
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);
@@ -125,22 +155,25 @@ public static class UserEndpoints
             Guid id,
             [FromServices] IUserService userService) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
             var user = await userService.GetUserByIdAsync(id);
             return user is not null
                 ? Results.Ok(user)
                 : Results.NotFound(new { Error = $"User {id} not found" });
         })
-        .RequirePermission("Users.ViewDetails")
-        .WithName("GetUserById")
-        .WithSummary("Get user by ID")
-        .WithDescription("Returns detailed user info. Automatically respects multi-tenant access control.")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.ViewDetails)
+        .WithAbac(
+            Permissions.Users.ViewDetails,
+            "view",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await svc.GetUserByIdAsync(uid)
+                    : null;
+            })
+        .WithName("GetUserById");
 
         // ============================================
         // GET CURRENT USER (Me)
@@ -150,31 +183,17 @@ public static class UserEndpoints
             [FromServices] IUserContext userContext) =>
         {
             var userIdStr = userContext.GetCurrentUserId();
-
-            if (string.IsNullOrEmpty(userIdStr) || userIdStr == "anonymous")
-                return Results.Json(
-                    new { Error = "User not authenticated" },
-                    statusCode: StatusCodes.Status401Unauthorized);
-
             if (!Guid.TryParse(userIdStr, out var userId))
-                return Results.Json(
-                    new { Error = "Invalid user ID format" },
-                    statusCode: StatusCodes.Status400BadRequest);
+                return Results.Unauthorized();
 
             var user = await userService.GetUserByIdAsync(userId);
-            return user is not null
-                ? Results.Ok(user)
-                : Results.NotFound(new { Error = "User not found" });
+            return user is not null ? Results.Ok(user) : Results.NotFound();
         })
         .RequireAuthorization()
-        .WithName("GetCurrentUser")
-        .WithSummary("Get current authenticated user's info")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status401Unauthorized)
-        .Produces(StatusCodes.Status404NotFound);
+        .WithName("GetCurrentUser");
 
         // ============================================
-        // UPDATE USER (keep same as before)
+        // UPDATE USER
         // ============================================
         group.MapPut("/{id:guid}", async (
             Guid id,
@@ -182,9 +201,6 @@ public static class UserEndpoints
             [FromServices] IUserService userService,
             [FromServices] IValidator<UpdateUserRequestDto> validator) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
@@ -194,13 +210,19 @@ public static class UserEndpoints
                 ? Results.Ok(updatedUser)
                 : Results.NotFound(new { Error = $"User {id} not found" });
         })
-        .RequirePermission("Users.Edit")
-        .WithName("UpdateUser")
-        .WithSummary("Update user details")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Edit)
+        .WithAbac(
+            Permissions.Users.Edit,
+            "edit",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await svc.GetUserByIdAsync(uid)
+                    : null;
+            });
 
         // ============================================
         // UPDATE USER ROLE
@@ -211,129 +233,106 @@ public static class UserEndpoints
             [FromServices] IUserService userService,
             [FromServices] IValidator<UpdateUserRoleDto> validator) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
             var updatedUser = await userService.UpdateUserRoleAsync(id, dto.RoleId);
-            return updatedUser is not null 
-                ? Results.Ok(updatedUser) 
-                : Results.NotFound(new { Error = $"User {id} not found" });
+            return updatedUser is not null ? Results.Ok(updatedUser) : Results.NotFound();
         })
-        .RequirePermission("Users.ChangeRole")  // ✅ FIXED: Changed from Users.ManageRoles
-        .WithName("UpdateUserRole")
-        .WithSummary("Update user's role")
-        .WithDescription("Change a user's role. ClinicAdmin: Only within clinic. SuperAdmin: Any user.")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.ChangeRole)
+        .WithAbac(
+            Permissions.Users.ChangeRole,
+            "changeRole",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await svc.GetUserByIdAsync(uid)
+                    : null;
+            });
 
         // ============================================
-        // ACTIVATE USER
+        // ACTIVATE / DEACTIVATE
         // ============================================
-        group.MapPut("/{id:guid}/activate", async (
-            Guid id,
-            [FromServices] IUserService userService) =>
+        group.MapPut("/{id:guid}/activate", async (Guid id, [FromServices] IUserService svc) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
-            var user = await userService.ActivateUserAsync(id);
-            return user is not null 
-                ? Results.Ok(new { Message = $"User {id} activated successfully", User = user }) 
-                : Results.NotFound(new { Error = $"User {id} not found" });
+            var u = await svc.ActivateUserAsync(id);
+            return u is not null ? Results.Ok(u) : Results.NotFound();
         })
-        .RequirePermission("Users.Activate")
-        .WithName("ActivateUser")
-        .WithSummary("Activate a deactivated user")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Activate)
+        .WithAbac(
+            Permissions.Users.Activate,
+            "activate",
+            async ctx =>
+            {
+                var s = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await s.GetUserByIdAsync(uid)
+                    : null;
+            });
 
-        // ============================================
-        // DEACTIVATE USER
-        // ============================================
-        group.MapPut("/{id:guid}/deactivate", async (
-            Guid id,
-            [FromServices] IUserService userService) =>
+        group.MapPut("/{id:guid}/deactivate", async (Guid id, [FromServices] IUserService svc) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
-            var user = await userService.DeactivateUserAsync(id);
-            return user is not null 
-                ? Results.Ok(new { Message = $"User {id} deactivated successfully", User = user }) 
-                : Results.NotFound(new { Error = $"User {id} not found" });
+            var u = await svc.DeactivateUserAsync(id);
+            return u is not null ? Results.Ok(u) : Results.NotFound();
         })
-        .RequirePermission("Users.Activate")
-        .WithName("DeactivateUser")
-        .WithSummary("Deactivate a user (prevents login)")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Activate)
+        .WithAbac(
+            Permissions.Users.Activate,
+            "deactivate",
+            async ctx =>
+            {
+                var s = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await s.GetUserByIdAsync(uid)
+                    : null;
+            });
 
         // ============================================
-        // SOFT DELETE USER
+        // SOFT / HARD DELETE
         // ============================================
-        group.MapDelete("/{id:guid}", async (
-            Guid id,
-            [FromServices] IUserService userService) =>
+        group.MapDelete("/{id:guid}", async (Guid id, [FromServices] IUserService svc) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
-            var success = await userService.SoftDeleteUserAsync(id);
-            return success 
-                ? Results.Ok(new { Message = $"User {id} soft deleted successfully" }) 
-                : Results.NotFound(new { Error = $"User {id} not found" });
+            var ok = await svc.SoftDeleteUserAsync(id);
+            return ok ? Results.Ok() : Results.NotFound();
         })
-        .RequirePermission("Users.Delete")
-        .WithName("SoftDeleteUser")
-        .WithSummary("Soft delete a user")
-        .WithDescription("Marks user as deleted. Can be restored. ClinicAdmin: Only clinic users.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Delete)
+        .WithAbac(
+            Permissions.Users.Delete,
+            "delete",
+            async ctx =>
+            {
+                var s = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await s.GetUserByIdAsync(uid)
+                    : null;
+            });
 
-        // ============================================
-        // HARD DELETE USER (SuperAdmin Only)
-        // ============================================
         group.MapDelete("/{id:guid}/permanent", async (
             Guid id,
             [FromServices] IUserService userService,
             [FromServices] ITenantContext tenantContext) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
             if (!tenantContext.IsSuperAdmin)
-                return Results.Json(
-                    new { Error = "Missing required permission: Users.Delete" },
-                    statusCode: StatusCodes.Status403Forbidden);
+                return Results.Forbid();
 
             var success = await userService.HardDeleteUserAsync(id);
-            return success 
-                ? Results.Ok(new { Message = $"User {id} permanently deleted" }) 
-                : Results.NotFound(new { Error = $"User {id} not found" });
+            return success ? Results.Ok() : Results.NotFound();
         })
-        .RequirePermission("Users.Delete")  // ✅ FIXED: Uses Users.Delete (not Users.HardDelete)
-        .WithName("HardDeleteUser")
-        .WithSummary("Permanently delete a user (SuperAdmin only - DANGEROUS)")
-        .WithDescription("⚠️ IRREVERSIBLE: Completely removes user from database.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.HardDelete);
 
         // ============================================
-        // CHANGE PASSWORD (Self)
+        // PASSWORD OPERATIONS
         // ============================================
         group.MapPost("/{id:guid}/change-password", async (
             Guid id,
@@ -341,85 +340,40 @@ public static class UserEndpoints
             [FromServices] IUserService userService,
             [FromServices] IValidator<ChangePasswordRequestDto> validator) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
             var updated = await userService.ChangePasswordAsync(id, dto);
-            return Results.Ok(new { Message = "Password changed successfully", User = updated });
+            return Results.Ok(updated);
         })
-        .RequireAuthorization()
-        .WithName("ChangePassword")
-        .WithSummary("Change own password")
-        .WithDescription("User changes their own password. Requires current password.")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status401Unauthorized)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization();
 
-        // ============================================
-        // RESET PASSWORD (ClinicAdmin)
-        // ============================================
         group.MapPost("/{id:guid}/reset-password", async (
             Guid id,
             [FromBody] ResetPasswordRequestDto dto,
             [FromServices] IUserService userService,
             [FromServices] IValidator<ResetPasswordRequestDto> validator) =>
         {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
 
             var updated = await userService.ResetPasswordAsync(id, dto);
-            return Results.Ok(new { Message = "Password reset successfully", User = updated });
+            return Results.Ok(updated);
         })
-        .RequirePermission("Users.ResetPassword")
-        .WithName("ResetUserPassword")
-        .WithSummary("Reset user password (ClinicAdmin)")
-        .WithDescription("ClinicAdmin resets password for users in their clinic. No current password required.")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
-
-        // ============================================
-        // ADMIN RESET PASSWORD (SuperAdmin)
-        // ============================================
-        group.MapPost("/{id:guid}/admin-reset-password", async (
-            Guid id,
-            [FromBody] ResetPasswordRequestDto dto,
-            [FromServices] IUserService userService,
-            [FromServices] IValidator<ResetPasswordRequestDto> validator,
-            [FromServices] ITenantContext tenantContext) =>
-        {
-            if (id == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid user ID" });
-
-            if (!tenantContext.IsSuperAdmin)
-                return Results.Json(
-                    new { Error = "Missing required permission: Users.ResetPassword" },
-                    statusCode: StatusCodes.Status403Forbidden);
-
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
-
-            var updated = await userService.AdminResetPasswordAsync(id, dto);
-            return Results.Ok(new { Message = "Password reset by SuperAdmin", User = updated });
-        })
-        .RequirePermission("Users.ResetPassword")  // ✅ FIXED: Uses Users.ResetPassword (not AdminResetPassword)
-        .WithName("AdminResetPassword")
-        .WithSummary("SuperAdmin resets any user's password")
-        .WithDescription("SuperAdmin can reset password for any user in any clinic.")
-        .Produces<UserResponseDto>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.ResetPassword)
+        .WithAbac(
+            Permissions.Users.ResetPassword,
+            "resetPassword",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IUserService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var uid)
+                    ? await svc.GetUserByIdAsync(uid)
+                    : null;
+            });
     }
 }

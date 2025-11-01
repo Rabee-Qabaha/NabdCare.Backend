@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Roles;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Domain.Entities.Permissions;
 
@@ -10,8 +11,7 @@ namespace NabdCare.Application.Services.Roles;
 
 /// <summary>
 /// Production-ready service for managing roles in the multi-tenant system.
-/// Implements comprehensive error handling, validation, and logging.
-/// Includes pagination support for scalable role management.
+/// Implements ABAC-aware pagination for secure, filtered role visibility.
 /// </summary>
 public class RoleService : IRoleService
 {
@@ -20,20 +20,23 @@ public class RoleService : IRoleService
     private readonly IUserContext _userContext;
     private readonly IMapper _mapper;
     private readonly ILogger<RoleService> _logger;
-
+    private readonly IPermissionEvaluator _permissionEvaluator;
     public RoleService(
         IRoleRepository roleRepository,
         ITenantContext tenantContext,
         IUserContext userContext,
         IMapper mapper,
-        ILogger<RoleService> logger)
+        ILogger<RoleService> logger,
+        IPermissionEvaluator permissionEvaluator)
     {
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
         _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
         _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
     }
+
 
     #region PAGINATED QUERY METHODS
 
@@ -50,7 +53,10 @@ public class RoleService : IRoleService
                 throw new UnauthorizedAccessException("Only SuperAdmin can view all roles");
             }
 
-            var result = await _roleRepository.GetAllPagedAsync(pagination);
+            // ✅ ABAC integration — filter roles visible to the current user
+            var result = await _roleRepository.GetAllPagedAsync(pagination, query =>
+                _permissionEvaluator.FilterRoles(query, "Roles.View", _userContext));
+
             var items = await MapRolesToDtos(result.Items);
 
             return new PaginatedResult<RoleResponseDto>
@@ -88,7 +94,10 @@ public class RoleService : IRoleService
                 throw new UnauthorizedAccessException("You can only view roles for your own clinic");
             }
 
-            var result = await _roleRepository.GetClinicRolesPagedAsync(clinicId, pagination);
+            // ✅ ABAC filter applied here too
+            var result = await _roleRepository.GetClinicRolesPagedAsync(clinicId, pagination, query =>
+                _permissionEvaluator.FilterRoles(query, "Roles.View", _userContext));
+
             var items = await MapRolesToDtos(result.Items);
 
             return new PaginatedResult<RoleResponseDto>

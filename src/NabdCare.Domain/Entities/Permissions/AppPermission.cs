@@ -8,6 +8,10 @@ public class AppPermission : BaseEntity
     [MaxLength(100)] 
     public string Name { get; set; } = string.Empty;
 
+    [Required]
+    [MaxLength(50)]
+    public string Category { get; set; } = string.Empty;
+
     [MaxLength(500)] 
     public string? Description { get; set; }
 

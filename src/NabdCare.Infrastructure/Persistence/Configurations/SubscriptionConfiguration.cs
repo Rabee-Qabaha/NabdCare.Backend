@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// NabdCare.Infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using NabdCare.Domain.Entities.Clinics;
 
@@ -19,19 +20,25 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
             .IsRequired()
             .HasPrecision(18, 2);
 
-        builder.Property(s => s.Type)
-            .IsRequired();
+        builder.Property(s => s.Type).IsRequired();
+        builder.Property(s => s.Status).IsRequired();
 
-        builder.Property(s => s.Status)
-            .IsRequired();
+        builder.Property(s => s.AutoRenew)
+            .IsRequired()
+            .HasDefaultValue(false);
 
-        // Clinic relationship
+        builder.Property(s => s.GracePeriodDays)
+            .IsRequired()
+            .HasDefaultValue(0);
+
         builder.HasOne(s => s.Clinic)
             .WithMany(c => c.Subscriptions)
             .HasForeignKey(s => s.ClinicId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Indexes
+        // Optional self-reference index
+        builder.HasIndex(s => s.PreviousSubscriptionId);
+
         builder.HasIndex(s => s.ClinicId);
         builder.HasIndex(s => s.Status);
     }

@@ -6,8 +6,8 @@ namespace NabdCare.Api.Endpoints;
 
 /// <summary>
 /// Authentication endpoints for login, token refresh, and logout.
-/// Author: Rabee-Qabaha
-/// Updated: 2025-10-26 ✅ Improved cookie security for dev & prod
+/// Author: Rabee Qabaha
+/// Updated: 2025-10-31 ✅ Reviewed for RBAC consistency
 /// </summary>
 public static class AuthEndpoints
 {
@@ -55,8 +55,10 @@ public static class AuthEndpoints
         .AllowAnonymous()
         .WithName("Login")
         .WithSummary("User login with email and password")
+        .WithDescription("Authenticates a user and issues JWT + refresh token cookie.")
         .WithOpenApi()
         .RequireRateLimiting("auth");
+        // NOTE: No ABAC/RBAC check here (public endpoint)
 
         // ============================================
         // REFRESH TOKEN
@@ -100,8 +102,10 @@ public static class AuthEndpoints
         .AllowAnonymous()
         .WithName("RefreshToken")
         .WithSummary("Refresh access token using refresh token cookie")
+        .WithDescription("Uses refresh token cookie to issue a new access token pair.")
         .WithOpenApi()
         .RequireRateLimiting("auth");
+        // NOTE: No ABAC/RBAC needed — token renewal only
 
         // ============================================
         // LOGOUT
@@ -120,8 +124,10 @@ public static class AuthEndpoints
             return Results.NoContent();
         })
         .RequireAuthorization()
+        // .WithAbac<User>("Users.Logout", "logout", r => r as User) // 🔒 Optional if logout becomes resource-aware
         .WithName("Logout")
         .WithSummary("Logout and revoke refresh token")
+        .WithDescription("Revokes current refresh token and clears auth cookie.")
         .WithOpenApi();
     }
 

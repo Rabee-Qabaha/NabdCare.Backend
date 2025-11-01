@@ -12,7 +12,7 @@ namespace NabdCare.Infrastructure.Persistence;
 /// <summary>
 /// NabdCare database context with multi-tenant query filters and audit logging.
 /// Author: Rabee-Qabaha
-/// Updated: 2025-10-26
+/// Updated: 2025-10-31
 /// </summary>
 public class NabdCareDbContext : DbContext
 {
@@ -31,7 +31,9 @@ public class NabdCareDbContext : DbContext
         _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
     }
 
+    // ================================================================
     // DbSets
+    // ================================================================
     public DbSet<User> Users { get; set; } = default!;
     public DbSet<Clinic> Clinics { get; set; } = default!;
     public DbSet<Subscription> Subscriptions { get; set; } = default!;
@@ -44,14 +46,23 @@ public class NabdCareDbContext : DbContext
     public DbSet<Role> Roles { get; set; } = default!;
     public DbSet<AuditLog> AuditLogs { get; set; } = default!;
 
+    // ================================================================
+    // MODEL CONFIGURATION
+    // ================================================================
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // ✅ Apply entity configurations
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NabdCareDbContext).Assembly);
 
-        // ================================
+        // ============================================================
         // ✅ MULTI-TENANT QUERY FILTERS
-        // ================================
+        // ============================================================
+
+        // ✅ Subscription filter (NEW)
+        modelBuilder.Entity<Subscription>().HasQueryFilter(s =>
+            !s.IsDeleted &&
+            (IsSuperAdminUser || (TenantId.HasValue && s.ClinicId == TenantId))
+        );
 
         // ✅ Role filter
         modelBuilder.Entity<Role>().HasQueryFilter(r =>
@@ -75,17 +86,14 @@ public class NabdCareDbContext : DbContext
             (IsSuperAdminUser || (TenantId.HasValue && p.ClinicId == TenantId))
         );
 
-        // ✅ ChequePaymentDetail filter FIXED
+        // ✅ ChequePaymentDetail filter
         modelBuilder.Entity<ChequePaymentDetail>().HasQueryFilter(cd =>
             !cd.IsDeleted &&
             !cd.Payment.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && cd.Payment.ClinicId == TenantId))
         );
 
-        // ✅ REMOVE AuditLog Filter (Isolation is in Repository)
-        // DO NOT add a query filter here
-
-        // ✅ RolePermission filter: prevent clinic visibility into superadmin role data
+        // ✅ RolePermission filter
         modelBuilder.Entity<RolePermission>().HasQueryFilter(rp =>
             !rp.IsDeleted &&
             (
@@ -94,13 +102,13 @@ public class NabdCareDbContext : DbContext
                     TenantId.HasValue &&
                     (
                         rp.Role.ClinicId == TenantId || // role belongs to this clinic
-                        (rp.Role.ClinicId == null && rp.Role.IsTemplate) // global role template allowed
+                        (rp.Role.ClinicId == null && rp.Role.IsTemplate) // global template
                     )
                 )
             )
         );
 
-        // ✅ UserPermission filter: block cross-tenant permission discovery
+        // ✅ UserPermission filter
         modelBuilder.Entity<UserPermission>().HasQueryFilter(up =>
             !up.IsDeleted &&
             (
@@ -119,9 +127,12 @@ public class NabdCareDbContext : DbContext
             )
         );
 
-        // ================================
-        // ✅ Soft Delete + Decimal Precision
-        // ================================
+        // ✅ AuditLogs are excluded from tenant filtering
+        // Isolation is enforced in the repository, not via EF filter
+
+        // ============================================================
+        // ✅ Soft Delete + Decimal Precision Normalization
+        // ============================================================
         foreach (var property in modelBuilder.Model.GetEntityTypes()
                      .SelectMany(t => t.GetProperties())
                      .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
@@ -133,6 +144,9 @@ public class NabdCareDbContext : DbContext
         base.OnModelCreating(modelBuilder);
     }
 
+    // ================================================================
+    // AUDIT + SOFT DELETE LOGIC
+    // ================================================================
     public override int SaveChanges()
     {
         SetAuditFields();
@@ -147,6 +161,9 @@ public class NabdCareDbContext : DbContext
         return base.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Automatically sets CreatedBy / UpdatedBy audit fields for auditable entities.
+    /// </summary>
     private void SetAuditFields()
     {
         var now = DateTime.UtcNow;
@@ -167,6 +184,9 @@ public class NabdCareDbContext : DbContext
         }
     }
 
+    /// <summary>
+    /// Handles deleted auditing for soft deletable entities.
+    /// </summary>
     private void HandleSoftDeleteAuditing()
     {
         var now = DateTime.UtcNow;

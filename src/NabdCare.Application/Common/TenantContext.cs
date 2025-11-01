@@ -33,7 +33,7 @@ public class TenantContext : ITenantContext
         User?.FindFirst("role")?.Value;
 
     public Guid? RoleId =>
-        TryGetGuid("RoleId");
+        TryGetGuid("roleId");
 
     public bool IsSuperAdmin =>
         string.Equals(

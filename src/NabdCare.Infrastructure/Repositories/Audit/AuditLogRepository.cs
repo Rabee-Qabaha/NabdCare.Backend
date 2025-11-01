@@ -31,7 +31,9 @@ public class AuditLogRepository : IAuditLogRepository
 
     public async Task<PaginatedResult<AuditLogResponseDto>> GetPagedAsync(
         AuditLogListRequestDto req,
-        PaginationRequestDto pagination)
+        PaginationRequestDto pagination,
+        Func<IQueryable<AuditLog>, IQueryable<AuditLog>>? abacFilter = null,
+        CancellationToken cancellationToken = default)
     {
         var isSuperAdmin = _tenant.IsSuperAdmin;
         var tenantClinicId = _tenant.ClinicId;
@@ -39,7 +41,7 @@ public class AuditLogRepository : IAuditLogRepository
         IQueryable<AuditLog> query = _db.AuditLogs.AsNoTracking();
 
         // ============================================
-        // 🔒 Tenant Security
+        // 🔒 Tenant Security (Multi-Tenant Enforcement)
         // ============================================
         if (!isSuperAdmin)
         {
@@ -53,7 +55,8 @@ public class AuditLogRepository : IAuditLogRepository
                         u.Id == req.UserId.Value &&
                         u.ClinicId == tenantClinicId &&
                         !u.IsDeleted &&
-                        u.IsActive);
+                        u.IsActive,
+                        cancellationToken);
 
                 if (!belongsToClinic)
                 {
@@ -97,6 +100,14 @@ public class AuditLogRepository : IAuditLogRepository
         }
 
         // ============================================
+        // 🔐 Apply ABAC dynamic filters (if provided)
+        // ============================================
+        if (abacFilter != null)
+        {
+            query = abacFilter(query);
+        }
+
+        // ============================================
         // ⚙️ Sorting
         // ============================================
         if (!string.IsNullOrWhiteSpace(pagination.SortBy))
@@ -130,7 +141,7 @@ public class AuditLogRepository : IAuditLogRepository
         {
             var cursorEntity = await _db.AuditLogs
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == cursorId);
+                .FirstOrDefaultAsync(x => x.Id == cursorId, cancellationToken);
 
             if (cursorEntity != null)
             {
@@ -141,12 +152,12 @@ public class AuditLogRepository : IAuditLogRepository
         // ============================================
         // 🧮 Pagination and Mapping
         // ============================================
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
             .Take(pagination.Limit + 1)
             .ProjectTo<AuditLogResponseDto>(_mapper.ConfigurationProvider)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         bool hasMore = items.Count > pagination.Limit;
         string? nextCursor = hasMore ? items.Last().Id.ToString() : null;

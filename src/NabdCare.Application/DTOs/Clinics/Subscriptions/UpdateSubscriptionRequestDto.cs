@@ -11,4 +11,7 @@ public class UpdateSubscriptionRequestDto
     public SubscriptionType Type { get; set; }
     public decimal Fee { get; set; }
     public SubscriptionStatus Status { get; set; }
+
+    public bool AutoRenew { get; set; } = false;
+    public int GracePeriodDays { get; set; } = 0;
 }

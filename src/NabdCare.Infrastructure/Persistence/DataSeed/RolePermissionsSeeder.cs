@@ -1,434 +1,259 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.Common.Constants;
 using NabdCare.Application.Interfaces;
 using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Infrastructure.Persistence.DataSeed;
 
 /// <summary>
-/// Seeds role-permission associations into the database.
-/// Maps permissions to system and template roles.
-/// Author: Rabee-Qabaha
-/// Updated: 2025-10-25
+/// 🌱 Seeds default role-permission mappings for the system.
+/// Automatically links roles (SuperAdmin, ClinicAdmin, Doctor, Receptionist)
+/// with permissions defined in <see cref="Permissions"/>.
+/// 
+/// Works dynamically with seeded AppPermissions, ensuring consistency
+/// even when new permissions are added later.
+/// 
+/// Author: Rabee Qabaha
+/// Updated: 2025-10-31
 /// </summary>
 public class RolePermissionsSeeder : ISingleSeeder
 {
-    private readonly NabdCareDbContext _dbContext;
+    private readonly NabdCareDbContext _db;
     private readonly ILogger<RolePermissionsSeeder> _logger;
 
     public int Order => 3;
 
-    public RolePermissionsSeeder(
-        NabdCareDbContext dbContext,
-        ILogger<RolePermissionsSeeder> logger)
+    public RolePermissionsSeeder(NabdCareDbContext db, ILogger<RolePermissionsSeeder> logger)
     {
-        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _db = db;
+        _logger = logger;
     }
 
     public async Task SeedAsync()
     {
-        _logger.LogInformation("🌱 Seeding role permissions...");
+        _logger.LogInformation("🌱 Seeding role-permission mappings...");
 
-        var roles = await _dbContext.Roles
-            .IgnoreQueryFilters()
-            .Where(r => r.ClinicId == null)
-            .ToListAsync();
-
-        var permissions = await _dbContext.AppPermissions
+        var roles = await _db.Roles
             .IgnoreQueryFilters()
             .ToListAsync();
 
         if (!roles.Any())
         {
-            _logger.LogWarning("⚠️  No roles found. Ensure RolesSeeder runs before this");
+            _logger.LogWarning("⚠️ No roles found — please run RoleSeeder first.");
             return;
         }
 
-        if (!permissions.Any())
+        var appPermissions = await _db.AppPermissions
+            .IgnoreQueryFilters()
+            .ToListAsync();
+
+        if (!appPermissions.Any())
         {
-            _logger.LogWarning("⚠️  No permissions found. Ensure PermissionsSeeder runs before this");
+            _logger.LogWarning("⚠️ No AppPermissions found — please run PermissionsSeeder first.");
             return;
         }
 
-        var rolePermissionMappings = GetRolePermissionMappings();
-        var assignedCount = 0;
+        // ===============================
+        // 🔹 SUPER ADMIN — Full Access
+        // ===============================
+        var superAdminRole = roles.FirstOrDefault(r => r.Name == "SuperAdmin");
+        if (superAdminRole != null)
+            await AssignAllPermissionsAsync(superAdminRole, appPermissions);
 
-        foreach (var mapping in rolePermissionMappings)
+        // ===============================
+        // 🔹 CLINIC ADMIN — Limited System Access
+        // ===============================
+        var clinicAdminRole = roles.FirstOrDefault(r => r.Name == "ClinicAdmin");
+        if (clinicAdminRole != null)
         {
-            var roleName = mapping.Key;
-            var permissionNames = mapping.Value;
-
-            var role = roles.FirstOrDefault(r => r.Name == roleName);
-            if (role == null)
+            await AssignPermissionsAsync(clinicAdminRole, appPermissions, new[]
             {
-                _logger.LogWarning("   ⚠️  Role '{RoleName}' not found, skipping", roleName);
-                continue;
-            }
+                // Clinics
+                Permissions.Clinic.View,
+                Permissions.Clinic.Edit,
+                Permissions.Clinic.ViewSettings,
+                Permissions.Clinic.EditSettings,
+                Permissions.Clinic.ManageBranches,
 
-            _logger.LogDebug("   📋 Processing role: {RoleName} ({Count} permissions)", 
-                roleName, permissionNames.Length);
+                // Subscriptions
+                Permissions.Subscriptions.View,
+                Permissions.Subscriptions.Renew,
 
-            foreach (var permissionName in permissionNames)
-            {
-                var permission = permissions.FirstOrDefault(p => p.Name == permissionName);
-                if (permission == null)
-                {
-                    _logger.LogWarning("      ⚠️  Permission '{PermissionName}' not found", permissionName);
-                    continue;
-                }
+                // Users
+                Permissions.Users.View,
+                Permissions.Users.ViewDetails,
+                Permissions.Users.Create,
+                Permissions.Users.Edit,
+                Permissions.Users.Delete,
+                Permissions.Users.ChangeRole,
+                Permissions.Users.ResetPassword,
 
-                var exists = await _dbContext.RolePermissions
-                    .IgnoreQueryFilters()
-                    .AnyAsync(rp => rp.RoleId == role.Id && rp.PermissionId == permission.Id);
+                // Patients
+                Permissions.Patients.View,
+                Permissions.Patients.ViewDetails,
+                Permissions.Patients.Create,
+                Permissions.Patients.Edit,
+                Permissions.Patients.ViewMedicalHistory,
+                Permissions.Patients.EditMedicalHistory,
 
-                if (!exists)
-                {
-                    var rolePermission = new RolePermission
-                    {
-                        Id = Guid.NewGuid(),
-                        RoleId = role.Id,
-                        PermissionId = permission.Id,
-                        CreatedAt = DateTime.UtcNow,
-                        CreatedBy = "System:Seeder",
-                        IsDeleted = false
-                    };
+                // Appointments
+                Permissions.Appointments.View,
+                Permissions.Appointments.Create,
+                Permissions.Appointments.Edit,
+                Permissions.Appointments.Cancel,
 
-                    _dbContext.RolePermissions.Add(rolePermission);
-                    assignedCount++;
-                }
-            }
+                // Payments
+                Permissions.Payments.View,
+                Permissions.Payments.Create,
+                Permissions.Payments.ViewReports,
 
-            _logger.LogInformation("   ✅ Assigned {Count} permissions to {RoleName}", 
-                permissionNames.Length, roleName);
+                // Reports
+                Permissions.Reports.ViewDashboard,
+                Permissions.Reports.ViewPatientReports,
+                Permissions.Reports.Export
+            });
         }
 
-        if (assignedCount > 0)
+        // ===============================
+        // 🔹 DOCTOR — Patient + Appointment Focus
+        // ===============================
+        var doctorRole = roles.FirstOrDefault(r => r.Name == "Doctor");
+        if (doctorRole != null)
         {
-            await _dbContext.SaveChangesAsync();
-            _logger.LogInformation("✅ {Count} role-permission assignments created", assignedCount);
+            await AssignPermissionsAsync(doctorRole, appPermissions, new[]
+            {
+                Permissions.Patients.View,
+                Permissions.Patients.ViewDetails,
+                Permissions.Patients.ViewMedicalHistory,
+                Permissions.MedicalRecords.View,
+                Permissions.MedicalRecords.Create,
+                Permissions.MedicalRecords.Edit,
+                Permissions.MedicalRecords.Prescribe,
+                Permissions.Appointments.View,
+                Permissions.Appointments.CheckIn
+            });
+        }
+
+        // ===============================
+        // 🔹 RECEPTIONIST — Appointments + Patients
+        // ===============================
+        var receptionistRole = roles.FirstOrDefault(r => r.Name == "Receptionist");
+        if (receptionistRole != null)
+        {
+            await AssignPermissionsAsync(receptionistRole, appPermissions, new[]
+            {
+                Permissions.Appointments.View,
+                Permissions.Appointments.Create,
+                Permissions.Appointments.Edit,
+                Permissions.Appointments.Cancel,
+                Permissions.Patients.View,
+                Permissions.Patients.Create,
+                Permissions.Patients.Edit
+            });
+        }
+
+        // ===============================
+        // 🔹 SAVE CHANGES
+        // ===============================
+        await _db.SaveChangesAsync();
+
+        // ===============================
+        // 🧠 Post-check: Unassigned permissions
+        // ===============================
+        var assignedPermissionIds = await _db.RolePermissions
+            .IgnoreQueryFilters()
+            .Select(rp => rp.PermissionId)
+            .Distinct()
+            .ToListAsync();
+
+        var unassigned = appPermissions
+            .Where(p => !assignedPermissionIds.Contains(p.Id))
+            .Select(p => p.Name)
+            .OrderBy(n => n)
+            .ToList();
+
+        if (unassigned.Any())
+        {
+            _logger.LogWarning("⚠️ {Count} permissions are NOT assigned to any role: {List}",
+                unassigned.Count,
+                string.Join(", ", unassigned));
         }
         else
         {
-            _logger.LogInformation("✅ All role permissions already assigned, skipping seed");
+            _logger.LogInformation("🟢 All permissions are assigned to at least one role.");
+        }
+
+        _logger.LogInformation("✅ Role-permission seeding completed successfully.");
+    }
+
+    // =====================================================
+    // 🔹 Assign All Permissions (SuperAdmin)
+    // =====================================================
+    private async Task AssignAllPermissionsAsync(Role role, List<AppPermission> allPermissions)
+    {
+        var existing = await _db.RolePermissions
+            .IgnoreQueryFilters()
+            .Where(rp => rp.RoleId == role.Id)
+            .Select(rp => rp.PermissionId)
+            .ToListAsync();
+
+        var missing = allPermissions
+            .Where(p => !existing.Contains(p.Id))
+            .Select(p => new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = role.Id,
+                PermissionId = p.Id,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "System:Seeder"
+            })
+            .ToList();
+
+        if (missing.Any())
+        {
+            _db.RolePermissions.AddRange(missing);
+            _logger.LogInformation("🧩 Assigned {Count} permissions to SuperAdmin.", missing.Count);
+        }
+        else
+        {
+            _logger.LogInformation("🟢 SuperAdmin already has all permissions.");
         }
     }
 
-    private static Dictionary<string, string[]> GetRolePermissionMappings()
+    // =====================================================
+    // 🔹 Assign Specific Permissions (Other Roles)
+    // =====================================================
+    private async Task AssignPermissionsAsync(Role role, List<AppPermission> allPermissions, string[] permissionNames)
     {
-        return new Dictionary<string, string[]>
+        var existing = await _db.RolePermissions
+            .IgnoreQueryFilters()
+            .Where(rp => rp.RoleId == role.Id)
+            .Select(rp => rp.AppPermission!.Name)
+            .ToListAsync();
+
+        var toAssign = permissionNames
+            .Where(p => !existing.Contains(p))
+            .Select(name => allPermissions.FirstOrDefault(ap => ap.Name == name))
+            .Where(ap => ap != null)
+            .Select(ap => new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = role.Id,
+                PermissionId = ap!.Id,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "System:Seeder"
+            })
+            .ToList();
+
+        if (toAssign.Any())
         {
-            // ============================================
-            // 👑 SUPERADMIN - Full System Access
-            // ============================================
-            ["SuperAdmin"] = new[]
-            {
-                // ALL Clinic Management
-                "Clinics.ViewAll",
-                "Clinics.Create",
-                "Clinics.Edit",
-                "Clinics.Delete",
-                "Clinics.HardDelete",
-                "Clinics.ManageStatus",
-                "Clinics.ViewStats",
-                
-                // ALL Subscription Management
-                "Subscriptions.ViewAll",
-                "Subscriptions.View",
-                "Subscriptions.Create",
-                "Subscriptions.Edit",
-                "Subscriptions.Cancel",
-                "Subscriptions.Renew",
-                
-                // ALL User Management
-                "Users.ViewAll",
-                "Users.View",
-                "Users.ViewDetails",
-                "Users.Create",
-                "Users.Edit",
-                "Users.Delete",
-                "Users.Activate",
-                "Users.ChangeRole",
-                "Users.ResetPassword",
-                "Users.ManagePermissions",
-                
-                // ALL Role Management
-                "Roles.ViewAll",
-                "Roles.View",
-                "Roles.Create",
-                "Roles.Edit",
-                "Roles.Delete",
-                "Roles.ManagePermissions",
-
-                // Settings.ManageRoles (ADDED for SuperAdmin!)
-                "Settings.ManageRoles",
-
-                // ALL Permission Management
-                "Permissions.View",
-                "Permissions.Assign",
-                "Permissions.Revoke",
-                
-                // ALL Patient Management
-                "Patients.View",
-                "Patients.ViewDetails",
-                "Patients.Create",
-                "Patients.Edit",
-                "Patients.Delete",
-                "Patients.ViewMedicalHistory",
-                "Patients.EditMedicalHistory",
-                "Patients.ViewDocuments",
-                "Patients.UploadDocuments",
-                "Patients.Export",
-                
-                // ALL Appointments
-                "Appointments.View",
-                "Appointments.Create",
-                "Appointments.Edit",
-                "Appointments.Cancel",
-                "Appointments.CheckIn",
-                "Appointments.ViewCalendar",
-                
-                // ALL Medical Records
-                "MedicalRecords.View",
-                "MedicalRecords.Create",
-                "MedicalRecords.Edit",
-                "MedicalRecords.Delete",
-                "MedicalRecords.Prescribe",
-                "MedicalRecords.ViewPrescriptions",
-                
-                // ALL Billing
-                "Payments.View",
-                "Payments.Create",
-                "Payments.Edit",
-                "Payments.Delete",
-                "Payments.Process",
-                "Payments.Refund",
-                "Payments.ViewReports",
-                "Invoices.View",
-                "Invoices.Create",
-                "Invoices.Edit",
-                "Invoices.Send",
-                "Invoices.ViewReports",
-                
-                // ALL Reports
-                "Reports.ViewDashboard",
-                "Reports.ViewPatientReports",
-                "Reports.ViewFinancialReports",
-                "Reports.ViewAppointmentReports",
-                "Reports.Export",
-                "Reports.Generate",
-                
-                // ALL Settings
-                "Settings.View",
-                "Settings.Edit",
-                
-                // ALL Audit Logs
-                "AuditLogs.View",
-                "AuditLogs.Export",
-                
-                // System Management
-                "System.ManageSettings",
-                "System.ViewLogs",
-                "System.ManageRoles"
-            },
-
-            // ============================================
-            // 🛠️ SUPPORT MANAGER - Customer Support
-            // ============================================
-            ["SupportManager"] = new[]
-            {
-                "Clinics.ViewAll",
-                "Users.ViewAll",
-                "Users.View",
-                "Users.ViewDetails",
-                "Users.ResetPassword",
-                "Patients.View",
-                "Patients.ViewDetails",
-                "AuditLogs.View"
-            },
-
-            // ============================================
-            // 💰 BILLING MANAGER - Subscription Management
-            // ============================================
-            ["BillingManager"] = new[]
-            {
-                "Clinics.ViewAll",
-                "Clinics.Edit",
-                "Subscriptions.ViewAll",
-                "Subscriptions.Create",
-                "Subscriptions.Edit",
-                "Subscriptions.Cancel",
-                "Subscriptions.Renew",
-                "Payments.View",
-                "Payments.ViewReports",
-                "Invoices.View",
-                "Invoices.ViewReports",
-                "Reports.ViewFinancialReports"
-            },
-
-            // ============================================
-            // 🏥 CLINIC ADMIN - Full Clinic Management
-            // ============================================
-            ["Clinic Admin"] = new[]
-            {
-                // Own Clinic Management
-                "Clinic.View",
-                "Clinic.Edit",
-                "Clinic.ViewSettings",
-                "Clinic.EditSettings",
-                "Clinic.ManageBranches",
-                
-                // Own Subscription
-                "Subscriptions.View",
-                "Subscriptions.Renew",
-                
-                // User Management (within clinic)
-                "Users.View",
-                "Users.ViewDetails",
-                "Users.Create",
-                "Users.Edit",
-                "Users.Delete",
-                "Users.Activate",
-                "Users.ChangeRole",
-                "Users.ResetPassword",
-                "Users.ManagePermissions",
-                
-                // Role Management
-                "Roles.View",
-                "Roles.Create",
-                "Roles.Edit",
-                "Roles.Delete",
-                "Roles.ManagePermissions",
-
-                // Settings.ManageRoles (optional for Clinic Admin, add if needed)
-                // "Settings.ManageRoles", // Uncomment if you want Clinic Admin to manage roles
-
-                // Permissions
-                "Permissions.View",
-                "Permissions.Assign",
-                "Permissions.Revoke",
-                
-                // Patient Management
-                "Patients.View",
-                "Patients.ViewDetails",
-                "Patients.Create",
-                "Patients.Edit",
-                "Patients.Delete",
-                "Patients.ViewMedicalHistory",
-                "Patients.EditMedicalHistory",
-                "Patients.ViewDocuments",
-                "Patients.UploadDocuments",
-                "Patients.Export",
-                
-                // Appointments
-                "Appointments.View",
-                "Appointments.Create",
-                "Appointments.Edit",
-                "Appointments.Cancel",
-                "Appointments.CheckIn",
-                "Appointments.ViewCalendar",
-                
-                // Medical Records
-                "MedicalRecords.View",
-                "MedicalRecords.Create",
-                "MedicalRecords.Edit",
-                "MedicalRecords.Prescribe",
-                "MedicalRecords.ViewPrescriptions",
-                
-                // Billing
-                "Payments.View",
-                "Payments.Create",
-                "Payments.Edit",
-                "Payments.Process",
-                "Payments.Refund",
-                "Payments.ViewReports",
-                "Invoices.View",
-                "Invoices.Create",
-                "Invoices.Edit",
-                "Invoices.Send",
-                "Invoices.ViewReports",
-                
-                // Reports
-                "Reports.ViewDashboard",
-                "Reports.ViewPatientReports",
-                "Reports.ViewFinancialReports",
-                "Reports.ViewAppointmentReports",
-                "Reports.Export",
-                "Reports.Generate",
-                
-                // Settings
-                "Settings.View",
-                "Settings.Edit",
-                
-                // Audit Logs
-                "AuditLogs.View",
-                "AuditLogs.Export"
-            },
-
-            // ============================================
-            // 👨‍⚕️ DOCTOR - Medical Care
-            // ============================================
-            ["Doctor"] = new[]
-            {
-                "Patients.View",
-                "Patients.ViewDetails",
-                "Patients.Create",
-                "Patients.Edit",
-                "Patients.ViewMedicalHistory",
-                "Patients.EditMedicalHistory",
-                "Patients.ViewDocuments",
-                "Patients.UploadDocuments",
-                "Appointments.View",
-                "Appointments.Create",
-                "Appointments.Edit",
-                "Appointments.CheckIn",
-                "Appointments.ViewCalendar",
-                "MedicalRecords.View",
-                "MedicalRecords.Create",
-                "MedicalRecords.Edit",
-                "MedicalRecords.Prescribe",
-                "MedicalRecords.ViewPrescriptions",
-                "Reports.ViewPatientReports"
-            },
-
-            // ============================================
-            // 👩‍⚕️ NURSE - Patient Care Support
-            // ============================================
-            ["Nurse"] = new[]
-            {
-                "Patients.View",
-                "Patients.ViewDetails",
-                "Patients.ViewMedicalHistory",
-                "Patients.ViewDocuments",
-                "Appointments.View",
-                "Appointments.CheckIn",
-                "Appointments.ViewCalendar",
-                "MedicalRecords.View",
-                "MedicalRecords.ViewPrescriptions"
-            },
-
-            // ============================================
-            // 📞 RECEPTIONIST - Front Desk
-            // ============================================
-            ["Receptionist"] = new[]
-            {
-                "Patients.View",
-                "Patients.ViewDetails",
-                "Patients.Create",
-                "Patients.Edit",
-                "Appointments.View",
-                "Appointments.Create",
-                "Appointments.Edit",
-                "Appointments.Cancel",
-                "Appointments.CheckIn",
-                "Appointments.ViewCalendar",
-                "Payments.View",
-                "Payments.Create",
-                "Invoices.View",
-                "Invoices.Create",
-                "Invoices.Send",
-                "Users.View"
-            }
-        };
+            _db.RolePermissions.AddRange(toAssign);
+            _logger.LogInformation("🧩 Assigned {Count} permissions to {Role}", toAssign.Count, role.Name);
+        }
+        else
+        {
+            _logger.LogInformation("🟢 Role {Role} already up-to-date", role.Name);
+        }
     }
 }

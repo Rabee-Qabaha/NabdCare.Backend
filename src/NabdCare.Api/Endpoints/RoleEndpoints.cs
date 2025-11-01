@@ -2,8 +2,10 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
+using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Roles;
 using NabdCare.Application.Interfaces.Roles;
+using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Api.Endpoints;
 
@@ -11,22 +13,20 @@ public static class RoleEndpoints
 {
     public static void MapRoleEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/roles")
-            .WithTags("Roles");
+        var group = app.MapGroup("/roles").WithTags("Roles");
 
         // ============================================
         // 📋 GET ALL ROLES
         // ============================================
         group.MapGet("/", async (
-            [FromServices] IRoleService roleService,
-            [FromServices] ITenantContext tenantContext) =>
+            [FromServices] IRoleService roleService) =>
         {
-            // SuperAdmin sees all roles (system + templates + all clinic roles)
-            // ClinicAdmin sees only their clinic's roles + templates
             var roles = await roleService.GetAllRolesAsync();
             return Results.Ok(roles);
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.ViewAll)
+        .WithAbac<Role>(Permissions.Roles.ViewAll, "view", r => r as Role)
         .WithSummary("Get all roles (filtered by tenant context)");
 
         // ============================================
@@ -42,7 +42,9 @@ public static class RoleEndpoints
             var roles = await roleService.GetSystemRolesAsync();
             return Results.Ok(roles);
         })
-        .RequirePermission("System.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.ViewSystem)
+        .WithAbac<Role>(Permissions.Roles.ViewSystem, "viewSystem", r => r as Role)
         .WithSummary("Get system roles (SuperAdmin, SupportManager, BillingManager)");
 
         // ============================================
@@ -54,7 +56,9 @@ public static class RoleEndpoints
             var roles = await roleService.GetTemplateRolesAsync();
             return Results.Ok(roles);
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.ViewTemplates)
+        .WithAbac<Role>(Permissions.Roles.ViewTemplates, "viewTemplates", r => r as Role)
         .WithSummary("Get template roles (for cloning to clinics)");
 
         // ============================================
@@ -65,12 +69,12 @@ public static class RoleEndpoints
             [FromServices] IRoleService roleService,
             [FromServices] ITenantContext tenantContext) =>
         {
-            // SuperAdmin can view any clinic's roles
-            // ClinicAdmin can only view their own clinic's roles (enforced by service)
             var roles = await roleService.GetClinicRolesAsync(clinicId);
             return Results.Ok(roles);
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.ViewClinic)
+        .WithAbac<Role>(Permissions.Roles.ViewClinic, "viewClinic", r => r as Role)
         .WithSummary("Get roles for a specific clinic");
 
         // ============================================
@@ -83,11 +87,13 @@ public static class RoleEndpoints
             var role = await roleService.GetRoleByIdAsync(id);
             return role != null ? Results.Ok(role) : Results.NotFound();
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.View)
+        .WithAbac<Role>(Permissions.Roles.View, "view", r => r as Role)
         .WithSummary("Get role by ID");
 
         // ============================================
-        // ➕ CREATE CUSTOM ROLE (Clinic-specific)
+        // ➕ CREATE CUSTOM ROLE
         // ============================================
         group.MapPost("/", async (
             [FromBody] CreateRoleRequestDto dto,
@@ -108,7 +114,9 @@ public static class RoleEndpoints
                 return Results.Conflict(new { Error = ex.Message });
             }
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.Create)
+        .WithAbac<Role>(Permissions.Roles.Create, "create", r => r as Role)
         .WithSummary("Create a custom clinic role");
 
         // ============================================
@@ -134,7 +142,9 @@ public static class RoleEndpoints
                 return Results.BadRequest(new { Error = ex.Message });
             }
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.Clone)
+        .WithAbac<Role>(Permissions.Roles.Clone, "clone", r => r as Role)
         .WithSummary("Clone a template role for a clinic");
 
         // ============================================
@@ -160,7 +170,19 @@ public static class RoleEndpoints
                 return Results.BadRequest(new { Error = ex.Message });
             }
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.Edit)
+        .WithAbac(
+            Permissions.Roles.Edit,
+            "edit",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var rid)
+                    ? await svc.GetRoleByIdAsync(rid)
+                    : null;
+            })
         .WithSummary("Update role (cannot update system roles)");
 
         // ============================================
@@ -173,8 +195,8 @@ public static class RoleEndpoints
             try
             {
                 var success = await roleService.DeleteRoleAsync(id);
-                return success 
-                    ? Results.Ok(new { Message = $"Role {id} deleted successfully" }) 
+                return success
+                    ? Results.Ok(new { Message = $"Role {id} deleted successfully" })
                     : Results.NotFound();
             }
             catch (InvalidOperationException ex)
@@ -182,7 +204,19 @@ public static class RoleEndpoints
                 return Results.BadRequest(new { Error = ex.Message });
             }
         })
-        .RequirePermission("Settings.ManageRoles")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Roles.Delete)
+        .WithAbac(
+            Permissions.Roles.Delete,
+            "delete",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+                return Guid.TryParse(idStr, out var rid)
+                    ? await svc.GetRoleByIdAsync(rid)
+                    : null;
+            })
         .WithSummary("Delete role (cannot delete system roles or roles with users)");
 
         // ============================================
@@ -195,7 +229,9 @@ public static class RoleEndpoints
             var permissions = await roleService.GetRolePermissionsAsync(id);
             return Results.Ok(permissions);
         })
-        .RequirePermission("Permissions.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.View)
+        .WithAbac<Role>(Permissions.AppPermissions.View, "viewPermissions", r => r as Role)
         .WithSummary("Get all permissions assigned to a role");
 
         // ============================================
@@ -209,7 +245,7 @@ public static class RoleEndpoints
             try
             {
                 var success = await roleService.AssignPermissionToRoleAsync(roleId, permissionId);
-                return success 
+                return success
                     ? Results.Ok(new { Message = "Permission assigned successfully" })
                     : Results.Conflict(new { Message = "Permission already assigned" });
             }
@@ -218,7 +254,19 @@ public static class RoleEndpoints
                 return Results.BadRequest(new { Error = ex.Message });
             }
         })
-        .RequirePermission("Permissions.Assign")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Assign)
+        .WithAbac(
+            Permissions.AppPermissions.Assign,
+            "assignPermission",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
+                var idStr = ctx.Request.RouteValues["roleId"]?.ToString();
+                return Guid.TryParse(idStr, out var rid)
+                    ? await svc.GetRoleByIdAsync(rid)
+                    : null;
+            })
         .WithSummary("Assign a permission to a role");
 
         // ============================================
@@ -232,7 +280,7 @@ public static class RoleEndpoints
             try
             {
                 var success = await roleService.RemovePermissionFromRoleAsync(roleId, permissionId);
-                return success 
+                return success
                     ? Results.Ok(new { Message = "Permission removed successfully" })
                     : Results.NotFound();
             }
@@ -241,7 +289,19 @@ public static class RoleEndpoints
                 return Results.BadRequest(new { Error = ex.Message });
             }
         })
-        .RequirePermission("Permissions.Revoke")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Revoke)
+        .WithAbac(
+            Permissions.AppPermissions.Revoke,
+            "revokePermission",
+            async ctx =>
+            {
+                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
+                var idStr = ctx.Request.RouteValues["roleId"]?.ToString();
+                return Guid.TryParse(idStr, out var rid)
+                    ? await svc.GetRoleByIdAsync(rid)
+                    : null;
+            })
         .WithSummary("Remove a permission from a role");
     }
 }

@@ -47,7 +47,7 @@ public static class PermissionEndpointExtensions
             }
 
             // Get role ID from claims
-            var roleIdClaim = httpContext.User.FindFirst("RoleId")?.Value;
+            var roleIdClaim = httpContext.User.FindFirst("roleId")?.Value;
             if (string.IsNullOrEmpty(roleIdClaim) || !Guid.TryParse(roleIdClaim, out var roleId))
             {
                 logger.LogWarning("Permission check failed: Invalid role claim for user {UserId}, permission {Permission}", 

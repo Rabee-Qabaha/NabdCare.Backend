@@ -165,6 +165,11 @@ namespace NabdCare.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AutoRenew")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uuid");
 
@@ -187,8 +192,25 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<int>("GracePeriodDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PreviousSubscriptionId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");
@@ -208,6 +230,8 @@ namespace NabdCare.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
+
+                    b.HasIndex("PreviousSubscriptionId");
 
                     b.HasIndex("Status");
 
@@ -403,6 +427,11 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -779,7 +808,13 @@ namespace NabdCare.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("NabdCare.Domain.Entities.Clinics.Subscription", "PreviousSubscription")
+                        .WithMany()
+                        .HasForeignKey("PreviousSubscriptionId");
+
                     b.Navigation("Clinic");
+
+                    b.Navigation("PreviousSubscription");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Payments.ChequePaymentDetail", b =>

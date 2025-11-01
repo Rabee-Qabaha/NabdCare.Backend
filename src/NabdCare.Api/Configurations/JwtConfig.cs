@@ -52,9 +52,9 @@ public static class JwtConfig
 
                 ClockSkew = TimeSpan.FromMinutes(5),
 
-                // ✅ REQUIRED when DefaultMapInboundClaims = false
-                NameClaimType = "name",
-                RoleClaimType = "role"
+                // ✅ Claim mapping aligned with JWT payload
+                NameClaimType = "sub",      // userId
+                RoleClaimType = "role"      // SuperAdmin, etc.
             };
 
             options.Events = new JwtBearerEvents

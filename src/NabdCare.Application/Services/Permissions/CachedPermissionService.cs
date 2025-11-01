@@ -8,11 +8,11 @@ namespace NabdCare.Application.Services.Permissions;
 
 /// <summary>
 /// Wraps PermissionService with in-memory caching for performance.
-/// Caches user, role, and effective permissions with time-based invalidation.
+/// Caches user, role, and effective permissions with version tracking and invalidation.
 /// </summary>
 public class CachedPermissionService : IPermissionService
 {
-    private readonly PermissionService _inner;
+    private readonly PermissionService   _permissionService;
     private readonly IMemoryCache _cache;
     private readonly ILogger<CachedPermissionService> _logger;
 
@@ -23,25 +23,30 @@ public class CachedPermissionService : IPermissionService
     private static readonly TimeSpan SlidingTtl = TimeSpan.FromMinutes(5);
 
     public CachedPermissionService(
-        PermissionService inner,
+        PermissionService permissionService,
         IMemoryCache cache,
         ILogger<CachedPermissionService> logger)
     {
-        _inner = inner;
+        _permissionService = permissionService;
         _cache = cache;
         _logger = logger;
     }
 
+    // ===============================================================
+    // CACHE KEYS
+    // ===============================================================
+
     private static string Key(Guid userId, Guid roleId) => $"perm:eff:{userId}:{roleId}";
     private static string KeyRole(Guid roleId) => $"perm:role:{roleId}";
     private static string KeyUser(Guid userId) => $"perm:user:{userId}";
+    private static string VersionKey(Guid userId, Guid roleId) => $"perm:ver:{userId}:{roleId}";
 
     // ===============================================================
     // PAGINATED PERMISSIONS
     // ===============================================================
 
     public Task<PaginatedResult<PermissionResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination)
-        => _inner.GetAllPagedAsync(pagination);
+        => _permissionService.GetAllPagedAsync(pagination);
 
     // ===============================================================
     // EFFECTIVE PERMISSIONS (User + Role)
@@ -51,15 +56,16 @@ public class CachedPermissionService : IPermissionService
     {
         var cacheKey = Key(userId, roleId);
 
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached) && cached != null && cached.Any())
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached) &&
+            cached is { } && cached.Any())
         {
             _logger.LogDebug("✅ Cache hit for effective permissions (User {UserId}, Role {RoleId})", userId, roleId);
             return cached;
         }
 
-        var fresh = (await _inner.GetUserEffectivePermissionsAsync(userId, roleId)).ToList();
+        var fresh = (await _permissionService.GetUserEffectivePermissionsAsync(userId, roleId)).ToList();
 
-        if (fresh.Count == 0)
+        if (!fresh.Any())
         {
             _logger.LogWarning("⚠️ No permissions found for User {UserId}, Role {RoleId}. Skipping cache.", userId, roleId);
             return fresh;
@@ -71,6 +77,9 @@ public class CachedPermissionService : IPermissionService
             SlidingExpiration = SlidingTtl,
             Size = Math.Max(1, fresh.Count)
         });
+
+        // ✅ Update permissions version whenever we fetch fresh data
+        UpdateVersion(userId, roleId);
 
         _logger.LogDebug("🧠 Cached {Count} effective permissions for User {UserId}, Role {RoleId}", fresh.Count, userId, roleId);
         return fresh;
@@ -89,6 +98,7 @@ public class CachedPermissionService : IPermissionService
     public void InvalidateUser(Guid userId, Guid roleId)
     {
         _cache.Remove(Key(userId, roleId));
+        _cache.Remove(VersionKey(userId, roleId));
         _logger.LogDebug("🧹 Invalidated effective permission cache (User {UserId}, Role {RoleId})", userId, roleId);
     }
 
@@ -118,7 +128,7 @@ public class CachedPermissionService : IPermissionService
             return cached;
         }
 
-        var fresh = (await _inner.GetPermissionsByRoleAsync(roleId)).ToList();
+        var fresh = (await _permissionService.GetPermissionsByRoleAsync(roleId)).ToList();
 
         _cache.Set(cacheKey, fresh, new MemoryCacheEntryOptions
         {
@@ -145,7 +155,7 @@ public class CachedPermissionService : IPermissionService
             return cached;
         }
 
-        var fresh = (await _inner.GetPermissionsByUserAsync(userId)).ToList();
+        var fresh = (await _permissionService.GetPermissionsByUserAsync(userId)).ToList();
 
         _cache.Set(cacheKey, fresh, new MemoryCacheEntryOptions
         {
@@ -159,53 +169,95 @@ public class CachedPermissionService : IPermissionService
     }
 
     // ===============================================================
+    // VERSION TRACKING
+    // ===============================================================
+
+    private void UpdateVersion(Guid userId, Guid roleId)
+    {
+        var version = DateTime.UtcNow.ToString("O");
+        _cache.Set(VersionKey(userId, roleId), version, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24),
+            Size = 1
+        });
+
+        _logger.LogInformation("🔁 Updated permission version {Version} (User {UserId}, Role {RoleId})", version, userId, roleId);
+    }
+
+    public string? GetVersion(Guid userId, Guid roleId)
+    {
+        _cache.TryGetValue(VersionKey(userId, roleId), out string? version);
+        return version;
+    }
+
+    // ===============================================================
     // PASS-THROUGH CRUD OPERATIONS
     // ===============================================================
 
     public Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
-        => _inner.GetAllPermissionsAsync();
+        => _permissionService.GetAllPermissionsAsync();
 
     public Task<PermissionResponseDto?> GetPermissionByIdAsync(Guid id)
-        => _inner.GetPermissionByIdAsync(id);
+        => _permissionService.GetPermissionByIdAsync(id);
 
     public Task<PermissionResponseDto> CreatePermissionAsync(CreatePermissionDto dto)
-        => _inner.CreatePermissionAsync(dto);
+        => _permissionService.CreatePermissionAsync(dto);
 
     public Task<PermissionResponseDto?> UpdatePermissionAsync(Guid id, UpdatePermissionDto dto)
-        => _inner.UpdatePermissionAsync(id, dto);
+        => _permissionService.UpdatePermissionAsync(id, dto);
 
     public Task<bool> DeletePermissionAsync(Guid id)
-        => _inner.DeletePermissionAsync(id);
+        => _permissionService.DeletePermissionAsync(id);
 
     // ===============================================================
-    // ROLE / USER ASSIGNMENTS
+    // ROLE / USER ASSIGNMENTS (with version updates)
     // ===============================================================
 
     public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
-        var result = await _inner.AssignPermissionToRoleAsync(roleId, permissionId);
+        var result = await _permissionService.AssignPermissionToRoleAsync(roleId, permissionId);
         InvalidateRole(roleId);
+
+        var affectedUsers = await _permissionService.GetUsersByRoleAsync(roleId);
+        foreach (var u in affectedUsers)
+            UpdateVersion(u.UserId, roleId);
+
         return result;
     }
 
     public async Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
     {
-        var result = await _inner.RemovePermissionFromRoleAsync(roleId, permissionId);
+        var result = await _permissionService.RemovePermissionFromRoleAsync(roleId, permissionId);
         InvalidateRole(roleId);
+
+        var affectedUsers = await _permissionService.GetUsersByRoleAsync(roleId);
+        foreach (var u in affectedUsers)
+            UpdateVersion(u.UserId, roleId);
+
         return result;
     }
 
     public async Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId)
     {
-        var result = await _inner.AssignPermissionToUserAsync(userId, permissionId);
+        var result = await _permissionService.AssignPermissionToUserAsync(userId, permissionId);
         InvalidateUserPermissions(userId);
+
+        var userInfo = await _permissionService.GetUserForAuthorizationAsync(userId);
+        if (userInfo.HasValue)
+            UpdateVersion(userId, userInfo.Value.RoleId);
+
         return result;
     }
 
     public async Task<bool> RemovePermissionFromUserAsync(Guid userId, Guid permissionId)
     {
-        var result = await _inner.RemovePermissionFromUserAsync(userId, permissionId);
+        var result = await _permissionService.RemovePermissionFromUserAsync(userId, permissionId);
         InvalidateUserPermissions(userId);
+
+        var userInfo = await _permissionService.GetUserForAuthorizationAsync(userId);
+        if (userInfo.HasValue)
+            UpdateVersion(userId, userInfo.Value.RoleId);
+
         return result;
     }
 
@@ -214,5 +266,5 @@ public class CachedPermissionService : IPermissionService
     // ===============================================================
 
     public Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId)
-        => _inner.GetUserForAuthorizationAsync(userId);
+        => _permissionService.GetUserForAuthorizationAsync(userId);
 }

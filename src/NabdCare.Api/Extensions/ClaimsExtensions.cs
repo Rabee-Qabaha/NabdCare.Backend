@@ -12,7 +12,7 @@ public static class ClaimsExtensions
 
     public static Guid? GetRoleId(this ClaimsPrincipal user)
     {
-        var id = user.FindFirst("RoleId")?.Value;
+        var id = user.FindFirst("roleId")?.Value;
         return Guid.TryParse(id, out var parsed) ? parsed : null;
     }
 

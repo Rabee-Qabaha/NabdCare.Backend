@@ -12,4 +12,7 @@ public class CreateSubscriptionRequestDto
     public SubscriptionType Type { get; set; }
     public decimal Fee { get; set; }
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
+
+    public bool AutoRenew { get; set; } = false;
+    public int GracePeriodDays { get; set; } = 0;
 }

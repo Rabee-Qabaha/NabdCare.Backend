@@ -9,6 +9,9 @@ using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Users;
 
+/// <summary>
+/// Repository for user data with ABAC-ready query filtering support.
+/// </summary>
 public class UserRepository : IUserRepository
 {
     private readonly NabdCareDbContext _dbContext;
@@ -60,20 +63,27 @@ public class UserRepository : IUserRepository
 
     /// <summary>
     /// Cursor-based pagination for all users (SuperAdmin).
-    /// Ordered by CreatedAt then Id for stable keyset pagination.
+    /// Optional ABAC filter allows contextual visibility (e.g., clinic restriction).
     /// </summary>
-    public async Task<PaginatedResult<User>> GetAllPagedAsync(int limit, string? cursor)
+    public async Task<PaginatedResult<User>> GetAllPagedAsync(
+        int limit,
+        string? cursor,
+        Func<IQueryable<User>, IQueryable<User>>? abacFilter = null)
     {
         if (limit <= 0) limit = 20;
         if (limit > 100) limit = 100;
 
         var (createdAtCursor, idCursor) = DecodeCursor(cursor);
 
-        var query = _dbContext.Users
+        IQueryable<User> query = _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Where(u => !u.IsDeleted)
             .AsNoTracking();
+
+        // 🔒 Apply ABAC filter if provided (e.g., restrict to clinic)
+        if (abacFilter != null)
+            query = abacFilter(query);
 
         if (createdAtCursor.HasValue && idCursor.HasValue)
         {
@@ -95,7 +105,7 @@ public class UserRepository : IUserRepository
             ? EncodeCursor(last.CreatedAt, last.Id)
             : null;
 
-        var totalCount = await _dbContext.Users.CountAsync(u => !u.IsDeleted);
+        var totalCount = await query.CountAsync();
 
         return new PaginatedResult<User>
         {
@@ -107,9 +117,13 @@ public class UserRepository : IUserRepository
     }
 
     /// <summary>
-    /// Cursor-based pagination filtered by clinic.
+    /// Cursor-based pagination filtered by clinic (still supports optional ABAC filter).
     /// </summary>
-    public async Task<PaginatedResult<User>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor)
+    public async Task<PaginatedResult<User>> GetByClinicIdPagedAsync(
+        Guid clinicId,
+        int limit,
+        string? cursor,
+        Func<IQueryable<User>, IQueryable<User>>? abacFilter = null)
     {
         if (clinicId == Guid.Empty)
             throw new ArgumentException("Clinic ID cannot be empty.", nameof(clinicId));
@@ -119,11 +133,14 @@ public class UserRepository : IUserRepository
 
         var (createdAtCursor, idCursor) = DecodeCursor(cursor);
 
-        var query = _dbContext.Users
+        IQueryable<User> query = _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Where(u => u.ClinicId == clinicId && !u.IsDeleted)
             .AsNoTracking();
+
+        if (abacFilter != null)
+            query = abacFilter(query);
 
         if (createdAtCursor.HasValue && idCursor.HasValue)
         {
@@ -145,7 +162,7 @@ public class UserRepository : IUserRepository
             ? EncodeCursor(last.CreatedAt, last.Id)
             : null;
 
-        var totalCount = await _dbContext.Users.CountAsync(u => u.ClinicId == clinicId && !u.IsDeleted);
+        var totalCount = await query.CountAsync();
 
         return new PaginatedResult<User>
         {
@@ -168,6 +185,13 @@ public class UserRepository : IUserRepository
             .AnyAsync(u => u.Email == normalizedEmail && !u.IsDeleted);
     }
 
+    public async Task<IEnumerable<User>> GetUsersByRoleIdAsync(Guid roleId)
+    {
+        return await _dbContext.Users
+            .Where(u => u.RoleId == roleId)
+            .ToListAsync();
+    }
+
     public async Task<bool> ExistsAsync(Guid userId)
     {
         if (userId == Guid.Empty)
@@ -181,18 +205,16 @@ public class UserRepository : IUserRepository
     #endregion
 
     #region COMMAND METHODS
-
     public async Task<User> CreateAsync(User user)
     {
         if (user == null)
             throw new ArgumentNullException(nameof(user));
 
         user.Email = user.Email.Trim().ToLower();
-
         await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} created in database", user.Id);
+        _logger.LogInformation("User {UserId} created", user.Id);
         return user;
     }
 
@@ -207,7 +229,7 @@ public class UserRepository : IUserRepository
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} updated in database", user.Id);
+        _logger.LogInformation("User {UserId} updated", user.Id);
         return user;
     }
 
@@ -217,8 +239,7 @@ public class UserRepository : IUserRepository
             return false;
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
-        if (user == null)
-            return false;
+        if (user == null) return false;
 
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow;
@@ -226,7 +247,7 @@ public class UserRepository : IUserRepository
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} soft deleted in database", userId);
+        _logger.LogInformation("User {UserId} soft deleted", userId);
         return true;
     }
 
@@ -236,30 +257,25 @@ public class UserRepository : IUserRepository
             return false;
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user == null)
-            return false;
+        if (user == null) return false;
 
         _dbContext.Users.Remove(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogWarning("User {UserId} PERMANENTLY DELETED from database", userId);
+        _logger.LogWarning("User {UserId} permanently deleted", userId);
         return true;
     }
-
     #endregion
 
     #region PRIVATE HELPERS
-
     private static (DateTime? createdAt, Guid? id) DecodeCursor(string? cursor)
     {
         if (string.IsNullOrWhiteSpace(cursor))
             return (null, null);
-
         try
         {
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
             var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-
             if (dict == null) return (null, null);
 
             DateTime? createdAt = dict.TryGetValue("createdAt", out var caStr) &&
@@ -287,10 +303,8 @@ public class UserRepository : IUserRepository
             ["createdAt"] = createdAt.ToString("O"),
             ["id"] = id.ToString()
         };
-
         var json = JsonSerializer.Serialize(payload);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
-
     #endregion
 }

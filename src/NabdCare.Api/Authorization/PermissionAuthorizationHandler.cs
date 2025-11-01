@@ -26,7 +26,7 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         if (evaluator == null) return;
 
         // requirement.Permission is currently "Permission.X". Normalize:
-        var perm = requirement.Permission.Replace("Permission.", string.Empty);
+        var perm = requirement.Permission.Replace("PERMISSION:", string.Empty);
 
         if (await evaluator.HasAsync(perm))
             context.Succeed(requirement);

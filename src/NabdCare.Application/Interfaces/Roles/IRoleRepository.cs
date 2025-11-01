@@ -1,4 +1,3 @@
-using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Permissions;
 
@@ -9,9 +8,14 @@ public interface IRoleRepository
     // ============================================
     // QUERY METHODS
     // ============================================
-    
-    Task<PaginatedResult<Role>> GetAllPagedAsync(PaginationRequestDto pagination);
-    Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination);
+    Task<PaginatedResult<Role>> GetAllPagedAsync(
+        PaginationRequestDto pagination,
+        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null);
+
+    Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(
+        Guid clinicId,
+        PaginationRequestDto pagination,
+        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null);
 
     Task<IEnumerable<Role>> GetSystemRolesAsync();
     Task<IEnumerable<Role>> GetTemplateRolesAsync();
@@ -27,7 +31,6 @@ public interface IRoleRepository
     // ============================================
     // COMMAND METHODS
     // ============================================
-    
     Task<Role> CreateRoleAsync(Role role);
     Task<Role?> UpdateRoleAsync(Role role);
     Task<bool> DeleteRoleAsync(Guid id);
@@ -35,7 +38,6 @@ public interface IRoleRepository
     // ============================================
     // PERMISSION MANAGEMENT
     // ============================================
-    
     Task<IEnumerable<Guid>> GetRolePermissionIdsAsync(Guid roleId);
     Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId);
     Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId);

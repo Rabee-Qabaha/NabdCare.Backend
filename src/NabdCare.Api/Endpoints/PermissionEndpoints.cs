@@ -3,7 +3,9 @@ using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Api.Extensions;
+using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Pagination;
+using NabdCare.Application.Services.Permissions;
 
 namespace NabdCare.Api.Endpoints;
 
@@ -13,79 +15,55 @@ public static class PermissionEndpoints
     {
         var group = app.MapGroup("/permissions").WithTags("Permissions");
 
-// ============================================
+        // ============================================
         // 📄 GET ALL PERMISSIONS (PAGINATED)
         // ============================================
         group.MapGet("/paged", async (
             [AsParameters] PaginationRequestDto pagination,
             [FromServices] IPermissionService service) =>
         {
-            try
-            {
-                var result = await service.GetAllPagedAsync(pagination);
-                return Results.Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return Results.Problem(detail: ex.Message, title: "Failed to retrieve paged permissions");
-            }
+            var result = await service.GetAllPagedAsync(pagination);
+            return Results.Ok(result);
         })
-        .RequirePermission("Permissions.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.View)
         .Produces<PaginatedResult<PermissionResponseDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status403Forbidden)
-        .WithSummary("Get all permissions (paginated, supports filter/sort/cursor)");
+        .WithSummary("Get all permissions (paginated)");
 
         // ============================================
-        // 📋 GET ALL PERMISSIONS (LEGACY - NON PAGED)
+        // 📋 GET ALL PERMISSIONS (NON-PAGED)
         // ============================================
-        group.MapGet("/", async (
-            [FromServices] IPermissionService service) =>
+        group.MapGet("/", async ([FromServices] IPermissionService service) =>
         {
-            try
-            {
-                var result = await service.GetAllPermissionsAsync();
-                return Results.Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return Results.Problem(detail: ex.Message, title: "Failed to retrieve all permissions");
-            }
+            var result = await service.GetAllPermissionsAsync();
+            return Results.Ok(result);
         })
-        .RequirePermission("Permissions.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.View)
         .Produces<IEnumerable<PermissionResponseDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status403Forbidden)
         .WithSummary("Get all permissions (non-paginated)");
 
         // ============================================
         // 📊 GET PERMISSIONS GROUPED BY CATEGORY
         // ============================================
-        group.MapGet("/grouped", async (
-            [FromServices] IPermissionService service) =>
+        group.MapGet("/grouped", async ([FromServices] IPermissionService service) =>
         {
-            try
-            {
-                var permissions = await service.GetAllPermissionsAsync();
+            var permissions = await service.GetAllPermissionsAsync();
 
-                var grouped = permissions
-                    .GroupBy(p => p.Name.Split('.')[0]) // e.g. "Users.Create" → "Users"
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Category = g.Key,
-                        Permissions = g.OrderBy(p => p.Name).ToList()
-                    });
+            var grouped = permissions
+                .GroupBy(p => p.Name.Split('.')[0])
+                .OrderBy(g => g.Key)
+                .Select(g => new
+                {
+                    Category = g.Key,
+                    Permissions = g.OrderBy(p => p.Name).ToList()
+                });
 
-                return Results.Ok(grouped);
-            }
-            catch (Exception ex)
-            {
-                return Results.Problem(detail: ex.Message, title: "Failed to retrieve grouped permissions");
-            }
+            return Results.Ok(grouped);
         })
-        .RequirePermission("Permissions.View")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status403Forbidden)
-        .WithSummary("Get permissions grouped by category (Users, Patients, etc.)");
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.View)
+        .WithSummary("Get permissions grouped by category");
 
         // ============================================
         // 🔍 GET PERMISSION BY ID
@@ -97,7 +75,8 @@ public static class PermissionEndpoints
             var permission = await service.GetPermissionByIdAsync(id);
             return permission != null ? Results.Ok(permission) : Results.NotFound();
         })
-        .RequirePermission("Permissions.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.View)
         .WithSummary("Get permission by ID");
 
         // ============================================
@@ -105,8 +84,12 @@ public static class PermissionEndpoints
         // ============================================
         group.MapGet("/me", async (
             [FromServices] IPermissionService service,
-            [FromServices] IUserContext userContext) =>
+            [FromServices] CachedPermissionService cachedService,
+            [FromServices] IUserContext userContext,
+            [FromServices] ILoggerFactory loggerFactory) =>
         {
+            var logger = loggerFactory.CreateLogger("Permissions.Me");
+
             var userIdStr = userContext.GetCurrentUserId();
             if (!Guid.TryParse(userIdStr, out var userId))
                 return Results.Unauthorized();
@@ -115,26 +98,35 @@ public static class PermissionEndpoints
             if (!Guid.TryParse(roleIdStr, out var roleId))
                 return Results.Unauthorized();
 
-            var permissions = await service.GetUserEffectivePermissionsAsync(userId, roleId);
-            return Results.Ok(permissions);
+            var permissions = await cachedService.GetUserEffectivePermissionsAsync(userId, roleId);
+            var version = cachedService.GetVersion(userId, roleId);
+
+            logger.LogInformation("📊 User {UserId} fetched permissions (Role {RoleId}, Version {Version})", userId, roleId, version);
+
+            return Results.Ok(new
+            {
+                userId,
+                roleId,
+                permissions = permissions.Select(p => p.Name).OrderBy(p => p).ToList(),
+                permissionsVersion = version
+            });
         })
         .RequireAuthorization()
-        .WithSummary("Get current user's effective permissions (role + user-specific)");
+        .RequirePermission(Permissions.AppPermissions.ViewOwn)
+        .WithSummary("Get current user's own permissions (RBAC + cache version)");
 
         // ============================================
         // 🔐 GET PERMISSIONS FOR SPECIFIC USER
         // ============================================
         group.MapGet("/user/{userId:guid}", async (
             Guid userId,
-            [FromServices] IPermissionService service,
-            [FromServices] IUserContext userContext) =>
+            [FromServices] IPermissionService service) =>
         {
-            // Get user's role (you'll need to fetch this)
-            // For now, returning user-specific permissions only
             var permissions = await service.GetPermissionsByUserAsync(userId);
             return Results.Ok(permissions);
         })
-        .RequirePermission("Permissions.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.ViewUserPermissions)
         .WithSummary("Get user-specific permission overrides");
 
         // ============================================
@@ -147,8 +139,38 @@ public static class PermissionEndpoints
             var permissions = await service.GetPermissionsByRoleAsync(roleId);
             return Results.Ok(permissions);
         })
-        .RequirePermission("Permissions.View")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.View)
         .WithSummary("Get all permissions assigned to a role");
+
+        // ============================================
+        // 🔄 REFRESH USER PERMISSIONS (CACHE REBUILD)
+        // ============================================
+        group.MapPost("/refresh/{userId:guid}", async (
+            Guid userId,
+            [FromServices] IPermissionService permissionService,
+            [FromServices] CachedPermissionService cachedService) =>
+        {
+            var userInfo = await permissionService.GetUserForAuthorizationAsync(userId);
+            if (!userInfo.HasValue)
+                return Results.NotFound(new { message = $"User {userId} not found or has no role assigned." });
+
+            cachedService.InvalidateUser(userId, userInfo.Value.RoleId);
+            var fresh = await cachedService.GetUserEffectivePermissionsAsync(userId, userInfo.Value.RoleId);
+            var version = cachedService.GetVersion(userId, userInfo.Value.RoleId);
+
+            return Results.Ok(new
+            {
+                message = "✅ Permissions refreshed successfully.",
+                userId,
+                roleId = userInfo.Value.RoleId,
+                permissionsCount = fresh.Count(),
+                permissionsVersion = version
+            });
+        })
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Manage)
+        .WithSummary("Force refresh cached permissions for a user");
 
         // ============================================
         // ➕ CREATE PERMISSION (SuperAdmin only)
@@ -157,17 +179,11 @@ public static class PermissionEndpoints
             [FromBody] CreatePermissionDto dto,
             [FromServices] IPermissionService service) =>
         {
-            try
-            {
-                var created = await service.CreatePermissionAsync(dto);
-                return Results.Created($"/api/permissions/{created.Id}", created);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.Conflict(new { Error = ex.Message });
-            }
+            var created = await service.CreatePermissionAsync(dto);
+            return Results.Created($"/api/permissions/{created.Id}", created);
         })
-        .RequirePermission("System.ManageSettings")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Create)
         .WithSummary("Create a new permission (SuperAdmin only)");
 
         // ============================================
@@ -181,7 +197,8 @@ public static class PermissionEndpoints
             var updated = await service.UpdatePermissionAsync(id, dto);
             return updated != null ? Results.Ok(updated) : Results.NotFound();
         })
-        .RequirePermission("System.ManageSettings")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Edit)
         .WithSummary("Update permission details");
 
         // ============================================
@@ -194,7 +211,8 @@ public static class PermissionEndpoints
             var deleted = await service.DeletePermissionAsync(id);
             return deleted ? Results.NoContent() : Results.NotFound();
         })
-        .RequirePermission("System.ManageSettings")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Delete)
         .WithSummary("Delete a permission (SuperAdmin only)");
 
         // ============================================
@@ -204,19 +222,13 @@ public static class PermissionEndpoints
             [FromBody] AssignPermissionToUserDto dto,
             [FromServices] IPermissionService service) =>
         {
-            try
-            {
-                var assigned = await service.AssignPermissionToUserAsync(dto.UserId, dto.PermissionId);
-                return assigned 
-                    ? Results.Ok(new { message = "Permission assigned successfully" }) 
-                    : Results.Conflict(new { message = "Permission already assigned to this user" });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return Results.NotFound(new { Error = ex.Message });
-            }
+            var assigned = await service.AssignPermissionToUserAsync(dto.UserId, dto.PermissionId);
+            return assigned
+                ? Results.Ok(new { message = "Permission assigned successfully" })
+                : Results.Conflict(new { message = "Permission already assigned to this user" });
         })
-        .RequirePermission("Users.ManagePermissions")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Assign)
         .WithSummary("Assign permission override to a specific user");
 
         // ============================================
@@ -228,11 +240,12 @@ public static class PermissionEndpoints
             [FromServices] IPermissionService service) =>
         {
             var removed = await service.RemovePermissionFromUserAsync(userId, permissionId);
-            return removed 
+            return removed
                 ? Results.Ok(new { message = "Permission removed successfully" })
                 : Results.NotFound();
         })
-        .RequirePermission("Users.ManagePermissions")
+        .RequireAuthorization()
+        .RequirePermission(Permissions.AppPermissions.Revoke)
         .WithSummary("Remove permission override from user");
     }
 }

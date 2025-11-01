@@ -36,7 +36,9 @@ public class RoleRepository : IRoleRepository
     // QUERY METHODS
     // ============================================
 
-    public async Task<PaginatedResult<Role>> GetAllPagedAsync(PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Role>> GetAllPagedAsync(
+        PaginationRequestDto pagination,
+        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
     {
         var query = _dbContext.Roles
             .Include(r => r.Clinic)
@@ -44,7 +46,11 @@ public class RoleRepository : IRoleRepository
             .ThenBy(r => r.Name)
             .AsQueryable();
 
-        // optional filter
+        // apply ABAC filter if provided
+        if (abacFilter is not null)
+            query = abacFilter(query);
+
+        // optional text filter
         if (!string.IsNullOrWhiteSpace(pagination.Filter))
         {
             var filter = pagination.Filter.ToLower();
@@ -56,8 +62,12 @@ public class RoleRepository : IRoleRepository
         {
             query = pagination.SortBy.ToLower() switch
             {
-                "name" => pagination.Descending ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
-                "displayorder" => pagination.Descending ? query.OrderByDescending(r => r.DisplayOrder) : query.OrderBy(r => r.DisplayOrder),
+                "name" => pagination.Descending
+                    ? query.OrderByDescending(r => r.Name)
+                    : query.OrderBy(r => r.Name),
+                "displayorder" => pagination.Descending
+                    ? query.OrderByDescending(r => r.DisplayOrder)
+                    : query.OrderBy(r => r.DisplayOrder),
                 _ => query
             };
         }
@@ -74,7 +84,10 @@ public class RoleRepository : IRoleRepository
         };
     }
 
-    public async Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(
+        Guid clinicId,
+        PaginationRequestDto pagination,
+        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
     {
         var query = _dbContext.Roles
             .Where(r => r.ClinicId == clinicId)
@@ -82,6 +95,9 @@ public class RoleRepository : IRoleRepository
             .OrderBy(r => r.DisplayOrder)
             .ThenBy(r => r.Name)
             .AsQueryable();
+
+        if (abacFilter is not null)
+            query = abacFilter(query);
 
         if (!string.IsNullOrWhiteSpace(pagination.Filter))
         {
@@ -93,8 +109,12 @@ public class RoleRepository : IRoleRepository
         {
             query = pagination.SortBy.ToLower() switch
             {
-                "name" => pagination.Descending ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
-                "displayorder" => pagination.Descending ? query.OrderByDescending(r => r.DisplayOrder) : query.OrderBy(r => r.DisplayOrder),
+                "name" => pagination.Descending
+                    ? query.OrderByDescending(r => r.Name)
+                    : query.OrderBy(r => r.Name),
+                "displayorder" => pagination.Descending
+                    ? query.OrderByDescending(r => r.DisplayOrder)
+                    : query.OrderBy(r => r.DisplayOrder),
                 _ => query
             };
         }

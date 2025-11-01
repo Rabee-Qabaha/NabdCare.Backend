@@ -13,6 +13,11 @@ public interface IAuditLogRepository
 
     /// <summary>
     /// Get audit logs with pagination and advanced filtering.
+    /// Optionally allows ABAC filters to modify the query dynamically.
     /// </summary>
-    Task<PaginatedResult<AuditLogResponseDto>> GetPagedAsync(AuditLogListRequestDto filter, PaginationRequestDto pagination);
+    Task<PaginatedResult<AuditLogResponseDto>> GetPagedAsync(
+        AuditLogListRequestDto filter,
+        PaginationRequestDto pagination,
+        Func<IQueryable<AuditLog>, IQueryable<AuditLog>>? abacFilter = null,
+        CancellationToken cancellationToken = default);
 }

@@ -50,7 +50,7 @@ public class JwtTokenService : ITokenService
             new("email", email),
             new("name", fullName),
             new("role", roleName),
-            new("RoleId", roleId.ToString())
+            new("roleId", roleId.ToString())
         };
         
         if (clinicId.HasValue)

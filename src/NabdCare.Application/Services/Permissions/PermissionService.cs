@@ -287,4 +287,22 @@ public class PermissionService : IPermissionService
 
         return (user.RoleId, user.ClinicId);
     }
+    
+    // ============================================
+    // ROLE -> USERS HELPER (For cache invalidation)
+    // ============================================
+
+    public async Task<IEnumerable<(Guid UserId, Guid RoleId)>> GetUsersByRoleAsync(Guid roleId)
+    {
+        try
+        {
+            var users = await _userRepository.GetUsersByRoleIdAsync(roleId);
+            return users.Select(u => (u.Id, u.RoleId));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve users for role {RoleId}.", roleId);
+            throw new InvalidOperationException($"Failed to get users for role {roleId}.", ex);
+        }
+    }
 }

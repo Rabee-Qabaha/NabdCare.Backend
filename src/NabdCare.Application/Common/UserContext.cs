@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
-
-namespace NabdCare.Application.Common;
+using NabdCare.Application.Common;
 
 public class UserContext : IUserContext
 {
@@ -13,7 +12,7 @@ public class UserContext : IUserContext
 
     public string GetCurrentUserId()
     {
-        // ✅ Prefer "sub" claim because DefaultMapInboundClaims=false
+        // ✅ "sub" claim (from JWT) holds the user ID
         return _httpContextAccessor.HttpContext?.User?
                    .FindFirst("sub")?.Value 
                ?? "anonymous";
@@ -21,8 +20,10 @@ public class UserContext : IUserContext
 
     public string? GetCurrentUserRoleId()
     {
-        return _httpContextAccessor.HttpContext?.User?
-            .FindFirst("RoleId")?.Value;
+        var claims = _httpContextAccessor.HttpContext?.User?.Claims;
+        return claims?.FirstOrDefault(c => 
+            string.Equals(c.Type, "roleId", StringComparison.OrdinalIgnoreCase)
+        )?.Value;
     }
 
     public string? GetCurrentUserEmail()

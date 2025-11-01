@@ -1,6 +1,5 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Authorization;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces;
@@ -30,6 +29,9 @@ using NabdCare.Infrastructure.Repositories.Roles;
 using NabdCare.Infrastructure.Repositories.Users;
 using NabdCare.Api.Authorization;
 using NabdCare.Application.mappings;
+using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Users;
 using NabdCare.Infrastructure.Services.Caching;
 
 namespace NabdCare.Api.Configurations;
@@ -76,32 +78,49 @@ public static class DependencyInjectionConfig
         // ===============================
         services.AddMemoryCache(options =>
         {
-            // Soft cap for total cache size (in arbitrary “size units”)
-            // This prevents memory overuse in high concurrency environments.
-            options.SizeLimit = 10_000; // You can tune this (e.g., 50_000 for big servers)
+            // ✅ Prevent excessive memory usage under heavy load
+            options.SizeLimit = 10_000;
 
-            // Optional: set overall compaction percentage
-            options.CompactionPercentage = 0.2; // Remove 20% of least used entries when limit hit
+            // ✅ Compact 20% of least-used entries when limit is hit
+            options.CompactionPercentage = 0.2;
 
-            // Optional: add a name for logging/tracing
-            options.TrackStatistics = true; // Requires .NET 8+, gives you cache metrics
+            // ✅ Enable cache metrics (requires .NET 8+)
+            options.TrackStatistics = true;
         });
 
-        // Cache invalidator (used in RoleRepository & PermissionRepository)
+        // Used by repositories to invalidate permission-related cache entries
         services.AddScoped<IPermissionCacheInvalidator, PermissionCacheInvalidator>();
 
-        // Permission service with caching decorator
+        // ---------------------------------------------------------------
+        // 🧠 Caching Decorator Pattern
+        // ---------------------------------------------------------------
+        // PermissionService = core business logic (no caching)
+        // CachedPermissionService = wraps PermissionService, adds caching, version tracking
+        // IPermissionService resolves to CachedPermissionService by default
+        // ---------------------------------------------------------------
         services.AddScoped<PermissionService>();
+        services.AddScoped<CachedPermissionService>();
         services.AddScoped<IPermissionService, CachedPermissionService>();
 
-        // Permission evaluator (combines RBAC + PBAC + ABAC)
+        // Evaluates access dynamically via RBAC + PBAC + ABAC
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
 
+        // ===============================
         // ABAC Policies
-        services.AddScoped<IAccessPolicy<NabdCare.Domain.Entities.Patients.Patient>, PatientPolicy>();
-        services.AddScoped<IAccessPolicy<NabdCare.Domain.Entities.Clinics.Clinic>, ClinicPolicy>();
+        // ===============================
+        services.AddScoped<IAccessPolicy<Clinic>, ClinicPolicy>();
+        // services.AddScoped<IAccessPolicy<Patient>, PatientPolicy>();
+        services.AddScoped<IAccessPolicy<User>, UserPolicy>();
+        services.AddScoped<IAccessPolicy<Role>, RolePolicy>();
+        services.AddScoped<IAccessPolicy<AppPermission>, PermissionPolicy>();
+        services.AddScoped<IAccessPolicy<Subscription>, SubscriptionPolicy>();
 
+        // Default fallback for unmapped entities
+        services.AddScoped(typeof(IAccessPolicy<>), typeof(DefaultPolicy<>));
+        
+        // ===============================
         // RBAC Authorization Provider
+        // ===============================
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
@@ -118,11 +137,11 @@ public static class DependencyInjectionConfig
         // Audit
         // ===============================
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-
+        
         // ===============================
         // Automapper
         // ===============================
-        services.AddAutoMapper(cfg => { },
+        services.AddAutoMapper(_ => { },
             typeof(UserProfile).Assembly,
             typeof(ClinicProfile).Assembly,
             typeof(PermissionProfile).Assembly,
@@ -140,7 +159,7 @@ public static class DependencyInjectionConfig
         // Database Seeders
         // ===============================
         services.AddScoped<DbSeeder>();
-        services.AddScoped<ISingleSeeder, RolesSeeder>();
+        services.AddScoped<ISingleSeeder, RoleSeeder>();
         services.AddScoped<ISingleSeeder, PermissionsSeeder>();
         services.AddScoped<ISingleSeeder, RolePermissionsSeeder>();
         services.AddScoped<ISingleSeeder, SuperAdminSeeder>();

@@ -32,14 +32,23 @@ public interface IUserRepository
     /// Get paginated users for all clinics (SuperAdmin only).
     /// Cursor-based pagination for high scalability.
     /// </summary>
-    Task<PaginatedResult<User>> GetAllPagedAsync(int limit, string? cursor);
+    Task<PaginatedResult<User>> GetAllPagedAsync(
+        int limit,
+        string? cursor,
+        Func<IQueryable<User>, IQueryable<User>>? abacFilter = null);
 
     /// <summary>
     /// Get paginated users for a specific clinic.
     /// Used by ClinicAdmin or system features limited to one clinic.
     /// </summary>
-    Task<PaginatedResult<User>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor);
+    Task<PaginatedResult<User>> GetByClinicIdPagedAsync(
+        Guid clinicId,
+        int limit,
+        string? cursor,
+        Func<IQueryable<User>, IQueryable<User>>? abacFilter = null);
 
+    Task<IEnumerable<User>> GetUsersByRoleIdAsync(Guid roleId);
+    
     /// <summary>
     /// Check if email already exists (case-insensitive)
     /// </summary>

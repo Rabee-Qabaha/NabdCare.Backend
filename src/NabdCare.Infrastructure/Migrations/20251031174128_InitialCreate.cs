@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace NabdCare.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialDynamicRolesWithGroupedPermissions : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,6 +17,7 @@ namespace NabdCare.Infrastructure.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Category = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedBy = table.Column<string>(type: "text", nullable: true),
@@ -102,8 +103,10 @@ namespace NabdCare.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     Token = table.Column<string>(type: "text", nullable: false),
+                    ClinicId = table.Column<Guid>(type: "uuid", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()"),
                     CreatedByIp = table.Column<string>(type: "text", nullable: true),
+                    IssuedForUserAgent = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
                     RevokedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -172,6 +175,12 @@ namespace NabdCare.Infrastructure.Migrations
                     Type = table.Column<int>(type: "integer", nullable: false),
                     Fee = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
+                    PreviousSubscriptionId = table.Column<Guid>(type: "uuid", nullable: true),
+                    PaymentId = table.Column<Guid>(type: "uuid", nullable: true),
+                    InvoiceNumber = table.Column<string>(type: "text", nullable: true),
+                    AutoRenew = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    GracePeriodDays = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    Notes = table.Column<string>(type: "text", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedBy = table.Column<string>(type: "text", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -189,6 +198,11 @@ namespace NabdCare.Infrastructure.Migrations
                         principalTable: "Clinics",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Subscriptions_Subscriptions_PreviousSubscriptionId",
+                        column: x => x.PreviousSubscriptionId,
+                        principalTable: "Subscriptions",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -398,6 +412,13 @@ namespace NabdCare.Infrastructure.Migrations
                 column: "Action");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AuditLogs_Changes_GIN",
+                table: "AuditLogs",
+                column: "Changes")
+                .Annotation("Npgsql:IndexMethod", "gin")
+                .Annotation("Npgsql:IndexOperators", new[] { "jsonb_path_ops" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AuditLogs_Clinic_Timestamp",
                 table: "AuditLogs",
                 columns: new[] { "ClinicId", "Timestamp" });
@@ -485,6 +506,11 @@ namespace NabdCare.Infrastructure.Migrations
                 column: "SubscriptionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_ClinicId",
+                table: "RefreshTokens",
+                column: "ClinicId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_ExpiresAt",
                 table: "RefreshTokens",
                 column: "ExpiresAt");
@@ -551,6 +577,11 @@ namespace NabdCare.Infrastructure.Migrations
                 name: "IX_Subscriptions_ClinicId",
                 table: "Subscriptions",
                 column: "ClinicId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_PreviousSubscriptionId",
+                table: "Subscriptions",
+                column: "PreviousSubscriptionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Subscriptions_Status",

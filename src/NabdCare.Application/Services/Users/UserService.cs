@@ -4,6 +4,7 @@ using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Users;
 using NabdCare.Application.Interfaces;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.Users;
@@ -23,6 +24,7 @@ public class UserService : IUserService
     private readonly IUserContext _userContext;
     private readonly IMapper _mapper;
     private readonly ILogger<UserService> _logger;
+    private readonly IPermissionEvaluator _permissionEvaluator;
 
     public UserService(
         IUserRepository userRepository,
@@ -31,7 +33,8 @@ public class UserService : IUserService
         ITenantContext tenantContext,
         IUserContext userContext,
         IMapper mapper,
-        ILogger<UserService> logger)
+        ILogger<UserService> logger,
+        IPermissionEvaluator permissionEvaluator)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
@@ -40,6 +43,7 @@ public class UserService : IUserService
         _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
     }
 
     #region QUERY METHODS
@@ -74,15 +78,14 @@ public class UserService : IUserService
     {
         var currentUserId = _userContext.GetCurrentUserId();
 
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("User {CurrentUserId} attempted to access GetAllPagedAsync without SuperAdmin rights", currentUserId);
-            throw new UnauthorizedAccessException("Only SuperAdmin can view all users");
-        }
+        // 🔒 Apply ABAC filter using centralized PermissionEvaluator
+        var abacFilter = new Func<IQueryable<User>, IQueryable<User>>(query =>
+            _permissionEvaluator.FilterUsers(query, "Users.View", _userContext));
 
-        var result = await _userRepository.GetAllPagedAsync(limit, cursor);
+        var result = await _userRepository.GetAllPagedAsync(limit, cursor, abacFilter);
 
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieved {Count} users (HasMore={HasMore})",
+        _logger.LogInformation(
+            "User {CurrentUserId} retrieved {Count} users (HasMore={HasMore})",
             currentUserId, result.Items.Count(), result.HasMore);
 
         return new PaginatedResult<UserResponseDto>
@@ -101,23 +104,22 @@ public class UserService : IUserService
         if (clinicId == Guid.Empty)
             throw new ArgumentException("Clinic ID cannot be empty", nameof(clinicId));
 
-        // Access control:
-        if (_tenantContext.IsSuperAdmin)
+        // ABAC filter ensures tenant-safe visibility
+        Func<IQueryable<User>, IQueryable<User>>? abacFilter = query =>
         {
-            // ok
-        }
-        else if (_tenantContext.ClinicId.HasValue && _tenantContext.ClinicId.Value == clinicId)
-        {
-            // ok
-        }
-        else
-        {
-            _logger.LogWarning("User {CurrentUserId} attempted to query clinic {ClinicId} without permission",
-                currentUserId, clinicId);
-            throw new UnauthorizedAccessException("You don't have permission to view this clinic's users");
-        }
+            // SuperAdmin can view any clinic
+            if (_tenantContext.IsSuperAdmin)
+                return query;
 
-        var result = await _userRepository.GetByClinicIdPagedAsync(clinicId, limit, cursor);
+            // ClinicAdmin: restrict strictly to their own clinic
+            if (_tenantContext.ClinicId.HasValue)
+                return query.Where(u => u.ClinicId == _tenantContext.ClinicId.Value);
+
+            _logger.LogWarning("User {CurrentUserId} has no clinic context for clinic-based query", currentUserId);
+            throw new UnauthorizedAccessException("You don't have permission to view this clinic's users");
+        };
+
+        var result = await _userRepository.GetByClinicIdPagedAsync(clinicId, limit, cursor, abacFilter);
 
         _logger.LogInformation("User {CurrentUserId} retrieved {Count} users from clinic {ClinicId} (HasMore={HasMore})",
             currentUserId, result.Items.Count(), clinicId, result.HasMore);

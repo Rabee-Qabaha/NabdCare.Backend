@@ -35,4 +35,9 @@ public class AuditLogListRequestDto
     /// Free-text search (reason, changes, user email, etc.).
     /// </summary>
     public string? Search { get; set; }
+    
+    /// <summary>
+    /// Filter by clinic ID (multi-tenant isolation)
+    /// </summary>
+    public Guid? ClinicId { get; set; }
 }

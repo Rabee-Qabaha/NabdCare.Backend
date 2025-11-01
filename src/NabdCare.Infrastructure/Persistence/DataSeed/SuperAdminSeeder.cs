@@ -157,7 +157,7 @@ public class SuperAdminSeeder : ISingleSeeder
         // Get required roles
         var clinicAdminRole = await _dbContext.Roles
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.Name == "Clinic Admin" && r.IsTemplate);
+            .FirstOrDefaultAsync(r => r.Name == "ClinicAdmin" && r.IsTemplate);
 
         var doctorRole = await _dbContext.Roles
             .IgnoreQueryFilters()

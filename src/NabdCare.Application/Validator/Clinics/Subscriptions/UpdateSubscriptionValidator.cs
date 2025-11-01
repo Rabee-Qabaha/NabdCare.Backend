@@ -18,5 +18,8 @@ public class UpdateSubscriptionValidator : AbstractValidator<UpdateSubscriptionR
 
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Invalid subscription status.");
+        
+        RuleFor(x => x.GracePeriodDays)
+            .GreaterThanOrEqualTo(0).LessThanOrEqualTo(90).WithMessage("GracePeriodDays must be greater than or equal to 90.");
     }
 }

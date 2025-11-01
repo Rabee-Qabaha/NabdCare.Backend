@@ -12,6 +12,7 @@ namespace NabdCare.Infrastructure.Repositories.Clinics;
 /// <summary>
 /// Production-ready clinic repository with cursor-based pagination,
 /// sorting, and filtering support. Thin data access layer - no business logic.
+/// Includes optional ABAC filter for security-aware querying.
 /// </summary>
 public class ClinicRepository : IClinicRepository
 {
@@ -37,26 +38,37 @@ public class ClinicRepository : IClinicRepository
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
     }
 
-    public async Task<PaginatedResult<Clinic>> GetAllPagedAsync(PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Clinic>> GetAllPagedAsync(
+        PaginationRequestDto pagination,
+        Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
         var query = BaseClinicQuery();
 
-        query = ApplyFilterAndSorting(query, pagination);
+        // ✅ Apply ABAC filter if provided
+        if (abacFilter is not null)
+            query = abacFilter(query);
 
+        query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
     }
 
-    public async Task<PaginatedResult<Clinic>> GetByStatusPagedAsync(SubscriptionStatus status, PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Clinic>> GetByStatusPagedAsync(
+        SubscriptionStatus status,
+        PaginationRequestDto pagination,
+        Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
-        var query = BaseClinicQuery()
-            .Where(c => c.Status == status);
+        var query = BaseClinicQuery().Where(c => c.Status == status);
+
+        if (abacFilter is not null)
+            query = abacFilter(query);
 
         query = ApplyFilterAndSorting(query, pagination);
-
         return await PaginateAsync(query, pagination);
     }
 
-    public async Task<PaginatedResult<Clinic>> GetActiveWithValidSubscriptionPagedAsync(PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Clinic>> GetActiveWithValidSubscriptionPagedAsync(
+        PaginationRequestDto pagination,
+        Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
         var now = DateTime.UtcNow;
         var query = BaseClinicQuery()
@@ -67,12 +79,17 @@ public class ClinicRepository : IClinicRepository
                     s.Status == SubscriptionStatus.Active &&
                     s.EndDate > now));
 
-        query = ApplyFilterAndSorting(query, pagination);
+        if (abacFilter is not null)
+            query = abacFilter(query);
 
+        query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
     }
 
-    public async Task<PaginatedResult<Clinic>> GetWithExpiringSubscriptionsPagedAsync(int withinDays, PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Clinic>> GetWithExpiringSubscriptionsPagedAsync(
+        int withinDays,
+        PaginationRequestDto pagination,
+        Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
         var now = DateTime.UtcNow;
         var expirationDate = now.AddDays(withinDays);
@@ -86,12 +103,16 @@ public class ClinicRepository : IClinicRepository
                     s.EndDate > now &&
                     s.EndDate <= expirationDate));
 
-        query = ApplyFilterAndSorting(query, pagination);
+        if (abacFilter is not null)
+            query = abacFilter(query);
 
+        query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
     }
 
-    public async Task<PaginatedResult<Clinic>> GetWithExpiredSubscriptionsPagedAsync(PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Clinic>> GetWithExpiredSubscriptionsPagedAsync(
+        PaginationRequestDto pagination,
+        Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
         var now = DateTime.UtcNow;
         var query = BaseClinicQuery()
@@ -101,31 +122,42 @@ public class ClinicRepository : IClinicRepository
                     s.Status == SubscriptionStatus.Active &&
                     s.EndDate <= now));
 
-        query = ApplyFilterAndSorting(query, pagination);
+        if (abacFilter is not null)
+            query = abacFilter(query);
 
+        query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
     }
-    
+
     public async Task<IEnumerable<Clinic>> GetWithExpiredSubscriptionsAsync()
     {
         var now = DateTime.UtcNow;
 
         return await _dbContext.Clinics
             .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted && 
-                        c.Subscriptions.Any(s => 
-                            !s.IsDeleted && 
-                            s.Status == SubscriptionStatus.Active &&
-                            s.EndDate <= now))
+            .Where(c =>
+                !c.IsDeleted &&
+                c.Subscriptions.Any(s =>
+                    !s.IsDeleted &&
+                    s.Status == SubscriptionStatus.Active &&
+                    s.EndDate <= now))
             .OrderBy(c => c.Name)
             .AsNoTracking()
             .ToListAsync();
     }
 
-    public async Task<PaginatedResult<Clinic>> SearchPagedAsync(string query, PaginationRequestDto pagination)
+    public async Task<PaginatedResult<Clinic>> SearchPagedAsync(
+        string query,
+        PaginationRequestDto pagination,
+        Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return new PaginatedResult<Clinic> { Items = Enumerable.Empty<Clinic>(), TotalCount = 0, HasMore = false };
+            return new PaginatedResult<Clinic>
+            {
+                Items = Enumerable.Empty<Clinic>(),
+                TotalCount = 0,
+                HasMore = false
+            };
 
         var search = query.Trim().ToLower();
 
@@ -135,8 +167,10 @@ public class ClinicRepository : IClinicRepository
                 (c.Email != null && c.Email.ToLower().Contains(search)) ||
                 (c.Phone != null && c.Phone.Contains(search)));
 
-        dbQuery = ApplyFilterAndSorting(dbQuery, pagination);
+        if (abacFilter is not null)
+            dbQuery = abacFilter(dbQuery);
 
+        dbQuery = ApplyFilterAndSorting(dbQuery, pagination);
         return await PaginateAsync(dbQuery, pagination);
     }
 
@@ -244,6 +278,7 @@ public class ClinicRepository : IClinicRepository
     private IQueryable<Clinic> BaseClinicQuery()
     {
         return _dbContext.Clinics
+            .AsNoTracking()
             .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
             .Where(c => !c.IsDeleted);
     }
@@ -291,7 +326,7 @@ public class ClinicRepository : IClinicRepository
 
         if (hasMore) items.RemoveAt(items.Count - 1);
         var nextCursor = hasMore ? items.Last().Id.ToString() : null;
-        var totalCount = await _dbContext.Clinics.CountAsync(c => !c.IsDeleted);
+        var totalCount = await query.CountAsync();
 
         return new PaginatedResult<Clinic>
         {
