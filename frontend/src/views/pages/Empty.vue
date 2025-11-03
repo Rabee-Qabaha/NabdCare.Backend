@@ -1,3 +1,4 @@
+<!--frontend/src/views/pages/Empty.vue-->
 <template>
     <div className="card">
         <div class="font-semibold text-xl mb-4">Empty Page</div>

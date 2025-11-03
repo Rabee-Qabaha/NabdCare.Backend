@@ -1,46 +1,66 @@
 // src/main.ts
-import { createApp } from "vue";
+import { createApp, watch } from "vue";
 import App from "@/App.vue";
 import router from "./router";
 import { createPinia } from "pinia";
 
-import Aura from "@primevue/themes/aura";
 import PrimeVue from "primevue/config";
-import ConfirmationService from "primevue/confirmationservice";
+import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
+import ConfirmationService from "primevue/confirmationservice";
 
 import "@/assets/styles.scss";
 import "@/assets/tailwind.css";
 
 import { useAuthStore } from "./stores/authStore";
-import { vPermission } from "./utils/permissions";
+import { permissionDirective } from "./directives/permission"; // ✅ keep only this one
+
+// 🧠 Vue Query imports
+import { VueQueryPlugin } from "@tanstack/vue-query";
+import { queryClient } from "@/composables/query/queryClient";
 
 async function bootstrap() {
-    const app = createApp(App);
-    const pinia = createPinia();
-    app.use(pinia);
+  const app = createApp(App);
+  const pinia = createPinia();
 
-    // ✅ Ensure auth is initialized before routing
-    const authStore = useAuthStore();
-    await authStore.initAuth();
+  app.use(pinia);
 
-    app.use(router);
+  const authStore = useAuthStore();
 
-    app.use(PrimeVue, {
-        theme: {
-            preset: Aura,
-            options: { darkModeSelector: ".app-dark" },
-        },
-    });
+  // ✅ Initialize user session
+  await authStore.initAuth();
 
-    app.use(ToastService);
-    app.use(ConfirmationService);
+  // ✅ Clear Vue Query cache on logout
+  watch(
+    () => authStore.isLoggedIn,
+    (loggedIn) => {
+      if (!loggedIn) {
+        console.log("🧹 Clearing Vue Query cache (user logged out)");
+        queryClient.clear();
+      }
+    }
+  );
 
-    // ✅ Global Permission Directive
-    app.directive("permission", vPermission);
+  app.use(router);
 
-    await router.isReady();
-    app.mount("#app");
+  app.use(PrimeVue, {
+    theme: {
+      preset: Aura,
+      options: { darkModeSelector: ".app-dark" },
+    },
+  });
+
+  app.use(ToastService);
+  app.use(ConfirmationService);
+
+  // ✅ Register the permission directive once
+  app.directive("permission", permissionDirective);
+
+  // ✅ Vue Query setup
+  app.use(VueQueryPlugin, { queryClient });
+
+  await router.isReady();
+  app.mount("#app");
 }
 
 bootstrap();

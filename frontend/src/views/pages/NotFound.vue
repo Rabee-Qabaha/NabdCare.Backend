@@ -1,3 +1,4 @@
+<!--frontend/src/views/pages/NotFound.vue-->
 <script setup>
     import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
 </script>

@@ -1,22 +1,22 @@
-// src/views/pages/auth/Login.vue
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { useId } from "vue";
 import { useAuthStore } from "@/stores/authStore";
+import { getDefaultDashboardRoute } from "@/utils/navigation";
 
 const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const toast = useToast();
 
-// Form state
+// 🔹 Form state
 const email = ref("");
 const password = ref("");
 const rememberMe = ref(false);
 
-// Unique IDs
+// 🔹 Unique IDs (for accessibility)
 const baseId = useId();
 const ids = {
   email: `${baseId}-email`,
@@ -26,6 +26,7 @@ const ids = {
 
 const isFormValid = computed(() => email.value.trim() && password.value.trim());
 
+// 🔹 Handle login
 const handleLogin = async (): Promise<void> => {
   if (!isFormValid.value) return;
 
@@ -39,23 +40,56 @@ const handleLogin = async (): Promise<void> => {
     toast.add({
       severity: "success",
       summary: "Welcome Back",
-      detail: `Hello, ${user.name}!`,
+      detail: `Hello, ${user.name || user.email}!`,
       life: 3000,
     });
 
-    // ✅ Get redirect URL from query parameter
-    const redirectPath = route.query.redirect as string | undefined;
+    // ✅ Determine redirect target
+    let redirectPath: string | null =
+      (route.query.redirect as string | undefined) ??
+      localStorage.getItem("lastVisitedRoute");
 
-    // ✅ Navigate to redirect URL or default dashboard
+    // 🧠 If we have a redirect query, persist it for page reloads
+    if (route.query.redirect) {
+      localStorage.setItem(
+        "redirectAfterLogin",
+        route.query.redirect as string
+      );
+    }
+
+    // 🧩 Recover saved redirect if we lost it (e.g., after refresh)
+    if (!redirectPath) {
+      redirectPath = localStorage.getItem("redirectAfterLogin");
+    }
+
     if (redirectPath) {
-      // Use router.push with string path to properly navigate
-      await router.push(redirectPath);
+      console.log("↪️ Redirecting to last route:", redirectPath);
+
+      const normalizedRedirect = redirectPath.startsWith("/")
+        ? redirectPath
+        : `/${redirectPath}`;
+
+      await router.isReady();
+      await router.replace(normalizedRedirect);
+
+      // ✅ Clean up URL (remove ?redirect=...)
+      window.history.replaceState({}, "", normalizedRedirect);
+
+      // 🧹 Cleanup stored redirects
+      localStorage.removeItem("lastVisitedRoute");
+      localStorage.removeItem("redirectAfterLogin");
     } else {
-      // Default redirect based on role
-      if (authStore.isSuperAdmin) {
-        await router.push({ name: "superadmin-dashboard" });
-      } else {
-        await router.push({ name: "dashboard" });
+      console.log("🏠 Redirecting to default dashboard");
+      const target = getDefaultDashboardRoute();
+      await router.isReady();
+      await router.replace(target);
+
+      // ✅ Clean URL
+      if (typeof target === "string") {
+        window.history.replaceState({}, "", target);
+      } else if ("name" in target) {
+        const resolved = router.resolve(target);
+        window.history.replaceState({}, "", resolved.fullPath);
       }
     }
   } catch (err: any) {
@@ -74,7 +108,6 @@ const handleKeyPress = (event: KeyboardEvent): void => {
 </script>
 
 <template>
-  <!-- Template stays the same -->
   <div class="flex min-h-screen">
     <!-- Left Side - Illustration -->
     <div
@@ -108,7 +141,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
 
         <!-- Login Form -->
         <form @submit.prevent="handleLogin" @keypress="handleKeyPress">
-          <!-- Email Input -->
+          <!-- Email -->
           <div class="mb-6">
             <label
               :for="ids.email"
@@ -129,7 +162,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
             />
           </div>
 
-          <!-- Password Input -->
+          <!-- Password -->
           <div class="mb-4">
             <label
               :for="ids.password"
@@ -152,7 +185,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
             />
           </div>
 
-          <!-- Remember Me Checkbox -->
+          <!-- Remember Me -->
           <div class="flex items-center justify-between mb-6">
             <div class="flex items-center">
               <Checkbox
@@ -171,7 +204,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
             </div>
           </div>
 
-          <!-- Submit Button -->
+          <!-- Submit -->
           <Button
             type="submit"
             label="Sign In"
@@ -183,7 +216,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
           />
         </form>
 
-        <!-- Error Message -->
+        <!-- Error message -->
         <Message
           v-if="authStore.error"
           severity="error"
@@ -194,7 +227,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
           {{ authStore.error }}
         </Message>
 
-        <!-- Additional Info -->
+        <!-- Footer -->
         <div
           class="text-center text-sm text-surface-600 dark:text-surface-400 mt-8"
         >

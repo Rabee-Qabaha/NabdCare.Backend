@@ -5,7 +5,6 @@ import AppMenuItem from './AppMenuItem.vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { AuthService } from '@/service/AuthService';
-import { UserRole } from '@/types/backend/user-role';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -68,7 +67,7 @@ const clientMenu = [
 
 // ✅ Show different menu based on user role
 const model = computed(() => {
-    if (authStore.role === UserRole.SuperAdmin) {
+    if (authStore.isSuperAdmin) {
         return superAdminMenu;
     }
     return clientMenu;

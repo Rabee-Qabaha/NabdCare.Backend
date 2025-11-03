@@ -13,4 +13,6 @@ export class CreateSubscriptionRequestDto {
   type: SubscriptionType;
   fee: number;
   status: SubscriptionStatus;
+  autoRenew: boolean;
+  gracePeriodDays: number;
 }

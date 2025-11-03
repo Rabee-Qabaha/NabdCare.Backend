@@ -8,6 +8,7 @@ import { UserPermission } from "./user-permission";
 
 export class AppPermission {
   name: string = "";
+  category: string = "";
   description: string;
   rolePermissions: RolePermission[] = [];
   userPermissions: UserPermission[] = [];

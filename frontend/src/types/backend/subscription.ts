@@ -16,5 +16,12 @@ export class Subscription {
   type: SubscriptionType;
   fee: number;
   status: SubscriptionStatus;
+  previousSubscriptionId: string;
+  previousSubscription: Subscription;
+  paymentId: string;
+  invoiceNumber: string;
+  autoRenew: boolean;
+  gracePeriodDays: number = 7;
+  notes: string;
   payments: Payment[] = [];
 }

@@ -8,6 +8,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AuthorizationStatusDialog: typeof import('./src/components/authorization/AuthorizationStatusDialog.vue')['default']
     Avatar: typeof import('primevue/avatar')['default']
     Badge: typeof import('primevue/badge')['default']
     BarChart: typeof import('./src/components/dashboard/BarChart.vue')['default']
@@ -71,12 +72,14 @@ declare module 'vue' {
     ToggleSwitch: typeof import('primevue/toggleswitch')['default']
     Toolbar: typeof import('primevue/toolbar')['default']
     TreatmentHistory: typeof import('./src/components/Patiesnt/TreatmentHistory.vue')['default']
+    UserCardActions: typeof import('./src/components/User/UserCardActions.vue')['default']
     UserDialog: typeof import('./src/components/User/UserDialog.vue')['default']
     UserProfileMenu: typeof import('./src/components/User/UserProfileMenu.vue')['default']
     VisitDialog: typeof import('./src/components/Patiesnt/VisitDialog.vue')['default']
     XRayDialog: typeof import('./src/components/Patiesnt/XRayDialog.vue')['default']
   }
   export interface ComponentCustomProperties {
+    Ripple: typeof import('primevue/ripple')['default']
     StyleClass: typeof import('primevue/styleclass')['default']
     Tooltip: typeof import('primevue/tooltip')['default']
   }

@@ -9,7 +9,12 @@ export class UserResponseDto {
   fullName: string = "";
   roleId: string;
   roleName: string = "";
+  isSystemRole: boolean;
   isActive: boolean;
   clinicId: string;
   clinicName: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdByUserId: string;
+  createdByUserName: string;
 }

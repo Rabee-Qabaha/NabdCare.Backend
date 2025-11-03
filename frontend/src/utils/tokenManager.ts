@@ -1,49 +1,70 @@
 import { jwtDecode, type JwtPayload } from "jwt-decode";
 
 /**
- * Token Manager - stores access token in memory w/ backup in sessionStorage
- * Refresh Token stays in HttpOnly cookie only ✅ Secure
+ * TokenManager
+ * -----------------------------------------------------
+ * Manages short-lived access tokens in-memory
+ * + auto-refresh using HttpOnly cookie (secure backend flow)
+ *
+ * Access token is stored in memory only — with an optional
+ * backup in sessionStorage (for tab reload recovery).
  */
 class TokenManager {
   private accessToken: string | null = null;
   private refreshTimeoutId: number | null = null;
   private refreshPromise: Promise<string | null> | null = null;
+  private readonly BACKUP_KEY = "_at_backup";
 
   /**
-   * Set and schedule auto refresh
+   * ✅ Store token in memory and optional session backup
    */
-  setAccessToken(token: string, backup: boolean = true): void {
+  setAccessToken(token: string, backup = true): void {
     this.accessToken = token;
 
     if (backup) {
-      sessionStorage.setItem("_at_backup", token);
+      try {
+        sessionStorage.setItem(this.BACKUP_KEY, token);
+      } catch {
+        console.warn(
+          "⚠️ SessionStorage not available — running in private mode?"
+        );
+      }
     }
 
     this.scheduleTokenRefresh(token);
   }
 
   /**
-   * Get token from memory or fallback backup
+   * ✅ Retrieve token from memory or backup storage
    */
   getAccessToken(): string | null {
     if (this.accessToken) return this.accessToken;
 
-    const backup = sessionStorage.getItem("_at_backup");
-    if (backup && !this.isTokenExpired(backup)) {
-      this.accessToken = backup;
-      this.scheduleTokenRefresh(backup);
-      return backup;
+    try {
+      const backup = sessionStorage.getItem(this.BACKUP_KEY);
+      if (backup && !this.isTokenExpired(backup)) {
+        this.accessToken = backup;
+        this.scheduleTokenRefresh(backup);
+        return backup;
+      }
+    } catch {
+      console.warn("⚠️ Could not read from sessionStorage.");
     }
 
     return null;
   }
 
   /**
-   * Clear everything
+   * ✅ Clear all stored tokens and timers
    */
   clearTokens(): void {
     this.accessToken = null;
-    sessionStorage.removeItem("_at_backup");
+
+    try {
+      sessionStorage.removeItem(this.BACKUP_KEY);
+    } catch {
+      /* ignore */
+    }
 
     if (this.refreshTimeoutId) {
       clearTimeout(this.refreshTimeoutId);
@@ -52,15 +73,13 @@ class TokenManager {
   }
 
   /**
-   * Refresh access token using HttpOnly cookie
+   * ✅ Refresh access token via HttpOnly cookie
+   * Prevents duplicate calls across rapid re-renders
    */
   async refreshAccessToken(): Promise<string | null> {
-    if (this.refreshPromise) {
-      return this.refreshPromise;
-    }
+    if (this.refreshPromise) return this.refreshPromise;
 
     this.refreshPromise = this._performRefresh();
-
     try {
       return await this.refreshPromise;
     } finally {
@@ -69,27 +88,28 @@ class TokenManager {
   }
 
   private async _performRefresh(): Promise<string | null> {
-    try {
-      const baseURL =
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:5175/api";
+    const baseURL = import.meta.env.VITE_API_BASE_URL || "/api";
 
+    try {
       const response = await fetch(`${baseURL}/auth/refresh`, {
         method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        credentials: "include", // ✅ Send HttpOnly cookie
+        headers: { "Content-Type": "application/json" },
       });
 
-      if (!response.ok) throw new Error("Token refresh failed");
+      if (!response.ok)
+        throw new Error(`Token refresh failed (${response.status})`);
 
       const data = await response.json();
 
-      if (data.accessToken) {
+      if (data?.accessToken) {
         this.setAccessToken(data.accessToken, true);
+        console.log("🔁 Access token refreshed successfully");
         return data.accessToken;
       }
 
+      console.warn("⚠️ No token received during refresh");
+      this.clearTokens();
       return null;
     } catch (error) {
       console.error("❌ Token refresh error:", error);
@@ -99,11 +119,12 @@ class TokenManager {
   }
 
   /**
-   * Auto refresh 5 mins before expiry
+   * ⏳ Automatically schedule refresh ~5 minutes before expiration
    */
   private scheduleTokenRefresh(token: string): void {
     if (this.refreshTimeoutId) {
       clearTimeout(this.refreshTimeoutId);
+      this.refreshTimeoutId = null;
     }
 
     try {
@@ -113,26 +134,29 @@ class TokenManager {
       const expiresAt = decoded.exp * 1000;
       const now = Date.now();
       const msUntilExpire = expiresAt - now;
-      const refreshMs = msUntilExpire - 5 * 60 * 1000;
+      const refreshDelay = Math.max(msUntilExpire - 5 * 60 * 1000, 10_000); // at least 10s before
 
-      if (refreshMs > 0) {
-        this.refreshTimeoutId = window.setTimeout(
-          () => this.refreshAccessToken(),
-          refreshMs
+      console.log(
+        `🕐 Scheduling next refresh in ${(refreshDelay / 1000 / 60).toFixed(1)} min`
+      );
+
+      this.refreshTimeoutId = window.setTimeout(() => {
+        this.refreshAccessToken().catch((err) =>
+          console.error("⚠️ Auto-refresh failed:", err)
         );
-      } else {
-        this.refreshAccessToken();
-      }
-    } catch (error) {
-      console.error("❌ Failed to schedule refresh:", error);
+      }, refreshDelay);
+    } catch (err) {
+      console.error("❌ Failed to schedule refresh:", err);
     }
   }
 
+  /**
+   * 🔒 Check if token is expired
+   */
   private isTokenExpired(token: string): boolean {
     try {
       const decoded = jwtDecode<JwtPayload>(token);
       if (!decoded.exp) return true;
-
       return decoded.exp < Date.now() / 1000;
     } catch {
       return true;

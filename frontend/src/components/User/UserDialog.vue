@@ -1,27 +1,262 @@
+<script setup lang="ts">
+import { ref, watch, computed } from "vue";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  useClinics,
+  useGroupedRoles,
+} from "@/composables/query/useDropdownData";
+import type { UserResponseDto } from "@/types/backend";
+
+// PrimeVue Components
+import Dialog from "primevue/dialog";
+import TabView from "primevue/tabview";
+import TabPanel from "primevue/tabpanel";
+import InputText from "primevue/inputtext";
+import Select from "primevue/select";
+import ToggleSwitch from "primevue/toggleswitch";
+import Button from "primevue/button";
+import Tag from "primevue/tag";
+
+/**
+ * User Dialog Component
+ * Author: Rabee Qabaha
+ * Updated: 2025-11-02
+ */
+
+const activeTabIndex = ref(0);
+const authStore = useAuthStore();
+
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    user?: Partial<UserResponseDto> | null;
+  }>(),
+  { user: null }
+);
+
+const emit = defineEmits<{
+  "update:visible": [value: boolean];
+  save: [value: any];
+  cancel: [];
+}>();
+
+// =========================================================
+// STATE
+// =========================================================
+const localUser = ref<any>({});
+const submitted = ref(false);
+const saving = ref(false);
+const isSuperAdmin = computed(() => authStore.isSuperAdmin);
+
+// =========================================================
+// DATA COMPOSABLES
+// =========================================================
+const {
+  data: groupedRoles,
+  isLoading: rolesLoading,
+  error: rolesError,
+} = useGroupedRoles();
+
+const {
+  data: clinics = [],
+  isLoading: clinicsLoading,
+  error: clinicsError,
+} = useClinics();
+
+// =========================================================
+// ROLE LOGIC
+// =========================================================
+const allRoles = computed(() => {
+  if (!groupedRoles.value) return [];
+  const {
+    systemRoles = [],
+    templateRoles = [],
+    clinicRoles = [],
+  } = groupedRoles.value;
+  return [...systemRoles, ...templateRoles, ...clinicRoles];
+});
+
+const selectedRole = computed(() =>
+  allRoles.value.find((r) => r.id === localUser.value.roleId)
+);
+
+const shouldDisableClinicDropdown = computed(() => {
+  if (!selectedRole.value) return false;
+  return (
+    selectedRole.value.isSystemRole ||
+    selectedRole.value.isTemplate ||
+    !!selectedRole.value.clinicId
+  );
+});
+
+const isClinicRequired = computed(() => {
+  return (
+    !selectedRole.value?.isSystemRole &&
+    !selectedRole.value?.isTemplate &&
+    !selectedRole.value?.clinicId
+  );
+});
+
+// =========================================================
+// VALIDATION HELPERS
+// =========================================================
+function isEmailValid(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+const isPasswordSecure = computed(() => {
+  if (localUser.value.id) return {};
+  const password = localUser.value.password || "";
+  return {
+    minLength: password.length >= 12,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+    specialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+});
+
+const isNewPasswordSecure = computed(() => {
+  if (localUser.value.id) return true;
+  const s = isPasswordSecure.value;
+  return s.minLength && s.uppercase && s.lowercase && s.digit && s.specialChar;
+});
+
+const isBasicDetailsValid = computed(() => {
+  const hasFullName = !!localUser.value.fullName?.trim();
+  const hasEmail =
+    !!localUser.value.email && isEmailValid(localUser.value.email);
+  return hasFullName && hasEmail;
+});
+
+const isRoleDetailsValid = computed(() => !!localUser.value.roleId);
+
+const isSecurityDetailsValid = computed(() => {
+  if (!localUser.value.id) {
+    return (
+      isNewPasswordSecure.value &&
+      !!localUser.value.password &&
+      localUser.value.password === localUser.value.confirmPassword
+    );
+  }
+  return true;
+});
+
+const isFormValid = computed(
+  () =>
+    isBasicDetailsValid.value &&
+    isRoleDetailsValid.value &&
+    isSecurityDetailsValid.value &&
+    (shouldDisableClinicDropdown.value || !!localUser.value.clinicId)
+);
+
+// =========================================================
+// WATCHERS
+// =========================================================
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) {
+      submitted.value = false;
+      activeTabIndex.value = 0;
+
+      localUser.value = {
+        fullName: props.user?.fullName || "",
+        email: props.user?.email || "",
+        password: "",
+        confirmPassword: "",
+        roleId: props.user?.roleId || null,
+        clinicId: props.user?.clinicId || null,
+        isActive: props.user?.isActive ?? true,
+        id: props.user?.id || null,
+      };
+    }
+  }
+);
+
+watch(
+  () => localUser.value.roleId,
+  (newRoleId) => {
+    if (!newRoleId) return;
+    const role = allRoles.value.find((r) => r.id === newRoleId);
+    if (!role) return;
+    if (role.isSystemRole || role.isTemplate || role.clinicId) {
+      localUser.value.clinicId = null;
+    }
+  }
+);
+
+// =========================================================
+// HANDLERS
+// =========================================================
+function onPrevious() {
+  if (activeTabIndex.value > 0) activeTabIndex.value--;
+}
+
+function onNext() {
+  submitted.value = true;
+  let isValid = false;
+  if (activeTabIndex.value === 0) isValid = isBasicDetailsValid.value;
+  else if (activeTabIndex.value === 1)
+    isValid =
+      isRoleDetailsValid.value &&
+      (shouldDisableClinicDropdown.value || !!localUser.value.clinicId);
+  if (isValid) {
+    submitted.value = false;
+    activeTabIndex.value++;
+  }
+}
+
+async function onSave() {
+  submitted.value = true;
+
+  if (!isFormValid.value) {
+    if (!isBasicDetailsValid.value) activeTabIndex.value = 0;
+    else if (!isRoleDetailsValid.value) activeTabIndex.value = 1;
+    else activeTabIndex.value = 2;
+    return;
+  }
+
+  saving.value = true;
+
+  const dto: any = {
+    fullName: localUser.value.fullName,
+    email: localUser.value.email,
+    roleId: localUser.value.roleId,
+    clinicId: localUser.value.clinicId || undefined,
+    isActive: localUser.value.isActive,
+  };
+
+  if (!localUser.value.id) dto.password = localUser.value.password;
+
+  try {
+    emit("save", { ...dto, id: localUser.value.id });
+  } finally {
+    saving.value = false;
+  }
+}
+
+function onCancel() {
+  emit("cancel");
+  emit("update:visible", false);
+}
+</script>
+
 <template>
   <Dialog
     :visible="visible"
     @update:visible="emit('update:visible', $event)"
     :style="{ width: '550px' }"
     :header="localUser.id ? 'Edit User Details' : 'Create New User'"
-    :modal="true"
+    modal
     class="p-4 bg-surface-0 dark:bg-surface-900 shadow-2xl rounded-xl"
   >
-    <!-- Dialog Body using TabView for step-by-step clarity -->
     <TabView
       :activeIndex="activeTabIndex"
       @update:activeIndex="activeTabIndex = $event"
-      class="user-dialog-tabview"
     >
       <!-- TAB 1: BASIC DETAILS -->
-      <TabPanel
-        :value="0"
-        :header-class="
-          activeTabIndex === 0
-            ? 'bg-primary-50 dark:bg-primary-900 rounded-top-lg'
-            : ''
-        "
-      >
+      <TabPanel>
         <template #header>
           <div class="flex items-center gap-2">
             <i class="pi pi-user text-lg"></i>
@@ -30,42 +265,38 @@
         </template>
 
         <div class="flex flex-col gap-5 p-2">
-          <!-- Full Name -->
           <div>
-            <label for="fullName" class="block font-medium mb-2"
+            <label class="block font-medium mb-2"
               >Full Name <span class="text-red-500">*</span></label
             >
             <InputText
-              id="fullName"
               v-model.trim="localUser.fullName"
               placeholder="Enter full name"
               :invalid="submitted && !localUser.fullName"
               class="w-full"
             />
-            <small v-if="submitted && !localUser.fullName" class="text-red-500">
-              Full name is required.
-            </small>
+            <small v-if="submitted && !localUser.fullName" class="text-red-500"
+              >Full name is required.</small
+            >
           </div>
 
-          <!-- Email -->
           <div>
-            <label for="email" class="block font-medium mb-2"
+            <label class="block font-medium mb-2"
               >Email <span class="text-red-500">*</span></label
             >
             <InputText
-              id="email"
-              type="email"
               v-model.trim="localUser.email"
               placeholder="user@example.com"
+              type="email"
               :invalid="
                 submitted &&
                 (!localUser.email || !isEmailValid(localUser.email))
               "
               class="w-full"
             />
-            <small v-if="submitted && !localUser.email" class="text-red-500">
-              Email is required.
-            </small>
+            <small v-if="submitted && !localUser.email" class="text-red-500"
+              >Email is required.</small
+            >
             <small
               v-else-if="
                 submitted && localUser.email && !isEmailValid(localUser.email)
@@ -78,15 +309,8 @@
         </div>
       </TabPanel>
 
-      <!-- TAB 2: ROLE ASSIGNMENT -->
-      <TabPanel
-        :value="1"
-        :header-class="
-          activeTabIndex === 1
-            ? 'bg-primary-50 dark:bg-primary-900 rounded-top-lg'
-            : ''
-        "
-      >
+      <!-- TAB 2: ROLE & CLINIC -->
+      <TabPanel>
         <template #header>
           <div class="flex items-center gap-2">
             <i class="pi pi-briefcase text-lg"></i>
@@ -95,102 +319,181 @@
         </template>
 
         <div class="flex flex-col gap-5 p-2">
-          <!-- Role Selection -->
           <div>
-            <label for="role" class="block font-medium mb-2"
+            <label class="block font-medium mb-2"
               >Role <span class="text-red-500">*</span></label
             >
             <Select
-              id="role"
               v-model="localUser.roleId"
-              :options="roles"
+              :options="allRoles"
               optionLabel="name"
               optionValue="id"
               placeholder="Select a role"
               :loading="rolesLoading"
               :invalid="submitted && activeTabIndex === 1 && !localUser.roleId"
               class="w-full"
+              filter
+              filterPlaceholder="Search roles..."
+              :disabled="rolesError"
             >
               <template #value="{ value }">
-                <div v-if="value" class="flex align-items-center gap-2">
-                  <i class="pi pi-shield"></i>
-                  <span class="font-semibold">{{
-                    roles.find((r) => r.id === value)?.name
+                <div
+                  v-if="value"
+                  class="flex items-center gap-2 truncate"
+                  style="width: 100%"
+                >
+                  <div
+                    class="w-6 h-6 flex items-center justify-center rounded-md text-primary bg-primary/10 flex-shrink-0"
+                  >
+                    <i :class="selectedRole?.iconClass || 'pi pi-shield'"></i>
+                  </div>
+                  <span class="font-medium text-sm truncate">{{
+                    selectedRole?.name
                   }}</span>
                 </div>
-                <span v-else class="text-500">Select a role</span>
+                <span v-else class="text-surface-500 text-sm"
+                  >Select a role</span
+                >
               </template>
-              <template #option="{ option }">
-                <div class="flex flex-col gap-1 p-2">
-                  <div class="flex align-items-center gap-2">
-                    <i class="pi pi-shield text-primary"></i>
-                    <span class="font-semibold">{{ option.name }}</span>
+
+              <template #option="{ option, selected }">
+                <div
+                  class="flex flex-col gap-1.5 p-3 rounded-md transition-all duration-150 border last:border-0 cursor-pointer"
+                  style="width: 100%"
+                  :class="[
+                    selected
+                      ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-sm'
+                      : 'border-transparent hover:bg-surface-50 dark:hover:bg-surface-800 hover:border-surface-200 dark:hover:border-surface-700',
+                  ]"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <div
+                        class="w-7 h-7 flex items-center justify-center rounded-md bg-primary/10 text-primary flex-shrink-0"
+                      >
+                        <i :class="option.iconClass || 'pi pi-shield'"></i>
+                      </div>
+                      <span class="font-semibold text-sm truncate">{{
+                        option.name
+                      }}</span>
+                    </div>
+
+                    <Tag
+                      v-if="option.isSystemRole"
+                      value="System"
+                      severity="danger"
+                      class="text-xs px-2 py-0.5 flex-shrink-0"
+                    />
+                    <Tag
+                      v-else-if="option.isTemplate"
+                      value="Template"
+                      severity="info"
+                      class="text-xs px-2 py-0.5 flex-shrink-0"
+                    />
+                    <Tag
+                      v-else-if="option.clinicId"
+                      value="Clinic"
+                      severity="success"
+                      class="text-xs px-2 py-0.5 flex-shrink-0"
+                    />
                   </div>
-                  <small class="text-500">{{
-                    option.description || "No description provided"
-                  }}</small>
+
+                  <div
+                    v-if="option.description"
+                    class="text-xs text-surface-500 dark:text-surface-400 truncate"
+                    v-tooltip.top="option.description"
+                  >
+                    {{ option.description }}
+                  </div>
                 </div>
               </template>
             </Select>
             <small
               v-if="submitted && activeTabIndex === 1 && !localUser.roleId"
-              class="text-red-500"
+              class="text-red-500 block mt-2"
+              >Role is required.</small
             >
-              Role is required.
-            </small>
           </div>
 
-          <!-- Clinic Selection (SuperAdmin only) -->
+          <!-- Clinic -->
           <div v-if="isSuperAdmin">
-            <label for="clinic" class="block font-medium mb-2">Clinic</label>
+            <label class="block font-medium mb-2">
+              Clinic
+              <span
+                v-if="isClinicRequired"
+                class="text-red-500 text-sm animate-pulse"
+                >*</span
+              >
+            </label>
             <Select
-              id="clinic"
               v-model="localUser.clinicId"
               :options="clinics"
               optionLabel="name"
               optionValue="id"
-              placeholder="Select a clinic (optional)"
+              placeholder="Select a clinic"
               :loading="clinicsLoading"
               showClear
               class="w-full"
               filter
               filterPlaceholder="Search clinics..."
+              :disabled="clinicsError || shouldDisableClinicDropdown"
+              :invalid="
+                submitted &&
+                activeTabIndex === 1 &&
+                isClinicRequired &&
+                !localUser.clinicId
+              "
             >
               <template #value="{ value }">
-                <div v-if="value" class="flex align-items-center gap-2">
-                  <i class="pi pi-building"></i>
-                  <span class="font-semibold">{{
-                    clinics.find((c) => c.id === value)?.name
-                  }}</span>
+                <div
+                  v-if="value && !shouldDisableClinicDropdown"
+                  class="flex items-center gap-2"
+                >
+                  <i class="pi pi-building text-primary"></i>
+                  <span class="font-semibold">
+                    {{ clinics.find((c) => c.id === value)?.name || "Unknown" }}
+                  </span>
                 </div>
-                <span v-else class="text-500">No clinic (Global Admin)</span>
+                <span
+                  v-else-if="shouldDisableClinicDropdown"
+                  class="text-surface-500 italic"
+                  >Not applicable</span
+                >
+                <span v-else class="text-surface-500">Select a clinic</span>
               </template>
+
               <template #option="{ option }">
-                <div class="flex flex-col gap-1 p-2">
-                  <div class="flex align-items-center gap-2">
+                <div class="flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
                     <i class="pi pi-building text-green-500"></i>
                     <span class="font-semibold">{{ option.name }}</span>
                   </div>
-                  <small class="text-500">{{ option.email }}</small>
+                  <small class="text-surface-500">{{ option.email }}</small>
                 </div>
               </template>
             </Select>
-            <small class="text-500 mt-1 block"
-              >Leave empty for SuperAdmin without clinic affiliation.</small
+
+            <small
+              v-if="
+                submitted &&
+                activeTabIndex === 1 &&
+                isClinicRequired &&
+                !localUser.clinicId
+              "
+              class="text-red-500 block mt-1"
             >
+              Clinic is required for this role.
+            </small>
+
+            <small v-if="clinicsError" class="text-red-500 block mt-2">
+              ❌ Failed to load clinics: {{ clinicsError.message }}
+            </small>
           </div>
         </div>
       </TabPanel>
 
-      <!-- TAB 3: SECURITY & STATUS -->
-      <TabPanel
-        :value="2"
-        :header-class="
-          activeTabIndex === 2
-            ? 'bg-primary-50 dark:bg-primary-900 rounded-top-lg'
-            : ''
-        "
-      >
+      <!-- TAB 3: SECURITY -->
+      <TabPanel>
         <template #header>
           <div class="flex items-center gap-2">
             <i class="pi pi-lock text-lg"></i>
@@ -199,160 +502,7 @@
         </template>
 
         <div class="flex flex-col gap-5 p-2">
-          <!-- Password fields (New User Only) -->
-          <template v-if="!localUser.id">
-            <div class="p-4 bg-surface-50 dark:bg-surface-800 rounded-xl">
-              <h4
-                class="text-lg font-bold text-900 mb-3 flex items-center gap-2 dark:text-white"
-              >
-                Set Initial Password
-              </h4>
-              <p class="text-sm text-600 dark:text-400 mb-3">
-                Password must meet the following security requirements:
-              </p>
-              <!-- Password Requirements List with dynamic coloring and bold text -->
-              <ul
-                class="list-none p-0 m-0 text-sm text-700 dark:text-300 grid grid-cols-1 sm:grid-cols-2 gap-1 mb-4"
-              >
-                <li class="flex items-center gap-2">
-                  <i
-                    class="pi pi-check-circle"
-                    :class="{
-                      'text-green-500': isPasswordSecure.minLength,
-                      'text-red-500': !isPasswordSecure.minLength,
-                    }"
-                  ></i>
-                  Minimum <span class="font-bold">12 characters</span>
-                </li>
-                <li class="flex items-center gap-2">
-                  <i
-                    class="pi pi-check-circle"
-                    :class="{
-                      'text-green-500': isPasswordSecure.uppercase,
-                      'text-red-500': !isPasswordSecure.uppercase,
-                    }"
-                  ></i>
-                  At least one <span class="font-bold">uppercase</span> letter
-                </li>
-                <li class="flex items-center gap-2">
-                  <i
-                    class="pi pi-check-circle"
-                    :class="{
-                      'text-green-500': isPasswordSecure.lowercase,
-                      'text-red-500': !isPasswordSecure.lowercase,
-                    }"
-                  ></i>
-                  At least one <span class="font-bold">lowercase</span> letter
-                </li>
-                <li class="flex items-center gap-2">
-                  <i
-                    class="pi pi-check-circle"
-                    :class="{
-                      'text-green-500': isPasswordSecure.digit,
-                      'text-red-500': !isPasswordSecure.digit,
-                    }"
-                  ></i>
-                  At least one <span class="font-bold">digit</span> (0-9)
-                </li>
-                <li class="flex items-center gap-2">
-                  <i
-                    class="pi pi-check-circle"
-                    :class="{
-                      'text-green-500': isPasswordSecure.specialChar,
-                      'text-red-500': !isPasswordSecure.specialChar,
-                    }"
-                  ></i>
-                  At least one <span class="font-bold">special character</span>
-                </li>
-              </ul>
-              <div class="grid gap-4">
-                <!-- Password -->
-                <div class="col-12">
-                  <label for="password" class="block font-medium mb-2"
-                    >Password <span class="text-red-500">*</span></label
-                  >
-                  <Password
-                    id="password"
-                    v-model="localUser.password"
-                    toggleMask
-                    :feedback="true"
-                    class="w-full"
-                    inputClass="w-full"
-                    placeholder="Enter new password"
-                    :invalid="
-                      submitted &&
-                      activeTabIndex === 2 &&
-                      (!localUser.password || !isNewPasswordSecure)
-                    "
-                  />
-                  <small
-                    v-if="
-                      submitted && activeTabIndex === 2 && !localUser.password
-                    "
-                    class="text-red-500"
-                  >
-                    Password is required.
-                  </small>
-                  <small
-                    v-else-if="
-                      submitted &&
-                      activeTabIndex === 2 &&
-                      localUser.password &&
-                      !isNewPasswordSecure
-                    "
-                    class="text-red-500"
-                  >
-                    Password does not meet all security requirements.
-                  </small>
-                </div>
-
-                <!-- Confirm Password -->
-                <div class="col-12">
-                  <label for="confirmPassword" class="block font-medium mb-2"
-                    >Confirm Password <span class="text-red-500">*</span></label
-                  >
-                  <Password
-                    id="confirmPassword"
-                    v-model="localUser.confirmPassword"
-                    toggleMask
-                    :feedback="false"
-                    class="w-full"
-                    inputClass="w-full"
-                    placeholder="Re-enter password"
-                    :invalid="
-                      submitted &&
-                      activeTabIndex === 2 &&
-                      (!localUser.confirmPassword ||
-                        localUser.confirmPassword !== localUser.password)
-                    "
-                  />
-                  <small
-                    v-if="
-                      submitted &&
-                      activeTabIndex === 2 &&
-                      !localUser.confirmPassword
-                    "
-                    class="text-red-500"
-                  >
-                    Confirmation is required.
-                  </small>
-                  <small
-                    v-else-if="
-                      submitted &&
-                      activeTabIndex === 2 &&
-                      localUser.confirmPassword &&
-                      localUser.confirmPassword !== localUser.password
-                    "
-                    class="text-red-500"
-                  >
-                    Passwords do not match.
-                  </small>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Active Status Toggle -->
+          <!-- Active Status -->
           <div
             class="flex items-center justify-between p-4 rounded-lg ring-1 transition-all duration-300"
             :class="{
@@ -362,12 +512,7 @@
                 !localUser.isActive,
             }"
           >
-            <div
-              :class="{
-                'text-green-900 dark:text-green-100': localUser.isActive,
-                'text-red-900 dark:text-red-100': !localUser.isActive,
-              }"
-            >
+            <div>
               <label class="font-bold text-lg flex items-center gap-2">
                 <i
                   :class="{
@@ -385,7 +530,6 @@
                 }}
               </p>
             </div>
-            <!-- The ToggleSwitch is pushed to the far right by 'justify-between' -->
             <div class="flex-shrink-0">
               <ToggleSwitch v-model="localUser.isActive" />
             </div>
@@ -403,9 +547,7 @@
           outlined
           @click="onCancel"
         />
-
         <div class="flex gap-2">
-          <!-- Previous Button -->
           <Button
             v-if="activeTabIndex > 0"
             label="Previous"
@@ -413,8 +555,6 @@
             severity="secondary"
             @click="onPrevious"
           />
-
-          <!-- Next Button (or Save/Update if on last tab) -->
           <Button
             v-if="activeTabIndex < 2"
             label="Next"
@@ -422,13 +562,12 @@
             iconPos="right"
             @click="onNext"
           />
-
-          <!-- Final Save/Update Button -->
           <Button
             v-else
             :label="localUser.id ? 'Update User' : 'Create User'"
             icon="pi pi-check"
             :loading="saving"
+            :disabled="!isFormValid"
             @click="onSave"
           />
         </div>
@@ -436,228 +575,3 @@
     </template>
   </Dialog>
 </template>
-
-<script setup lang="ts">
-import { ref, watch, computed, onMounted } from "vue";
-import { useAuthStore } from "@/stores/authStore";
-import { apiService } from "@/service/apiService";
-import type {
-  RoleResponseDto,
-  ClinicResponseDto,
-  UserResponseDto,
-} from "@/types/backend";
-
-// Internal state for managing the active tab index
-const activeTabIndex = ref(0);
-// Total number of steps/tabs
-const TOTAL_TABS = 3;
-
-const authStore = useAuthStore();
-
-const props = defineProps<{
-  visible: boolean;
-  user: Partial<UserResponseDto>;
-}>();
-
-const emit = defineEmits(["update:visible", "save", "cancel"]);
-
-// State
-const localUser = ref<any>({});
-const submitted = ref(false);
-const saving = ref(false);
-const roles = ref<RoleResponseDto[]>([]);
-const rolesLoading = ref(false);
-const clinics = ref<ClinicResponseDto[]>([]);
-const clinicsLoading = ref(false);
-
-const isSuperAdmin = computed(() => authStore.isSuperAdmin);
-
-// Load roles and clinics
-onMounted(async () => {
-  await Promise.all([
-    loadRoles(),
-    isSuperAdmin.value ? loadClinics() : Promise.resolve(),
-  ]);
-});
-
-async function loadRoles() {
-  try {
-    rolesLoading.value = true;
-    roles.value = await apiService.get<RoleResponseDto[]>("/roles");
-  } catch (error) {
-    console.error("Failed to load roles:", error);
-  } finally {
-    rolesLoading.value = false;
-  }
-}
-
-async function loadClinics() {
-  try {
-    clinicsLoading.value = true;
-    clinics.value = await apiService.get<ClinicResponseDto[]>("/clinics");
-  } catch (error) {
-    console.error("Failed to load clinics:", error);
-  } finally {
-    clinicsLoading.value = false;
-  }
-}
-
-// Watch for dialog visibility changes
-watch(
-  () => props.visible,
-  (newVal) => {
-    if (newVal) {
-      submitted.value = false;
-      // Reset to the first tab when opening
-      activeTabIndex.value = 0;
-      localUser.value = {
-        fullName: props.user?.fullName || "",
-        email: props.user?.email || "",
-        password: "",
-        confirmPassword: "",
-        roleId: props.user?.roleId || null,
-        clinicId: props.user?.clinicId || null,
-        isActive: props.user?.isActive ?? true,
-        id: props.user?.id || null,
-      };
-    }
-  }
-);
-
-// Validation
-function isEmailValid(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-// --- NEW PASSWORD SECURITY VALIDATION (for new users) ---
-
-const isPasswordSecure = computed(() => {
-  if (localUser.value.id) return {}; // Skip check for existing users
-
-  const password = localUser.value.password || "";
-  return {
-    minLength: password.length >= 12,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    digit: /\d/.test(password),
-    // Covers a wide range of common special characters
-    specialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
-  };
-});
-
-const isNewPasswordSecure = computed(() => {
-  if (localUser.value.id) return true; // Skip check for existing users
-
-  const security = isPasswordSecure.value;
-  return (
-    security.minLength &&
-    security.uppercase &&
-    security.lowercase &&
-    security.digit &&
-    security.specialChar
-  );
-});
-
-// Separate validation into steps for sequential navigation checks
-const isBasicDetailsValid = computed(() => {
-  const hasFullName = !!localUser.value.fullName?.trim();
-  const hasEmail =
-    !!localUser.value.email && isEmailValid(localUser.value.email);
-  return hasFullName && hasEmail;
-});
-
-const isRoleDetailsValid = computed(() => {
-  const hasRole = !!localUser.value.roleId;
-  return hasRole;
-});
-
-const isSecurityDetailsValid = computed(() => {
-  // Password validation only for new users
-  if (!localUser.value.id) {
-    return (
-      isNewPasswordSecure.value &&
-      localUser.value.password && // Must not be empty
-      localUser.value.password === localUser.value.confirmPassword
-    );
-  }
-  // For existing users, this tab is always valid as it only contains the active status toggle
-  return true;
-});
-
-const isFormValid = computed(() => {
-  return (
-    isBasicDetailsValid.value &&
-    isRoleDetailsValid.value &&
-    isSecurityDetailsValid.value
-  );
-});
-
-// Navigation Handlers
-function onPrevious() {
-  if (activeTabIndex.value > 0) {
-    activeTabIndex.value--;
-  }
-}
-
-function onNext() {
-  // Set submitted state for the current tab only
-  submitted.value = true;
-
-  let isValid = false;
-  if (activeTabIndex.value === 0) {
-    isValid = isBasicDetailsValid.value;
-  } else if (activeTabIndex.value === 1) {
-    isValid = isRoleDetailsValid.value;
-  }
-
-  if (isValid) {
-    submitted.value = false; // Reset submitted state on success to prevent showing errors on the next tab
-    activeTabIndex.value++;
-  } else {
-    // If validation fails, keep submitted state to show errors on the current tab
-  }
-}
-
-// Handlers
-async function onSave() {
-  submitted.value = true;
-  if (!isFormValid.value) {
-    // If validation fails on the final step, jump the user back to the tab with the error
-    if (!isBasicDetailsValid.value) {
-      activeTabIndex.value = 0;
-    } else if (!isRoleDetailsValid.value) {
-      activeTabIndex.value = 1;
-    } else {
-      activeTabIndex.value = 2; // Password error
-    }
-    return;
-  }
-
-  saving.value = true;
-
-  // Prepare DTO for backend
-  const dto: any = {
-    fullName: localUser.value.fullName,
-    email: localUser.value.email,
-    roleId: localUser.value.roleId,
-    clinicId: localUser.value.clinicId || undefined,
-    isActive: localUser.value.isActive, // Include status update for existing user
-  };
-
-  // Add password only for new users
-  if (!localUser.value.id) {
-    dto.password = localUser.value.password;
-  }
-
-  try {
-    emit("save", { ...dto, id: localUser.value.id });
-  } finally {
-    saving.value = false;
-  }
-}
-
-function onCancel() {
-  emit("cancel");
-  emit("update:visible", false);
-}
-</script>
