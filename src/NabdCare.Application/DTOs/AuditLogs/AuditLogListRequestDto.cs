@@ -1,9 +1,12 @@
+using TypeGen.Core.TypeAnnotations;
+
 namespace NabdCare.Application.DTOs.AuditLogs;
 
 /// <summary>
 /// Filters used to query audit logs.
 /// Pagination is handled separately via PaginationRequestDto.
 /// </summary>
+[ExportTsClass]
 public class AuditLogListRequestDto
 {
     /// <summary>

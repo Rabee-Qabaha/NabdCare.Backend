@@ -179,7 +179,7 @@ public class UserService : IUserService
             ClinicId = targetClinicId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = currentUserId,
+            CreatedByUserId = Guid.TryParse(currentUserId, out var uid) ? uid : null,
             IsDeleted = false
         };
 

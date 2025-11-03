@@ -35,6 +35,7 @@ public class UserRepository : IUserRepository
         return await _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
+            .Include(u => u.CreatedByUser)
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
     }
@@ -57,6 +58,7 @@ public class UserRepository : IUserRepository
         return await _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
+            .Include(u => u.CreatedByUser)
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail && !u.IsDeleted);
     }
@@ -78,6 +80,7 @@ public class UserRepository : IUserRepository
         IQueryable<User> query = _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
+            .Include(u => u.CreatedByUser)
             .Where(u => !u.IsDeleted)
             .AsNoTracking();
 
@@ -136,6 +139,7 @@ public class UserRepository : IUserRepository
         IQueryable<User> query = _dbContext.Users
             .Include(u => u.Clinic)
             .Include(u => u.Role)
+            .Include(u => u.CreatedByUser)
             .Where(u => u.ClinicId == clinicId && !u.IsDeleted)
             .AsNoTracking();
 

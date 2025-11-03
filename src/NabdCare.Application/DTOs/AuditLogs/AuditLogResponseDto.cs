@@ -1,5 +1,8 @@
+using TypeGen.Core.TypeAnnotations;
+
 namespace NabdCare.Application.DTOs.AuditLogs;
 
+[ExportTsClass]
 public class AuditLogResponseDto
 {
     public Guid Id { get; set; }

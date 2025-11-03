@@ -28,10 +28,13 @@ using NabdCare.Infrastructure.Repositories.Permissions;
 using NabdCare.Infrastructure.Repositories.Roles;
 using NabdCare.Infrastructure.Repositories.Users;
 using NabdCare.Api.Authorization;
+using NabdCare.Application.Interfaces.Authorizations;
 using NabdCare.Application.mappings;
+using NabdCare.Application.Services.Authorizations;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Users;
+using NabdCare.Infrastructure.Repositories.Authorization;
 using NabdCare.Infrastructure.Services.Caching;
 
 namespace NabdCare.Api.Configurations;
@@ -133,6 +136,12 @@ public static class DependencyInjectionConfig
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
+        // ===============================
+        // Authorization
+        // ===============================
+        services.AddScoped<IAuthorizationRepository, AuthorizationRepository>();
+        services.AddScoped<Application.Interfaces.Authorizations.IAuthorizationService, AuthorizationService>();
+        
         // ===============================
         // Audit
         // ===============================

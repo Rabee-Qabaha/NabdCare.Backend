@@ -12,7 +12,15 @@ public class UserResponseDto
     public Guid RoleId { get; set; }
     public string RoleName { get; set; } = string.Empty;
     
+    public bool IsSystemRole { get; set; }
+    
     public bool IsActive { get; set; }
     public Guid? ClinicId { get; set; }
     public string? ClinicName { get; set; }
+    
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    
+    public Guid? CreatedByUserId { get; set; }
+    public string? CreatedByUserName { get; set; }
 }
