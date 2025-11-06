@@ -1,62 +1,62 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useResourceAuthorization } from "@/composables/query/authorization/useResourceAuthorization";
-import Dialog from "primevue/dialog";
-import Button from "primevue/button";
-import Tag from "primevue/tag";
-import Skeleton from "primevue/skeleton";
-import type { UserResponseDto } from "@/types/backend";
+  import { computed, ref } from 'vue';
+  import { useResourceAuthorization } from '@/composables/query/authorization/useResourceAuthorization';
+  import Dialog from 'primevue/dialog';
+  import Button from 'primevue/button';
+  import Tag from 'primevue/tag';
+  import Skeleton from 'primevue/skeleton';
+  import type { UserResponseDto } from '@/types/backend';
 
-/**
- * Authorization Status Debug Dialog
- * Location: src/components/Authorization/AuthorizationStatusDialog.vue
- *
- * Shows detailed authorization check results for a user
- * Useful for testing and debugging authorization policies
- *
- * Usage:
- * ```vue
- * <AuthorizationStatusDialog
- *   v-if="selectedUser"
- *   :user="selectedUser"
- *   @close="selectedUser = null"
- * />
- * ```
- *
- * Author: Rabee Qabaha
- * Updated: 2025-11-02
- */
+  /**
+   * Authorization Status Debug Dialog
+   * Location: src/components/Authorization/AuthorizationStatusDialog.vue
+   *
+   * Shows detailed authorization check results for a user
+   * Useful for testing and debugging authorization policies
+   *
+   * Usage:
+   * ```vue
+   * <AuthorizationStatusDialog
+   *   v-if="selectedUser"
+   *   :user="selectedUser"
+   *   @close="selectedUser = null"
+   * />
+   * ```
+   *
+   * Author: Rabee Qabaha
+   * Updated: 2025-11-02
+   */
 
-interface Props {
-  user: UserResponseDto;
-}
+  interface Props {
+    user: UserResponseDto;
+  }
 
-interface Emits {
-  (e: "close"): void;
-}
+  interface Emits {
+    (e: 'close'): void;
+  }
 
-const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+  const props = defineProps<Props>();
+  const emit = defineEmits<Emits>();
 
-// ✅ FIX: Use reactive ref instead of literal true
-const isVisible = ref(true);
+  // ✅ FIX: Use reactive ref instead of literal true
+  const isVisible = ref(true);
 
-// Check all possible actions
-const authView = useResourceAuthorization("user", props.user.id, "view");
-const authEdit = useResourceAuthorization("user", props.user.id, "edit");
-const authDelete = useResourceAuthorization("user", props.user.id, "delete");
+  // Check all possible actions
+  const authView = useResourceAuthorization('user', props.user.id, 'view');
+  const authEdit = useResourceAuthorization('user', props.user.id, 'edit');
+  const authDelete = useResourceAuthorization('user', props.user.id, 'delete');
 
-const actions = computed(() => [
-  { action: "view", ...authView },
-  { action: "edit", ...authEdit },
-  { action: "delete", ...authDelete },
-]);
+  const actions = computed(() => [
+    { action: 'view', ...authView },
+    { action: 'edit', ...authEdit },
+    { action: 'delete', ...authDelete },
+  ]);
 
-// Handle dialog close
-function handleClose() {
-  isVisible.value = false;
-  emit("close");
-}
+  // Handle dialog close
+  function handleClose() {
+    isVisible.value = false;
+    emit('close');
+  }
 </script>
 
 <template>
@@ -70,9 +70,9 @@ function handleClose() {
   >
     <div class="space-y-4">
       <!-- User Info -->
-      <div class="bg-surface-50 dark:bg-surface-800 p-4 rounded-lg">
+      <div class="rounded-lg bg-surface-50 p-4 dark:bg-surface-800">
         <p class="text-sm text-surface-600 dark:text-surface-400">User</p>
-        <p class="font-semibold text-lg">{{ user.fullName }}</p>
+        <p class="text-lg font-semibold">{{ user.fullName }}</p>
         <p class="text-sm text-surface-500">{{ user.email }}</p>
       </div>
 
@@ -83,10 +83,10 @@ function handleClose() {
         <div
           v-for="action in actions"
           :key="action.action"
-          class="flex items-center justify-between p-3 border border-surface-200 dark:border-surface-700 rounded"
+          class="flex items-center justify-between rounded border border-surface-200 p-3 dark:border-surface-700"
         >
-          <div class="flex items-center gap-3 flex-1">
-            <span class="capitalize font-medium">{{ action.action }}</span>
+          <div class="flex flex-1 items-center gap-3">
+            <span class="font-medium capitalize">{{ action.action }}</span>
             <Skeleton v-if="action.isLoading" width="80px" height="1.5rem" />
             <Tag
               v-else
@@ -104,17 +104,13 @@ function handleClose() {
       <!-- Denial Reasons -->
       <div
         v-if="actions.some((a) => !a.result?.allowed)"
-        class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded"
+        class="rounded border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
       >
-        <h5 class="font-semibold text-red-800 dark:text-red-200 mb-2">
-          Denial Reasons
-        </h5>
+        <h5 class="mb-2 font-semibold text-red-800 dark:text-red-200">Denial Reasons</h5>
         <ul class="space-y-1 text-sm text-red-700 dark:text-red-300">
-          <li
-            v-for="action in actions.filter((a) => !a.result?.allowed)"
-            :key="action.action"
-          >
-            <strong>{{ action.action }}:</strong> {{ action.result?.reason }}
+          <li v-for="action in actions.filter((a) => !a.result?.allowed)" :key="action.action">
+            <strong>{{ action.action }}:</strong>
+            {{ action.result?.reason }}
           </li>
         </ul>
       </div>

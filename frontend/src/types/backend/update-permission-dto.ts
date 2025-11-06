@@ -4,6 +4,6 @@
  */
 
 export class UpdatePermissionDto {
-  name: string = "";
+  name: string = '';
   description: string;
 }

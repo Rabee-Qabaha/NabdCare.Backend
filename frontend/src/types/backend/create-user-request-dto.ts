@@ -4,9 +4,9 @@
  */
 
 export class CreateUserRequestDto {
-  email: string = "";
-  password: string = "";
-  fullName: string = "";
+  email: string = '';
+  password: string = '';
+  fullName: string = '';
   roleId: string;
   clinicId: string;
 }

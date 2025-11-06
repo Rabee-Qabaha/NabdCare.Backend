@@ -1,7 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import type { QueryFunction } from "@tanstack/vue-query";
-import { unref, isRef, watch, type Ref } from "vue";
-import { useToast } from "primevue/usetoast";
+import type { QueryFunction } from '@tanstack/vue-query';
+import { useQuery, useQueryClient } from '@tanstack/vue-query';
+import { useToast } from 'primevue/usetoast';
+import { isRef, unref, watch, type Ref } from 'vue';
 
 /**
  * ✅ Vue Query v5-compatible helper for Vue
@@ -21,7 +21,7 @@ export function useQueryWithToasts<
   enabled?: boolean;
   retry?: number | boolean | ((failureCount: number, error: TError) => boolean);
   retryDelay?: number | ((attemptIndex: number, error: TError) => number);
-  networkMode?: "always" | "online" | "offlineFirst";
+  networkMode?: 'always' | 'online' | 'offlineFirst';
   staleTime?: number;
   gcTime?: number; // deprecated but kept for backward compatibility
   cacheTime?: number; // ✅ TanStack 5 uses cacheTime
@@ -54,7 +54,7 @@ export function useQueryWithToasts<
 
   // ✅ Safe unwrap for ref-based handlers
   const unwrapCallback = <T extends (...args: any[]) => any>(
-    cb: T | Ref<T | undefined> | undefined
+    cb: T | Ref<T | undefined> | undefined,
   ): T | undefined => (isRef(cb) ? cb.value : cb);
 
   // ✅ Build the query with inferred types
@@ -82,8 +82,8 @@ export function useQueryWithToasts<
         // ✅ Toast success
         if (successMessage) {
           toast.add({
-            severity: "success",
-            summary: "Success",
+            severity: 'success',
+            summary: 'Success',
             detail: successMessage,
             life: 3000,
           });
@@ -94,7 +94,7 @@ export function useQueryWithToasts<
         if (cb) await cb(data as TData);
       }
     },
-    { flush: "post" }
+    { flush: 'post' },
   );
 
   // ✅ Watch for error state
@@ -105,8 +105,8 @@ export function useQueryWithToasts<
         // ❌ Toast error
         if (errorMessage) {
           toast.add({
-            severity: "error",
-            summary: "Error",
+            severity: 'error',
+            summary: 'Error',
             detail: errorMessage,
             life: 4000,
           });
@@ -116,7 +116,7 @@ export function useQueryWithToasts<
         if (cb) await cb(error as TError);
       }
     },
-    { flush: "post" }
+    { flush: 'post' },
   );
 
   return query;

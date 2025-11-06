@@ -1,5 +1,5 @@
-import type { RouteRecordRaw } from "vue-router";
-import { PermissionRegistry } from "@/config/permissionsRegistry";
+import { PermissionRegistry } from '@/config/permissionsRegistry';
+import type { RouteRecordRaw } from 'vue-router';
 
 /**
  * SuperAdmin Routes
@@ -19,22 +19,22 @@ import { PermissionRegistry } from "@/config/permissionsRegistry";
 
 export const superadminRoutes: RouteRecordRaw[] = [
   {
-    path: "/superadmin",
-    component: () => import("@/layout/admin/AdminLayout.vue"),
+    path: '/superadmin',
+    component: () => import('@/layout/admin/AdminLayout.vue'),
     meta: {
       requiresAuth: true,
       public: false,
-      title: "Super Admin Area",
+      title: 'Super Admin Area',
       // 🧠 System-level routes (SuperAdmin only)
-      level: "system",
+      level: 'system',
     },
     children: [
       {
-        path: "",
-        name: "superadmin-dashboard",
-        component: () => import("@/views/pages/admin/Dashboard.vue"),
+        path: '',
+        name: 'superadmin-dashboard',
+        component: () => import('@/views/pages/admin/Dashboard.vue'),
         meta: {
-          title: "Dashboard",
+          title: 'Dashboard',
           permission: PermissionRegistry.Reports.viewDashboard,
           // ✅ Dashboard doesn't need individual resource checks
           abacResource: null,
@@ -42,11 +42,11 @@ export const superadminRoutes: RouteRecordRaw[] = [
       },
 
       {
-        path: "users",
-        name: "superadmin-users",
-        component: () => import("@/views/pages/admin/Users.vue"),
+        path: 'users',
+        name: 'superadmin-users',
+        component: () => import('@/views/pages/admin/Users.vue'),
         meta: {
-          title: "Manage Users",
+          title: 'Manage Users',
           permission: PermissionRegistry.Users.view,
           // ✅ List view: ABAC happens at component level for action buttons
           abacResource: null,

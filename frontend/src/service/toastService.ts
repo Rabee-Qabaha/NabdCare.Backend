@@ -1,5 +1,5 @@
 // src/service/toastService.ts
-import { useToast } from "primevue/usetoast";
+import { useToast } from 'primevue/usetoast';
 
 let toast: ReturnType<typeof useToast> | null = null;
 

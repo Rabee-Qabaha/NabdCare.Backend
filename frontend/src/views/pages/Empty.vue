@@ -1,7 +1,7 @@
 <!--frontend/src/views/pages/Empty.vue-->
 <template>
-    <div className="card">
-        <div class="font-semibold text-xl mb-4">Empty Page</div>
-        <p>Use this page to start from scratch and place your custom content.</p>
-    </div>
+  <div className="card">
+    <div class="mb-4 text-xl font-semibold">Empty Page</div>
+    <p>Use this page to start from scratch and place your custom content.</p>
+  </div>
 </template>

@@ -1,5 +1,5 @@
-import type { AxiosError } from "axios";
-import { showToast } from "@/service/toastService";
+import { showToast } from '@/service/toastService';
+import type { AxiosError } from 'axios';
 // import { useToast } from "primevue/usetoast";
 
 // const toast = useToast();
@@ -15,16 +15,11 @@ export async function globalErrorHandler(error: AxiosError) {
     detail?: string;
   };
 
-  const message =
-    data.message ||
-    data.error ||
-    data.detail ||
-    error.message ||
-    "Unexpected error";
+  const message = data.message || data.error || data.detail || error.message || 'Unexpected error';
 
   // 🔒 1. Silent Errors — handled internally (no toast)
   const silentStatuses = [401, 403, 404];
-  const silentEndpoints = ["/auth/refresh", "/auth/me"];
+  const silentEndpoints = ['/auth/refresh', '/auth/me'];
 
   if (
     (status && silentStatuses.includes(status)) ||
@@ -36,8 +31,8 @@ export async function globalErrorHandler(error: AxiosError) {
 
   // 🧯 2. Display user-facing errors
   showToast({
-    severity: status && status >= 500 ? "warn" : "error",
-    summary: "Request Failed",
+    severity: status && status >= 500 ? 'warn' : 'error',
+    summary: 'Request Failed',
     detail: message,
     life: 4000,
   });

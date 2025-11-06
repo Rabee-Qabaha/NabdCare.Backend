@@ -1,9 +1,6 @@
-import { useMutation, useQueryClient } from "@tanstack/vue-query";
-import { userApi } from "@/api/modules/users";
-import type {
-  ChangePasswordRequestDto,
-  ResetPasswordRequestDto,
-} from "@/types/backend";
+import { userApi } from '@/api/modules/users';
+import type { ChangePasswordRequestDto, ResetPasswordRequestDto } from '@/types/backend';
+import { useMutation, useQueryClient } from '@tanstack/vue-query';
 
 /**
  * User Action Mutations
@@ -44,19 +41,16 @@ export function useChangePassword() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "change-password"],
-    mutationFn: async (payload: {
-      id: string;
-      data: ChangePasswordRequestDto;
-    }) => {
+    mutationKey: ['user', 'change-password'],
+    mutationFn: async (payload: { id: string; data: ChangePasswordRequestDto }) => {
       const { id, data } = payload;
       await userApi.changePassword(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to change password:", error);
+      console.error('❌ Failed to change password:', error);
     },
   });
 }
@@ -78,19 +72,16 @@ export function useResetPassword() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "reset-password"],
-    mutationFn: async (payload: {
-      id: string;
-      data: ResetPasswordRequestDto;
-    }) => {
+    mutationKey: ['user', 'reset-password'],
+    mutationFn: async (payload: { id: string; data: ResetPasswordRequestDto }) => {
       const { id, data } = payload;
       await userApi.resetPassword(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to reset password:", error);
+      console.error('❌ Failed to reset password:', error);
     },
   });
 }
@@ -113,13 +104,13 @@ export function useActivateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "activate"],
+    mutationKey: ['user', 'activate'],
     mutationFn: (id: string) => userApi.activate(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to activate user:", error);
+      console.error('❌ Failed to activate user:', error);
     },
   });
 }
@@ -138,13 +129,13 @@ export function useDeactivateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "deactivate"],
+    mutationKey: ['user', 'deactivate'],
     mutationFn: (id: string) => userApi.deactivate(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to deactivate user:", error);
+      console.error('❌ Failed to deactivate user:', error);
     },
   });
 }
@@ -167,13 +158,13 @@ export function useSoftDeleteUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "soft-delete"],
+    mutationKey: ['user', 'soft-delete'],
     mutationFn: (id: string) => userApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to delete user:", error);
+      console.error('❌ Failed to delete user:', error);
     },
   });
 }
@@ -192,13 +183,13 @@ export function useHardDeleteUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "hard-delete"],
+    mutationKey: ['user', 'hard-delete'],
     mutationFn: (id: string) => userApi.hardDelete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to hard delete user:", error);
+      console.error('❌ Failed to hard delete user:', error);
     },
   });
 }
@@ -221,16 +212,16 @@ export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "update-role"],
+    mutationKey: ['user', 'update-role'],
     mutationFn: async (payload: { id: string; roleId: string }) => {
       const { id, roleId } = payload;
       await userApi.updateRole(id, roleId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to update user role:", error);
+      console.error('❌ Failed to update user role:', error);
     },
   });
 }
@@ -247,24 +238,24 @@ export function useRestoreUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "restore"],
+    mutationKey: ['user', 'restore'],
     mutationFn: (id: string) => userApi.restoreUser(id),
     onSuccess: () => {
       +(
         // ✅ Refresh active list
         (+queryClient.invalidateQueries({
-          queryKey: ["users", "infinite", "", false],
+          queryKey: ['users', 'infinite', '', false],
         }))
       );
       +(
         // ✅ Refresh deleted list
         (+queryClient.invalidateQueries({
-          queryKey: ["users", "infinite", "", true],
+          queryKey: ['users', 'infinite', '', true],
         }))
       );
     },
     onError: (error: any) => {
-      console.error("❌ Failed to restore user:", error);
+      console.error('❌ Failed to restore user:', error);
     },
   });
 }

@@ -1,28 +1,28 @@
-import { useQueryWithToasts } from "@/composables/query/helpers/useQueryWithToasts";
-import { auditLogsApi } from "@/api/modules/auditLogs";
+import { auditLogsApi } from '@/api/modules/auditLogs';
+import { useQueryWithToasts } from '@/composables/query/helpers/useQueryWithToasts';
 import type {
   AuditLogListRequestDto,
   AuditLogResponseDto,
   PaginatedResult,
   PaginationRequestDto,
-} from "@/types/backend";
+} from '@/types/backend';
 
 /* 🔹 Cache key factory */
 export const auditLogKeys = {
-  all: ["audit-logs"] as const,
+  all: ['audit-logs'] as const,
   paged: (filters: AuditLogListRequestDto, pagination: PaginationRequestDto) =>
-    ["audit-logs", filters, pagination] as const,
+    ['audit-logs', filters, pagination] as const,
 };
 
 /* ✅ Fetch paged audit logs */
 export function useAuditLogsPaged(
   filters: AuditLogListRequestDto,
-  pagination: PaginationRequestDto
+  pagination: PaginationRequestDto,
 ) {
   return useQueryWithToasts<PaginatedResult<AuditLogResponseDto>>({
     queryKey: auditLogKeys.paged(filters, pagination),
     queryFn: () => auditLogsApi.getPaged(filters, pagination),
-    successMessage: "Audit logs loaded successfully.",
-    errorMessage: "Failed to load audit logs.",
+    successMessage: 'Audit logs loaded successfully.',
+    errorMessage: 'Failed to load audit logs.',
   });
 }

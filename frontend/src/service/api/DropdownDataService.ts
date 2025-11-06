@@ -1,9 +1,5 @@
-import { api } from "@/api/apiClient";
-import type {
-  RoleResponseDto,
-  ClinicResponseDto,
-  PaginatedResult,
-} from "@/types/backend";
+import { api } from '@/api/apiClient';
+import type { ClinicResponseDto, PaginatedResult, RoleResponseDto } from '@/types/backend';
 
 /**
  * Dropdown Data Service
@@ -38,31 +34,28 @@ export class DropdownDataService {
   // =========================================================
   // 🔹 Fetch Roles
   // =========================================================
-  static async fetchRoles(
-    options: DropdownFetchOptions = {}
-  ): Promise<RoleResponseDto[]> {
-    const { limit = 100, descending = false, search = "" } = options;
+  static async fetchRoles(options: DropdownFetchOptions = {}): Promise<RoleResponseDto[]> {
+    const { limit = 100, descending = false, search = '' } = options;
 
     try {
-      console.log("📍 DropdownDataService.fetchRoles() - options:", options);
+      console.log('📍 DropdownDataService.fetchRoles() - options:', options);
 
-      const { data } = await api.get<
-        PaginatedResult<RoleResponseDto> | RoleResponseDto[]
-      >("/roles", {
-        params: {
-          Limit: limit,
-          Descending: descending,
-          ...(search ? { search } : {}),
+      const { data } = await api.get<PaginatedResult<RoleResponseDto> | RoleResponseDto[]>(
+        '/roles',
+        {
+          params: {
+            Limit: limit,
+            Descending: descending,
+            ...(search ? { search } : {}),
+          },
         },
-      });
+      );
 
       // ✅ Normalize response
       let roles = this.normalizeResponse<RoleResponseDto>(data);
 
       // ✅ Sort by displayOrder if exists
-      roles = roles.sort(
-        (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)
-      );
+      roles = roles.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
       console.log(`✅ Loaded ${roles.length} roles`);
       console.table(
@@ -70,44 +63,43 @@ export class DropdownDataService {
           name: r.name,
           system: r.isSystemRole,
           clinic: r.clinicName,
-        }))
+        })),
       );
 
       return roles;
     } catch (error) {
-      console.error("❌ DropdownDataService.fetchRoles() - error:", error);
-      throw new Error("Failed to load roles. Please try again.");
+      console.error('❌ DropdownDataService.fetchRoles() - error:', error);
+      throw new Error('Failed to load roles. Please try again.');
     }
   }
 
   // =========================================================
   // 🔹 Fetch Clinics
   // =========================================================
-  static async fetchClinics(
-    options: DropdownFetchOptions = {}
-  ): Promise<ClinicResponseDto[]> {
-    const { limit = 100, descending = false, search = "" } = options;
+  static async fetchClinics(options: DropdownFetchOptions = {}): Promise<ClinicResponseDto[]> {
+    const { limit = 100, descending = false, search = '' } = options;
 
     try {
-      console.log("📍 DropdownDataService.fetchClinics() - options:", options);
+      console.log('📍 DropdownDataService.fetchClinics() - options:', options);
 
-      const { data } = await api.get<
-        PaginatedResult<ClinicResponseDto> | ClinicResponseDto[]
-      >("/clinics", {
-        params: {
-          Limit: limit,
-          Descending: descending,
-          ...(search ? { search } : {}),
+      const { data } = await api.get<PaginatedResult<ClinicResponseDto> | ClinicResponseDto[]>(
+        '/clinics',
+        {
+          params: {
+            Limit: limit,
+            Descending: descending,
+            ...(search ? { search } : {}),
+          },
         },
-      });
+      );
 
       const clinics = this.normalizeResponse<ClinicResponseDto>(data);
 
       console.log(`✅ Loaded ${clinics.length} clinics`);
       return clinics;
     } catch (error) {
-      console.error("❌ DropdownDataService.fetchClinics() - error:", error);
-      throw new Error("Failed to load clinics. Please try again.");
+      console.error('❌ DropdownDataService.fetchClinics() - error:', error);
+      throw new Error('Failed to load clinics. Please try again.');
     }
   }
 
@@ -127,20 +119,18 @@ export class DropdownDataService {
    */
   private static normalizeResponse<T>(response: any): T[] {
     if (Array.isArray(response)) {
-      console.log("📊 Normalization: Detected direct array format");
+      console.log('📊 Normalization: Detected direct array format');
       return response;
     }
 
-    if (response && typeof response === "object" && "items" in response) {
+    if (response && typeof response === 'object' && 'items' in response) {
       const items = Array.isArray(response.items) ? response.items : [];
-      console.log(
-        `📊 Normalization: Detected paginated format, extracted ${items.length} items`
-      );
+      console.log(`📊 Normalization: Detected paginated format, extracted ${items.length} items`);
       return items;
     }
 
-    console.warn("⚠️ Normalization: Unexpected response format, returning []");
-    console.warn("⚠️ Response was:", response);
+    console.warn('⚠️ Normalization: Unexpected response format, returning []');
+    console.warn('⚠️ Response was:', response);
     return [];
   }
 

@@ -1,11 +1,7 @@
-import { api } from "@/api/apiClient";
-import type { LoginRequestDto, AuthResponseDto } from "@/types/backend";
-import {
-  getUserFromToken,
-  isTokenExpired,
-  type UserInfo,
-} from "@/utils/jwtUtils";
-import { tokenManager } from "@/utils/tokenManager";
+import { api } from '@/api/apiClient';
+import type { AuthResponseDto, LoginRequestDto } from '@/types/backend';
+import { getUserFromToken, isTokenExpired, type UserInfo } from '@/utils/jwtUtils';
+import { tokenManager } from '@/utils/tokenManager';
 
 /**
  * Handles all authentication logic:
@@ -59,25 +55,22 @@ export class AuthService {
   /**
    * Perform login with backend and store access token.
    */
-  static async login(
-    request: LoginRequestDto
-  ): Promise<{ accessToken: string; user: UserInfo }> {
+  static async login(request: LoginRequestDto): Promise<{ accessToken: string; user: UserInfo }> {
     try {
-      const { data } = await api.post<AuthResponseDto>("/auth/login", request);
-      if (!data?.accessToken)
-        throw new Error("Missing access token in response");
+      const { data } = await api.post<AuthResponseDto>('/auth/login', request);
+      if (!data?.accessToken) throw new Error('Missing access token in response');
 
       this.storeAccessToken(data.accessToken);
       const user = getUserFromToken(data.accessToken);
-      if (!user) throw new Error("Invalid token received from server");
+      if (!user) throw new Error('Invalid token received from server');
 
       return { accessToken: data.accessToken, user };
     } catch (error: any) {
       const msg =
         error?.response?.data?.error?.message ||
         error.message ||
-        "Login failed. Please check your credentials.";
-      console.error("❌ AuthService.login:", msg);
+        'Login failed. Please check your credentials.';
+      console.error('❌ AuthService.login:', msg);
       throw new Error(msg);
     }
   }
@@ -87,14 +80,14 @@ export class AuthService {
    */
   static async refreshAccessToken(): Promise<string | null> {
     try {
-      const { data } = await api.post<AuthResponseDto>("/auth/refresh");
+      const { data } = await api.post<AuthResponseDto>('/auth/refresh');
       if (data?.accessToken) {
         this.storeAccessToken(data.accessToken);
         return data.accessToken;
       }
       return null;
     } catch (error: any) {
-      console.warn("⚠️ Token refresh failed:", error?.message);
+      console.warn('⚠️ Token refresh failed:', error?.message);
       this.clearTokens();
       return null;
     }
@@ -118,9 +111,9 @@ export class AuthService {
    */
   static async logout(): Promise<void> {
     try {
-      await api.post("/auth/logout");
+      await api.post('/auth/logout');
     } catch (err) {
-      console.warn("⚠️ Logout API failed — continuing cleanup", err);
+      console.warn('⚠️ Logout API failed — continuing cleanup', err);
     } finally {
       this.clearTokens();
     }

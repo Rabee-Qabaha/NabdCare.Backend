@@ -8,8 +8,9 @@
       href="https://primevue.org"
       target="_blank"
       rel="noopener noreferrer"
-      class="text-primary font-bold hover:underline"
-      >Rabee Qabaha</a
+      class="font-bold text-primary hover:underline"
     >
+      Rabee Qabaha
+    </a>
   </div>
 </template>

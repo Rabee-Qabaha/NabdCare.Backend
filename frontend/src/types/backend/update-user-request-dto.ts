@@ -4,7 +4,7 @@
  */
 
 export class UpdateUserRequestDto {
-  fullName: string = "";
+  fullName: string = '';
   isActive: boolean = true;
   roleId: string;
 }

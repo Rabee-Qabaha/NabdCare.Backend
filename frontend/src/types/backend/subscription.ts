@@ -3,10 +3,10 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { Clinic } from "./clinic";
-import { SubscriptionType } from "./subscription-type";
-import { SubscriptionStatus } from "./subscription-status";
-import { Payment } from "./payment";
+import { Clinic } from './clinic';
+import { Payment } from './payment';
+import { SubscriptionStatus } from './subscription-status';
+import { SubscriptionType } from './subscription-type';
 
 export class Subscription {
   clinicId: string;

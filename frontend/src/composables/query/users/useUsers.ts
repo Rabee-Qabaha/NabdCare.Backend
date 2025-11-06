@@ -1,17 +1,12 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  useInfiniteQuery,
-} from "@tanstack/vue-query";
-import { userApi } from "@/api/modules/users";
+import { userApi } from '@/api/modules/users';
 import type {
   CreateUserRequestDto,
+  PaginatedResult,
   UpdateUserRequestDto,
   UserResponseDto,
-  PaginatedResult,
-} from "@/types/backend";
-import { isRef } from "vue";
+} from '@/types/backend';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
+import { isRef } from 'vue';
 
 /**
  * User Query Composables
@@ -39,7 +34,7 @@ import { isRef } from "vue";
  */
 export function useUsersPaged(params?: Record<string, any>) {
   return useQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ["users", "paged", params],
+    queryKey: ['users', 'paged', params],
     queryFn: async () => {
       const { data } = await userApi.getPaged(params);
       return data;
@@ -65,30 +60,30 @@ export function useUsersPaged(params?: Record<string, any>) {
 export function useInfiniteUsersPaged(params?: Record<string, any>) {
   // Pull primitives out of params so the key changes when toggled
   const searchKey =
-    params && "search" in params
+    params && 'search' in params
       ? isRef(params.search)
         ? params.search.value
         : params.search
-      : "";
+      : '';
   const includeDeletedKey =
-    params && "includeDeleted" in params
+    params && 'includeDeleted' in params
       ? isRef(params.includeDeleted)
         ? params.includeDeleted.value
         : params.includeDeleted
       : false;
 
   return useInfiniteQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ["users", "infinite", searchKey, includeDeletedKey],
+    queryKey: ['users', 'infinite', searchKey, includeDeletedKey],
     queryFn: async ({ pageParam }) => {
       const includeDeleted =
-        params && "includeDeleted" in params
+        params && 'includeDeleted' in params
           ? isRef(params.includeDeleted)
             ? params.includeDeleted.value
             : params.includeDeleted
           : undefined;
 
       const search =
-        params && "search" in params
+        params && 'search' in params
           ? isRef(params.search)
             ? params.search.value
             : params.search
@@ -100,11 +95,11 @@ export function useInfiniteUsersPaged(params?: Record<string, any>) {
         ...(pageParam ? { cursor: pageParam } : {}),
       };
 
-      console.log("📍 Fetching users with params:", queryParams);
+      console.log('📍 Fetching users with params:', queryParams);
 
       const { data } = await userApi.getPaged(queryParams);
 
-      console.log("✅ Users fetched:", {
+      console.log('✅ Users fetched:', {
         count: data.items?.length,
         hasMore: data.hasMore,
         nextCursor: data.nextCursor,
@@ -112,8 +107,7 @@ export function useInfiniteUsersPaged(params?: Record<string, any>) {
 
       return data;
     },
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.nextCursor : undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
     initialPageParam: undefined,
     staleTime: 1000 * 60 * 5,
     placeholderData: (prev) => prev,
@@ -125,7 +119,7 @@ export function useInfiniteUsersPaged(params?: Record<string, any>) {
  */
 export function useUser(id: string) {
   return useQuery<UserResponseDto, Error>({
-    queryKey: ["user", id],
+    queryKey: ['user', id],
     queryFn: async () => {
       const { data } = await userApi.getById(id);
       return data;
@@ -140,7 +134,7 @@ export function useUser(id: string) {
  */
 export function useClinicUsers(clinicId: string, params?: Record<string, any>) {
   return useInfiniteQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ["users", "clinic", clinicId, params],
+    queryKey: ['users', 'clinic', clinicId, params],
     queryFn: async ({ pageParam }) => {
       const queryParams = {
         ...(params?.search ? { search: params.search } : {}),
@@ -150,8 +144,7 @@ export function useClinicUsers(clinicId: string, params?: Record<string, any>) {
       const { data } = await userApi.getByClinicPaged(clinicId, queryParams);
       return data;
     },
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.nextCursor : undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
     initialPageParam: undefined,
     staleTime: 1000 * 60 * 5,
     placeholderData: (prev) => prev,
@@ -169,13 +162,13 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "create"],
+    mutationKey: ['user', 'create'],
     mutationFn: (data: CreateUserRequestDto) => userApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to create user:", error);
+      console.error('❌ Failed to create user:', error);
     },
   });
 }
@@ -187,15 +180,15 @@ export function useUpdateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "update"],
+    mutationKey: ['user', 'update'],
     mutationFn: (payload: { id: string; data: UpdateUserRequestDto }) =>
       userApi.update(payload.id, payload.data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      queryClient.invalidateQueries({ queryKey: ["user", id] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', id] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to update user:", error);
+      console.error('❌ Failed to update user:', error);
     },
   });
 }
@@ -207,14 +200,14 @@ export function useRestoreUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["user", "restore"],
+    mutationKey: ['user', 'restore'],
     mutationFn: (id: string) => userApi.restoreUser(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      queryClient.invalidateQueries({ queryKey: ["user", id] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', id] });
     },
     onError: (error: any) => {
-      console.error("❌ Failed to restore user:", error);
+      console.error('❌ Failed to restore user:', error);
     },
   });
 }

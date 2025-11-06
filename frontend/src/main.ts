@@ -1,23 +1,23 @@
 // src/main.ts
-import { createApp, watch } from "vue";
-import App from "@/App.vue";
-import router from "./router";
-import { createPinia } from "pinia";
+import App from '@/App.vue';
+import { createPinia } from 'pinia';
+import { createApp, watch } from 'vue';
+import router from './router';
 
-import PrimeVue from "primevue/config";
-import Aura from "@primevue/themes/aura";
-import ToastService from "primevue/toastservice";
-import ConfirmationService from "primevue/confirmationservice";
+import Aura from '@primevue/themes/aura';
+import PrimeVue from 'primevue/config';
+import ConfirmationService from 'primevue/confirmationservice';
+import ToastService from 'primevue/toastservice';
 
-import "@/assets/styles.scss";
-import "@/assets/tailwind.css";
+import '@/assets/styles.scss';
+import '@/assets/tailwind.css';
 
-import { useAuthStore } from "./stores/authStore";
-import { permissionDirective } from "./directives/permission"; // ✅ keep only this one
+import { permissionDirective } from './directives/permission'; // ✅ keep only this one
+import { useAuthStore } from './stores/authStore';
 
 // 🧠 Vue Query imports
-import { VueQueryPlugin } from "@tanstack/vue-query";
-import { queryClient } from "@/composables/query/queryClient";
+import { queryClient } from '@/composables/query/queryClient';
+import { VueQueryPlugin } from '@tanstack/vue-query';
 
 async function bootstrap() {
   const app = createApp(App);
@@ -35,10 +35,10 @@ async function bootstrap() {
     () => authStore.isLoggedIn,
     (loggedIn) => {
       if (!loggedIn) {
-        console.log("🧹 Clearing Vue Query cache (user logged out)");
+        console.log('🧹 Clearing Vue Query cache (user logged out)');
         queryClient.clear();
       }
-    }
+    },
   );
 
   app.use(router);
@@ -46,7 +46,7 @@ async function bootstrap() {
   app.use(PrimeVue, {
     theme: {
       preset: Aura,
-      options: { darkModeSelector: ".app-dark" },
+      options: { darkModeSelector: '.app-dark' },
     },
   });
 
@@ -54,13 +54,13 @@ async function bootstrap() {
   app.use(ConfirmationService);
 
   // ✅ Register the permission directive once
-  app.directive("permission", permissionDirective);
+  app.directive('permission', permissionDirective);
 
   // ✅ Vue Query setup
   app.use(VueQueryPlugin, { queryClient });
 
   await router.isReady();
-  app.mount("#app");
+  app.mount('#app');
 }
 
 bootstrap();

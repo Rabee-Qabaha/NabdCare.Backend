@@ -1,7 +1,4 @@
-import type {
-  AuthorizationCheckRequestDto,
-  AuthorizationResultDto,
-} from "@/types/backend";
+import type { AuthorizationCheckRequestDto, AuthorizationResultDto } from '@/types/backend';
 
 /**
  * Local Authorization Types
@@ -48,19 +45,19 @@ export interface ResourceAuthContext {
  * Supported resource types for authorization
  */
 export type ResourceType =
-  | "user"
-  | "clinic"
-  | "role"
-  | "subscription"
-  | "patient"
-  | "payment"
-  | "medicalrecord"
-  | "appointment";
+  | 'user'
+  | 'clinic'
+  | 'role'
+  | 'subscription'
+  | 'patient'
+  | 'payment'
+  | 'medicalrecord'
+  | 'appointment';
 
 /**
  * Supported authorization actions
  */
-export type AuthorizationAction = "view" | "edit" | "delete" | "create";
+export type AuthorizationAction = 'view' | 'edit' | 'delete' | 'create';
 
 /**
  * Request for checking multiple authorizations

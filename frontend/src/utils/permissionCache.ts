@@ -1,5 +1,5 @@
-import { hasPermission } from "@/utils/permissions";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from '@/stores/authStore';
+import { hasPermission } from '@/utils/permissions';
 
 type CacheKey = string;
 

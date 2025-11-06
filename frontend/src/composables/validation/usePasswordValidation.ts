@@ -1,4 +1,4 @@
-import { computed, reactive } from "vue";
+import { computed, reactive } from 'vue';
 
 /**
  * Composable for shared password validation logic
@@ -48,8 +48,8 @@ export function usePasswordValidation() {
   // ========================================
 
   const passwords = reactive<PasswordValidationState>({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
 
   const fieldTouched = reactive<FieldTouched>({
@@ -93,9 +93,7 @@ export function usePasswordValidation() {
    * Check if passwords match
    */
   const doPasswordsMatch = computed<boolean>(
-    () =>
-      passwords.newPassword === passwords.confirmPassword &&
-      passwords.confirmPassword !== ""
+    () => passwords.newPassword === passwords.confirmPassword && passwords.confirmPassword !== '',
   );
 
   // ========================================
@@ -110,11 +108,11 @@ export function usePasswordValidation() {
   function getFieldError(key: keyof FieldTouched): boolean {
     if (!fieldTouched[key]) return false;
 
-    if (key === "newPassword") {
+    if (key === 'newPassword') {
       return !passwords.newPassword || !isNewPasswordSecure.value;
     }
 
-    if (key === "confirmPassword") {
+    if (key === 'confirmPassword') {
       return !passwords.confirmPassword || !doPasswordsMatch.value;
     }
 
@@ -133,8 +131,8 @@ export function usePasswordValidation() {
    * Reset password fields to initial state
    */
   function resetPasswords(): void {
-    passwords.newPassword = "";
-    passwords.confirmPassword = "";
+    passwords.newPassword = '';
+    passwords.confirmPassword = '';
     fieldTouched.newPassword = false;
     fieldTouched.confirmPassword = false;
   }
@@ -145,23 +143,21 @@ export function usePasswordValidation() {
    * @returns Error message string
    */
   function getFieldErrorMessage(key: keyof FieldTouched): string {
-    if (!fieldTouched[key]) return "";
+    if (!fieldTouched[key]) return '';
 
-    if (key === "newPassword") {
-      if (!passwords.newPassword) return "New password is required.";
-      if (!isNewPasswordSecure.value)
-        return "Password does not meet all security requirements.";
-      return "";
+    if (key === 'newPassword') {
+      if (!passwords.newPassword) return 'New password is required.';
+      if (!isNewPasswordSecure.value) return 'Password does not meet all security requirements.';
+      return '';
     }
 
-    if (key === "confirmPassword") {
-      if (!passwords.confirmPassword)
-        return "Password confirmation is required.";
-      if (!doPasswordsMatch.value) return "Passwords do not match.";
-      return "";
+    if (key === 'confirmPassword') {
+      if (!passwords.confirmPassword) return 'Password confirmation is required.';
+      if (!doPasswordsMatch.value) return 'Passwords do not match.';
+      return '';
     }
 
-    return "";
+    return '';
   }
 
   return {

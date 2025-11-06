@@ -1,8 +1,8 @@
 // src/composables/query/helpers/useMutationWithInvalidate.ts
-import { useMutation, useQueryClient } from "@tanstack/vue-query";
-import type { MutationFunction } from "@tanstack/vue-query";
-import { unref, isRef, type Ref } from "vue";
-import { useToast } from "primevue/usetoast";
+import type { MutationFunction } from '@tanstack/vue-query';
+import { useMutation, useQueryClient } from '@tanstack/vue-query';
+import { useToast } from 'primevue/usetoast';
+import { isRef, unref, type Ref } from 'vue';
 
 /**
  * ✅ Vue Query v5-compatible mutation helper for Vue
@@ -20,15 +20,11 @@ export function useMutationWithInvalidate<
   // Vue Query options
   mutationKey?: readonly unknown[];
   mutationFn: MutationFunction<TData, TVariables>;
-  onSuccess?: (
-    data: TData,
-    variables: TVariables,
-    context: TContext
-  ) => Promise<unknown> | unknown;
+  onSuccess?: (data: TData, variables: TVariables, context: TContext) => Promise<unknown> | unknown;
   onError?: (
     error: TError,
     variables: TVariables,
-    context?: TContext
+    context?: TContext,
   ) => Promise<unknown> | unknown;
   onMutate?: (variables: TVariables) => Promise<TContext> | TContext;
 
@@ -44,7 +40,7 @@ export function useMutationWithInvalidate<
   throwOnError?: boolean | ((error: TError) => boolean);
   retry?: number | boolean | ((failureCount: number, error: TError) => boolean);
   retryDelay?: number | ((attemptIndex: number, error: TError) => number);
-  networkMode?: "always" | "online" | "offlineFirst";
+  networkMode?: 'always' | 'online' | 'offlineFirst';
   gcTime?: number;
   meta?: Record<string, unknown>;
 }) {
@@ -67,12 +63,10 @@ export function useMutationWithInvalidate<
 
   // ✅ Safely unwrap callback if it's a Ref
   const unwrapCallback = <T extends (...args: any[]) => any>(
-    callback: T | Ref<T | undefined> | undefined
+    callback: T | Ref<T | undefined> | undefined,
   ): T | undefined => {
     if (!callback) return undefined;
-    return isRef(callback)
-      ? (callback.value as T | undefined)
-      : (callback as T);
+    return isRef(callback) ? (callback.value as T | undefined) : (callback as T);
   };
 
   return useMutation<TData, TError, TVariables, TContext>({
@@ -83,7 +77,7 @@ export function useMutationWithInvalidate<
     async onSuccess(data, variables, context) {
       // 🔁 Invalidate cache - support both static and dynamic keys
       for (const key of invalidateKeys) {
-        const resolvedKey = typeof key === "function" ? key(variables) : key;
+        const resolvedKey = typeof key === 'function' ? key(variables) : key;
         await queryClient.invalidateQueries({
           queryKey: resolvedKey as unknown as unknown[],
         });
@@ -92,8 +86,8 @@ export function useMutationWithInvalidate<
       // ✅ Toast success
       if (successMessage) {
         toast.add({
-          severity: "success",
-          summary: "Success",
+          severity: 'success',
+          summary: 'Success',
           detail: successMessage,
           life: 3000,
         });
@@ -110,8 +104,8 @@ export function useMutationWithInvalidate<
       // ❌ Toast error
       if (errorMessage) {
         toast.add({
-          severity: "error",
-          summary: "Error",
+          severity: 'error',
+          summary: 'Error',
           detail: errorMessage,
           life: 4000,
         });

@@ -3,8 +3,6 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { CreateClinicRequestDto } from "./create-clinic-request-dto";
+import { CreateClinicRequestDto } from './create-clinic-request-dto';
 
-export class UpdateClinicRequestDto extends CreateClinicRequestDto {
-
-}
+export class UpdateClinicRequestDto extends CreateClinicRequestDto {}

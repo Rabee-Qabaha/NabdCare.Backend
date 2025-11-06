@@ -1,137 +1,121 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { useToast } from "primevue/usetoast";
-import { useId } from "vue";
-import { useAuthStore } from "@/stores/authStore";
-import { getDefaultDashboardRoute } from "@/utils/navigation";
+  import { ref, computed } from 'vue';
+  import { useRouter, useRoute } from 'vue-router';
+  import { useToast } from 'primevue/usetoast';
+  import { useId } from 'vue';
+  import { useAuthStore } from '@/stores/authStore';
+  import { getDefaultDashboardRoute } from '@/utils/navigation';
 
-const authStore = useAuthStore();
-const router = useRouter();
-const route = useRoute();
-const toast = useToast();
+  const authStore = useAuthStore();
+  const router = useRouter();
+  const route = useRoute();
+  const toast = useToast();
 
-// 🔹 Form state
-const email = ref("");
-const password = ref("");
-const rememberMe = ref(false);
+  // 🔹 Form state
+  const email = ref('');
+  const password = ref('');
+  const rememberMe = ref(false);
 
-// 🔹 Unique IDs (for accessibility)
-const baseId = useId();
-const ids = {
-  email: `${baseId}-email`,
-  password: `${baseId}-password`,
-  remember: `${baseId}-remember`,
-};
+  // 🔹 Unique IDs (for accessibility)
+  const baseId = useId();
+  const ids = {
+    email: `${baseId}-email`,
+    password: `${baseId}-password`,
+    remember: `${baseId}-remember`,
+  };
 
-const isFormValid = computed(() => email.value.trim() && password.value.trim());
+  const isFormValid = computed(() => email.value.trim() && password.value.trim());
 
-// 🔹 Handle login
-const handleLogin = async (): Promise<void> => {
-  if (!isFormValid.value) return;
+  // 🔹 Handle login
+  const handleLogin = async (): Promise<void> => {
+    if (!isFormValid.value) return;
 
-  try {
-    const user = await authStore.login(
-      email.value,
-      password.value,
-      rememberMe.value
-    );
+    try {
+      const user = await authStore.login(email.value, password.value, rememberMe.value);
 
-    toast.add({
-      severity: "success",
-      summary: "Welcome Back",
-      detail: `Hello, ${user.name || user.email}!`,
-      life: 3000,
-    });
+      toast.add({
+        severity: 'success',
+        summary: 'Welcome Back',
+        detail: `Hello, ${user.name || user.email}!`,
+        life: 3000,
+      });
 
-    // ✅ Determine redirect target
-    let redirectPath: string | null =
-      (route.query.redirect as string | undefined) ??
-      localStorage.getItem("lastVisitedRoute");
+      // ✅ Determine redirect target
+      let redirectPath: string | null =
+        (route.query.redirect as string | undefined) ?? localStorage.getItem('lastVisitedRoute');
 
-    // 🧠 If we have a redirect query, persist it for page reloads
-    if (route.query.redirect) {
-      localStorage.setItem(
-        "redirectAfterLogin",
-        route.query.redirect as string
-      );
-    }
-
-    // 🧩 Recover saved redirect if we lost it (e.g., after refresh)
-    if (!redirectPath) {
-      redirectPath = localStorage.getItem("redirectAfterLogin");
-    }
-
-    if (redirectPath) {
-      console.log("↪️ Redirecting to last route:", redirectPath);
-
-      const normalizedRedirect = redirectPath.startsWith("/")
-        ? redirectPath
-        : `/${redirectPath}`;
-
-      await router.isReady();
-      await router.replace(normalizedRedirect);
-
-      // ✅ Clean up URL (remove ?redirect=...)
-      window.history.replaceState({}, "", normalizedRedirect);
-
-      // 🧹 Cleanup stored redirects
-      localStorage.removeItem("lastVisitedRoute");
-      localStorage.removeItem("redirectAfterLogin");
-    } else {
-      console.log("🏠 Redirecting to default dashboard");
-      const target = getDefaultDashboardRoute();
-      await router.isReady();
-      await router.replace(target);
-
-      // ✅ Clean URL
-      if (typeof target === "string") {
-        window.history.replaceState({}, "", target);
-      } else if ("name" in target) {
-        const resolved = router.resolve(target);
-        window.history.replaceState({}, "", resolved.fullPath);
+      // 🧠 If we have a redirect query, persist it for page reloads
+      if (route.query.redirect) {
+        localStorage.setItem('redirectAfterLogin', route.query.redirect as string);
       }
-    }
-  } catch (err: any) {
-    toast.add({
-      severity: "error",
-      summary: "Login Failed",
-      detail: err.message || "Invalid email or password",
-      life: 5000,
-    });
-  }
-};
 
-const handleKeyPress = (event: KeyboardEvent): void => {
-  if (event.key === "Enter" && isFormValid.value) handleLogin();
-};
+      // 🧩 Recover saved redirect if we lost it (e.g., after refresh)
+      if (!redirectPath) {
+        redirectPath = localStorage.getItem('redirectAfterLogin');
+      }
+
+      if (redirectPath) {
+        console.log('↪️ Redirecting to last route:', redirectPath);
+
+        const normalizedRedirect = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
+
+        await router.isReady();
+        await router.replace(normalizedRedirect);
+
+        // ✅ Clean up URL (remove ?redirect=...)
+        window.history.replaceState({}, '', normalizedRedirect);
+
+        // 🧹 Cleanup stored redirects
+        localStorage.removeItem('lastVisitedRoute');
+        localStorage.removeItem('redirectAfterLogin');
+      } else {
+        console.log('🏠 Redirecting to default dashboard');
+        const target = getDefaultDashboardRoute();
+        await router.isReady();
+        await router.replace(target);
+
+        // ✅ Clean URL
+        if (typeof target === 'string') {
+          window.history.replaceState({}, '', target);
+        } else if ('name' in target) {
+          const resolved = router.resolve(target);
+          window.history.replaceState({}, '', resolved.fullPath);
+        }
+      }
+    } catch (err: any) {
+      toast.add({
+        severity: 'error',
+        summary: 'Login Failed',
+        detail: err.message || 'Invalid email or password',
+        life: 5000,
+      });
+    }
+  };
+
+  const handleKeyPress = (event: KeyboardEvent): void => {
+    if (event.key === 'Enter' && isFormValid.value) handleLogin();
+  };
 </script>
 
 <template>
   <div class="flex min-h-screen">
     <!-- Left Side - Illustration -->
     <div
-      class="hidden lg:flex w-1/2 bg-surface-50 dark:bg-surface-950 items-center justify-center p-8"
+      class="hidden w-1/2 items-center justify-center bg-surface-50 p-8 lg:flex dark:bg-surface-950"
     >
       <div class="max-w-lg">
-        <img
-          src="/images/Log-in.avif"
-          alt="Login illustration"
-          class="w-full h-auto"
-        />
+        <img src="/images/Log-in.avif" alt="Login illustration" class="h-auto w-full" />
       </div>
     </div>
 
     <!-- Right Side - Login Form -->
     <div
-      class="flex flex-col justify-center items-center w-full lg:w-1/2 bg-white dark:bg-surface-900 px-6 sm:px-12"
+      class="flex w-full flex-col items-center justify-center bg-white px-6 sm:px-12 lg:w-1/2 dark:bg-surface-900"
     >
       <div class="w-full max-w-md">
         <!-- Header -->
         <div class="mb-8">
-          <h1
-            class="text-3xl font-bold text-surface-900 dark:text-surface-0 mb-2"
-          >
+          <h1 class="mb-2 text-3xl font-bold text-surface-900 dark:text-surface-0">
             Welcome to NabdCare! 👋
           </h1>
           <p class="text-surface-600 dark:text-surface-400">
@@ -145,7 +129,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
           <div class="mb-6">
             <label
               :for="ids.email"
-              class="block text-surface-900 dark:text-surface-0 text-sm font-medium mb-2"
+              class="mb-2 block text-sm font-medium text-surface-900 dark:text-surface-0"
             >
               Email Address
             </label>
@@ -166,7 +150,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
           <div class="mb-4">
             <label
               :for="ids.password"
-              class="block text-surface-900 dark:text-surface-0 text-sm font-medium mb-2"
+              class="mb-2 block text-sm font-medium text-surface-900 dark:text-surface-0"
             >
               Password
             </label>
@@ -186,7 +170,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
           </div>
 
           <!-- Remember Me -->
-          <div class="flex items-center justify-between mb-6">
+          <div class="mb-6 flex items-center justify-between">
             <div class="flex items-center">
               <Checkbox
                 v-model="rememberMe"
@@ -197,7 +181,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
               />
               <label
                 :for="ids.remember"
-                class="text-sm text-surface-700 dark:text-surface-300 cursor-pointer select-none"
+                class="cursor-pointer select-none text-sm text-surface-700 dark:text-surface-300"
               >
                 Remember me
               </label>
@@ -209,7 +193,7 @@ const handleKeyPress = (event: KeyboardEvent): void => {
             type="submit"
             label="Sign In"
             icon="pi pi-sign-in"
-            class="w-full mb-6"
+            class="mb-6 w-full"
             :loading="authStore.loading"
             :disabled="authStore.loading || !isFormValid"
             severity="primary"
@@ -228,12 +212,8 @@ const handleKeyPress = (event: KeyboardEvent): void => {
         </Message>
 
         <!-- Footer -->
-        <div
-          class="text-center text-sm text-surface-600 dark:text-surface-400 mt-8"
-        >
-          <p>
-            By signing in, you agree to our Terms of Service and Privacy Policy
-          </p>
+        <div class="mt-8 text-center text-sm text-surface-600 dark:text-surface-400">
+          <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
         </div>
       </div>
     </div>
@@ -241,11 +221,11 @@ const handleKeyPress = (event: KeyboardEvent): void => {
 </template>
 
 <style scoped>
-:deep(.p-password) {
-  width: 100%;
-}
+  :deep(.p-password) {
+    width: 100%;
+  }
 
-:deep(.p-password input) {
-  width: 100%;
-}
+  :deep(.p-password input) {
+    width: 100%;
+  }
 </style>

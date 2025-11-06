@@ -1,13 +1,13 @@
-import { createRouter, createWebHistory } from "vue-router";
-import type { RouteLocationNormalized, RouteRecordRaw } from "vue-router";
-import { useAuthStore } from "@/stores/authStore";
-import { getDefaultDashboardRoute } from "@/utils/navigation";
-import { clientRoutes } from "./clientRoutes";
-import { superadminRoutes } from "./superadminRoutes";
-import { useAuthorizationGuard } from "@/composables/useAuthorizationGuard";
+import { useAuthorizationGuard } from '@/composables/useAuthorizationGuard';
+import { useAuthStore } from '@/stores/authStore';
+import { getDefaultDashboardRoute } from '@/utils/navigation';
+import type { RouteLocationNormalized } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
+import { clientRoutes } from './clientRoutes';
+import { superadminRoutes } from './superadminRoutes';
 
-import Access from "@/views/pages/auth/Access.vue";
-import NotFound from "@/views/pages/NotFound.vue";
+import Access from '@/views/pages/auth/Access.vue';
+import NotFound from '@/views/pages/NotFound.vue';
 
 /**
  * Main Router Configuration
@@ -42,26 +42,26 @@ const router = createRouter({
     ...superadminRoutes,
 
     {
-      path: "/",
-      redirect: { name: "login" },
+      path: '/',
+      redirect: { name: 'login' },
     },
     {
-      path: "/auth/login",
-      name: "login",
-      component: () => import("@/views/pages/auth/Login.vue"),
-      meta: { public: true, title: "Login" },
+      path: '/auth/login',
+      name: 'login',
+      component: () => import('@/views/pages/auth/Login.vue'),
+      meta: { public: true, title: 'Login' },
     },
     {
-      path: "/auth/access",
-      name: "accessDenied",
+      path: '/auth/access',
+      name: 'accessDenied',
       component: Access,
-      meta: { public: true, title: "Access Denied" },
+      meta: { public: true, title: 'Access Denied' },
     },
     {
-      path: "/:pathMatch(.*)*",
-      name: "notfound",
+      path: '/:pathMatch(.*)*',
+      name: 'notfound',
       component: NotFound,
-      meta: { public: true, title: "Not Found" },
+      meta: { public: true, title: 'Not Found' },
     },
   ],
 });
@@ -79,13 +79,13 @@ const router = createRouter({
  */
 function isValidRedirectUrl(path: string): boolean {
   try {
-    if (typeof path !== "string") return false;
-    if (!path.startsWith("/")) return false;
-    if (path.includes("://") || path.startsWith("//")) return false;
+    if (typeof path !== 'string') return false;
+    if (!path.startsWith('/')) return false;
+    if (path.includes('://') || path.startsWith('//')) return false;
 
     const resolved = router.resolve(path);
     if (!resolved) return false;
-    if (resolved.name === "login" || resolved.name === "accessDenied") {
+    if (resolved.name === 'login' || resolved.name === 'accessDenied') {
       return false;
     }
 
@@ -101,21 +101,19 @@ function isValidRedirectUrl(path: string): boolean {
 function canAccessRouteByRole(
   to: RouteLocationNormalized,
   userRole: string | null,
-  isSuperAdmin: boolean
+  isSuperAdmin: boolean,
 ): boolean {
   const requiredRoles = (to.meta as any).roles as string[] | string | undefined;
 
   if (!requiredRoles) return true; // No role requirement
 
-  const normalizedRequired = Array.isArray(requiredRoles)
-    ? requiredRoles
-    : [requiredRoles];
+  const normalizedRequired = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
 
   // SuperAdmin can access everything
   if (isSuperAdmin) return true;
 
   // Check if user's role is in required roles
-  return normalizedRequired.includes(userRole || "");
+  return normalizedRequired.includes(userRole || '');
 }
 
 /**
@@ -123,10 +121,9 @@ function canAccessRouteByRole(
  */
 function canAccessRouteByPermission(
   to: RouteLocationNormalized,
-  authStore: ReturnType<typeof useAuthStore>
+  authStore: ReturnType<typeof useAuthStore>,
 ): boolean {
-  const requiredPermissions =
-    (to.meta as any).permission || ((to.meta as any).permissions as any);
+  const requiredPermissions = (to.meta as any).permission || ((to.meta as any).permissions as any);
 
   if (!requiredPermissions) return true; // No permission requirement
 
@@ -148,18 +145,18 @@ function canAccessRouteByPermission(
  */
 function canAccessRouteByLevel(
   to: RouteLocationNormalized,
-  authStore: ReturnType<typeof useAuthStore>
+  authStore: ReturnType<typeof useAuthStore>,
 ): boolean {
-  const level = (to.meta as any).level as "system" | "clinic" | undefined;
+  const level = (to.meta as any).level as 'system' | 'clinic' | undefined;
 
   if (!level) return true; // No level requirement
 
-  if (level === "system") {
+  if (level === 'system') {
     // System routes require SuperAdmin role
     return authStore.isSuperAdmin;
   }
 
-  if (level === "clinic") {
+  if (level === 'clinic') {
     // Clinic routes require clinic context
     return authStore.hasClinicContext;
   }
@@ -185,15 +182,10 @@ function canAccessRouteByLevel(
  */
 async function canAccessRouteByABAC(
   to: RouteLocationNormalized,
-  authStore: ReturnType<typeof useAuthStore>
+  authStore: ReturnType<typeof useAuthStore>,
 ): Promise<boolean> {
-  const abacResource = (to.meta as any).abacResource as
-    | string
-    | null
-    | undefined;
-  const abacResourceIdParam = (to.meta as any).abacResourceIdParam as
-    | string
-    | undefined;
+  const abacResource = (to.meta as any).abacResource as string | null | undefined;
+  const abacResourceIdParam = (to.meta as any).abacResourceIdParam as string | undefined;
   const abacAction = (to.meta as any).abacAction as string | undefined;
 
   // No ABAC check needed for this route
@@ -209,7 +201,7 @@ async function canAccessRouteByABAC(
   }
 
   // Default action is 'view'
-  const action = abacAction || "view";
+  const action = abacAction || 'view';
 
   try {
     // Use the authorization guard composable to check access
@@ -217,7 +209,7 @@ async function canAccessRouteByABAC(
     const { canAccess, isChecking } = useAuthorizationGuard(
       abacResource as any,
       resourceId,
-      action as any
+      action as any,
     );
 
     // Wait for check to complete (with timeout to prevent infinite loops)
@@ -230,26 +222,19 @@ async function canAccessRouteByABAC(
     }
 
     if (attempts >= maxAttempts) {
-      console.warn(
-        `⚠️ ABAC check timeout for ${abacResource}:${resourceId}:${action}`
-      );
+      console.warn(`⚠️ ABAC check timeout for ${abacResource}:${resourceId}:${action}`);
       return false;
     }
 
     const result = canAccess.value;
 
     if (!result) {
-      console.warn(
-        `🚫 ABAC check denied: ${abacResource}:${resourceId}:${action}`
-      );
+      console.warn(`🚫 ABAC check denied: ${abacResource}:${resourceId}:${action}`);
     }
 
     return result;
   } catch (err) {
-    console.error(
-      `❌ ABAC check error for ${abacResource}:${resourceId}:${action}`,
-      err
-    );
+    console.error(`❌ ABAC check error for ${abacResource}:${resourceId}:${action}`, err);
     // On error, deny access to be safe
     return false;
   }
@@ -270,23 +255,20 @@ router.beforeEach(async (to, from, next) => {
 
     // ✅ 2. Ensure auth initialization
     if (!authStore.isInitialized) {
-      console.log("⏳ Initializing auth...");
+      console.log('⏳ Initializing auth...');
       await authStore.initAuth();
     }
 
     // ✅ 3. Wait until permissions are fully loaded
     if (!authStore.isPermissionsLoaded && authStore.isLoggedIn) {
-      console.log("⏳ Waiting for permissions...");
+      console.log('⏳ Waiting for permissions...');
       await authStore.waitForPermissions();
     }
 
     // ✅ 4. Allow all public routes
     if (to.meta.public) {
       // Prevent logged-in users from accessing login page again
-      if (
-        authStore.isLoggedIn &&
-        ["login", "accessDenied"].includes(to.name as string)
-      ) {
+      if (authStore.isLoggedIn && ['login', 'accessDenied'].includes(to.name as string)) {
         return next(getDefaultDashboardRoute());
       }
 
@@ -295,56 +277,50 @@ router.beforeEach(async (to, from, next) => {
 
     // 🚫 5. Block unauthenticated users
     if (!authStore.isLoggedIn) {
-      console.log("🔒 User not logged in - redirecting to login");
+      console.log('🔒 User not logged in - redirecting to login');
       return next({
-        name: "login",
+        name: 'login',
         query: { redirect: to.fullPath },
       });
     }
 
     // ✅ 6. Check role-based access (RBAC)
     if (!canAccessRouteByRole(to, authStore.userRole, authStore.isSuperAdmin)) {
-      console.warn(
-        `🚫 User role '${authStore.userRole}' not allowed for route:`,
-        to.path
-      );
-      return next({ name: "accessDenied" });
+      console.warn(`🚫 User role '${authStore.userRole}' not allowed for route:`, to.path);
+      return next({ name: 'accessDenied' });
     }
 
     // ✅ 7. Check route level (system vs clinic)
     if (!canAccessRouteByLevel(to, authStore)) {
       console.warn(`🚫 User context not allowed for route level:`, to.path);
-      return next({ name: "accessDenied" });
+      return next({ name: 'accessDenied' });
     }
 
     // ✅ 8. Check permission-based access (PBAC)
     if (!canAccessRouteByPermission(to, authStore)) {
-      console.warn("🚫 Missing required permission for route:", to.path);
-      return next({ name: "accessDenied" });
+      console.warn('🚫 Missing required permission for route:', to.path);
+      return next({ name: 'accessDenied' });
     }
 
     // ✅ 9. Check ABAC (Attribute-Based Access Control) for resource-specific routes
     if (!(await canAccessRouteByABAC(to, authStore))) {
-      console.warn("🚫 ABAC check failed for resource access:", to.path);
-      return next({ name: "accessDenied" });
+      console.warn('🚫 ABAC check failed for resource access:', to.path);
+      return next({ name: 'accessDenied' });
     }
 
     // ✅ 10. Save last visited protected route (for redirect after login)
-    if (
-      !to.meta.public &&
-      !["login", "accessDenied", "notfound"].includes(to.name as string)
-    ) {
+    if (!to.meta.public && !['login', 'accessDenied', 'notfound'].includes(to.name as string)) {
       try {
-        localStorage.setItem("lastVisitedRoute", to.fullPath);
+        localStorage.setItem('lastVisitedRoute', to.fullPath);
       } catch {
-        console.warn("⚠️ Could not save last visited route to localStorage");
+        console.warn('⚠️ Could not save last visited route to localStorage');
       }
     }
 
     next();
   } catch (err) {
-    console.error("❌ Route guard error:", err);
-    next({ name: "accessDenied" });
+    console.error('❌ Route guard error:', err);
+    next({ name: 'accessDenied' });
   }
 });
 
@@ -353,10 +329,10 @@ router.beforeEach(async (to, from, next) => {
  */
 router.afterEach((to, from) => {
   // Clean URL if we just logged in from redirect
-  if (from.name === "login" && to.name !== "login" && !to.query.redirect) {
+  if (from.name === 'login' && to.name !== 'login' && !to.query.redirect) {
     // Remove ?redirect= from URL
-    if (typeof window !== "undefined" && window.location.search) {
-      window.history.replaceState({}, "", to.fullPath);
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState({}, '', to.fullPath);
     }
   }
 });

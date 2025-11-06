@@ -1,5 +1,5 @@
-import type { RouteMeta } from "vue-router";
-import type { ResourceType, AuthorizationAction } from "@/types/authorization";
+import type { AuthorizationAction, ResourceType } from '@/types/authorization';
+import 'vue-router';
 
 /**
  * Extended Vue Router Meta Types
@@ -11,7 +11,7 @@ import type { ResourceType, AuthorizationAction } from "@/types/authorization";
  * Updated: 2025-11-02
  */
 
-declare module "vue-router" {
+declare module 'vue-router' {
   interface RouteMeta {
     /**
      * Page title for document.title and breadcrumbs
@@ -51,7 +51,7 @@ declare module "vue-router" {
      * - "system": SuperAdmin only (System.ManageSettings permission)
      * - "clinic": Clinic users only (requires clinic context)
      */
-    level?: "system" | "clinic";
+    level?: 'system' | 'clinic';
 
     /**
      * Resource type for ABAC (Attribute-Based Access Control) check

@@ -1,11 +1,11 @@
 import {
-  QueryClient,
   focusManager,
   onlineManager,
   QueryCache,
+  QueryClient,
   type Query,
-} from "@tanstack/vue-query";
-import { reactive } from "vue";
+} from '@tanstack/vue-query';
+import { reactive } from 'vue';
 
 /**
  * 🌐 Global Vue Query Client (SaaS-grade Configuration – 2025)
@@ -50,14 +50,14 @@ queryCache.subscribe((event) => {
   const { type, query } = event;
 
   switch (type) {
-    case "added":
+    case 'added':
       queryMetrics.totalQueries++;
       break;
-    case "removed":
+    case 'removed':
       queryMetrics.totalQueries = Math.max(0, queryMetrics.totalQueries - 1);
       break;
-    case "updated":
-      if (query.state.status === "success") {
+    case 'updated':
+      if (query.state.status === 'success') {
         queryMetrics.networkFetches++;
         queryMetrics.lastSyncTime = Date.now();
       }
@@ -79,8 +79,8 @@ export const queryClient = new QueryClient({
 
       // Don't automatically refetch on window focus for auth checks
       refetchOnWindowFocus: false,
-      refetchOnReconnect: "always",
-      refetchOnMount: "always",
+      refetchOnReconnect: 'always',
+      refetchOnMount: 'always',
     },
 
     mutations: {
@@ -100,7 +100,7 @@ function markUserActive() {
   if (isIdle) {
     isIdle = false;
     focusManager.setFocused(true);
-    console.log("👋 User active → resuming background polling");
+    console.log('👋 User active → resuming background polling');
     queryMetrics.idleSince = null;
   }
 
@@ -110,24 +110,24 @@ function markUserActive() {
       isIdle = true;
       focusManager.setFocused(false);
       queryMetrics.idleSince = Date.now();
-      console.log("💤 User idle → pausing background polling");
+      console.log('💤 User idle → pausing background polling');
     },
-    1000 * 60 * 5
+    1000 * 60 * 5,
   );
 }
 
-["mousemove", "keydown", "mousedown", "touchstart"].forEach((e) =>
-  window.addEventListener(e, markUserActive)
+['mousemove', 'keydown', 'mousedown', 'touchstart'].forEach((e) =>
+  window.addEventListener(e, markUserActive),
 );
 
-window.addEventListener("online", () => {
+window.addEventListener('online', () => {
   onlineManager.setOnline(true);
-  console.log("🌐 Online → revalidating data");
+  console.log('🌐 Online → revalidating data');
 });
 
-window.addEventListener("offline", () => {
+window.addEventListener('offline', () => {
   onlineManager.setOnline(false);
-  console.log("⚠️ Offline → pausing queries");
+  console.log('⚠️ Offline → pausing queries');
 });
 
 markUserActive();
@@ -138,26 +138,22 @@ markUserActive();
 if (import.meta.env.DEV) {
   setInterval(() => {
     const allQueries = queryClient.getQueryCache().getAll();
-    const active = (allQueries as Query[]).filter(
-      (q) => q.state.fetchStatus === "fetching"
-    ).length;
+    const active = (allQueries as Query[]).filter((q) => q.state.fetchStatus === 'fetching').length;
 
     queryMetrics.activeQueries = active;
     queryMetrics.refetchCount++;
 
     console.table({
-      "🧩 Total Queries": queryMetrics.totalQueries,
-      "⚡ Active": queryMetrics.activeQueries,
-      "💾 Cache Hits": queryMetrics.cacheHits,
-      "🌍 Network Fetches": queryMetrics.networkFetches,
-      "🔁 Refetch Count": queryMetrics.refetchCount,
-      "🧠 Mutations": queryMetrics.mutationCount,
-      "🕒 Last Sync":
-        queryMetrics.lastSyncTime &&
-        new Date(queryMetrics.lastSyncTime).toLocaleTimeString(),
-      "💤 Idle Since":
-        queryMetrics.idleSince &&
-        new Date(queryMetrics.idleSince).toLocaleTimeString(),
+      '🧩 Total Queries': queryMetrics.totalQueries,
+      '⚡ Active': queryMetrics.activeQueries,
+      '💾 Cache Hits': queryMetrics.cacheHits,
+      '🌍 Network Fetches': queryMetrics.networkFetches,
+      '🔁 Refetch Count': queryMetrics.refetchCount,
+      '🧠 Mutations': queryMetrics.mutationCount,
+      '🕒 Last Sync':
+        queryMetrics.lastSyncTime && new Date(queryMetrics.lastSyncTime).toLocaleTimeString(),
+      '💤 Idle Since':
+        queryMetrics.idleSince && new Date(queryMetrics.idleSince).toLocaleTimeString(),
     });
   }, 1000 * 30);
 }

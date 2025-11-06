@@ -4,8 +4,8 @@
  */
 
 export enum ChequeStatus {
-  Pending = "Pending",
-  Cleared = "Cleared",
-  Bounced = "Bounced",
-  Cancelled = "Cancelled",
+  Pending = 'Pending',
+  Cleared = 'Cleared',
+  Bounced = 'Bounced',
+  Cancelled = 'Cancelled',
 }

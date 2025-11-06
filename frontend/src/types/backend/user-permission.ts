@@ -3,8 +3,8 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { User } from "./user";
-import { AppPermission } from "./app-permission";
+import { AppPermission } from './app-permission';
+import { User } from './user';
 
 export class UserPermission {
   userId: string;

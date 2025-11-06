@@ -1,6 +1,6 @@
 // ClientSidebar.vue
 <script setup type="ts">
-import AppMenu from "@/layout/AppMenu.vue";
+  import AppMenu from "@/layout/AppMenu.vue";
 </script>
 
 <template>

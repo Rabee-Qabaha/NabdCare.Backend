@@ -3,16 +3,16 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { Clinic } from "./clinic";
-import { Role } from "./role";
-import { UserPermission } from "./user-permission";
+import { Clinic } from './clinic';
+import { Role } from './role';
+import { UserPermission } from './user-permission';
 
 export class User {
   clinicId: string;
   clinic: Clinic;
-  email: string = "";
-  passwordHash: string = "";
-  fullName: string = "";
+  email: string = '';
+  passwordHash: string = '';
+  fullName: string = '';
   roleId: string;
   role: Role;
   isActive: boolean = true;

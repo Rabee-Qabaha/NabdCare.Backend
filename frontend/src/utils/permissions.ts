@@ -1,5 +1,5 @@
 // src/utils/permissions.ts
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from '@/stores/authStore';
 
 export function hasPermission(permissionName: string): boolean {
   const store = useAuthStore();

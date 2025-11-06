@@ -1,6 +1,6 @@
-import { computed } from "vue";
-import { useResourceAuthorization } from "@/composables/query/authorization/useResourceAuthorization";
-import type { AuthorizationAction, ResourceType } from "@/types/authorization";
+import { useResourceAuthorization } from '@/composables/query/authorization/useResourceAuthorization';
+import type { AuthorizationAction, ResourceType } from '@/types/authorization';
+import { computed } from 'vue';
 
 /**
  * Authorization Guard Composable
@@ -24,10 +24,13 @@ import type { AuthorizationAction, ResourceType } from "@/types/authorization";
 export function useAuthorizationGuard(
   resourceType: ResourceType,
   resourceId: string,
-  action: AuthorizationAction
+  action: AuthorizationAction,
 ) {
-  const { allowed, isLoading, error, reason, refetch } =
-    useResourceAuthorization(resourceType, resourceId, action);
+  const { allowed, isLoading, error, reason, refetch } = useResourceAuthorization(
+    resourceType,
+    resourceId,
+    action,
+  );
 
   // Computed properties
   const canAccess = computed(() => allowed.value && !error.value);
@@ -36,9 +39,8 @@ export function useAuthorizationGuard(
   const denialMessage = computed(() => {
     if (!isDenied.value) return null;
     if (reason.value) return reason.value;
-    if (error.value)
-      return `Authorization check failed: ${error.value.message}`;
-    return "Access denied";
+    if (error.value) return `Authorization check failed: ${error.value.message}`;
+    return 'Access denied';
   });
 
   return {
@@ -67,12 +69,8 @@ export function useAuthorizationGuard(
 export function useCanAccess(
   resourceType: ResourceType,
   resourceId: string,
-  action: AuthorizationAction
+  action: AuthorizationAction,
 ) {
-  const { allowed } = useResourceAuthorization(
-    resourceType,
-    resourceId,
-    action
-  );
+  const { allowed } = useResourceAuthorization(resourceType, resourceId, action);
   return allowed;
 }

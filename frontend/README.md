@@ -29,9 +29,9 @@ Before starting development, update the project details in `package.json`:
 
 ```json
 {
-    "name": "your-project-name",
-    "version": "1.0.0",
-    "type": "module"
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "type": "module"
 }
 ```
 
@@ -46,6 +46,7 @@ Also update the title in `index.html` to match your project name:
 There are two ways to update dependencies:
 
 1. Using npm-check-updates:
+
 ```bash
 # Install npm-check-updates globally
 bun add -g npm-check-updates
@@ -61,6 +62,7 @@ bun install
 ```
 
 2. Using the built-in update script:
+
 ```bash
 # Update dependencies based on installed Bun packages
 bun run update-deps

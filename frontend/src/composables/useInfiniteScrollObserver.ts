@@ -1,4 +1,4 @@
-import { onMounted, onBeforeUnmount, ref, type Ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 /**
  * useInfiniteScrollObserver
@@ -18,7 +18,7 @@ export function useInfiniteScrollObserver(onReachEnd: () => void) {
       {
         root: null,
         threshold: 0.8, // when 80% visible
-      }
+      },
     );
 
     if (targetRef.value) observer.value.observe(targetRef.value);

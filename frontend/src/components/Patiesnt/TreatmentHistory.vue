@@ -1,7 +1,7 @@
 <template>
-  <div class="card h-[465px] flex flex-col overflow-hidden">
+  <div class="card flex h-[465px] flex-col overflow-hidden">
     <!-- Header -->
-    <div class="text-muted-color font-semibold text-xl mb-6 flex-shrink-0">
+    <div class="mb-6 flex-shrink-0 text-xl font-semibold text-muted-color">
       {{ header }}
     </div>
 
@@ -18,7 +18,7 @@
             <span
               :class="
                 getVisitTypeTagClass(slotProps.item.visitType) +
-                ' px-2 py-1 rounded text-xs font-semibold border-0'
+                ' rounded border-0 px-2 py-1 text-xs font-semibold'
               "
             >
               {{ slotProps.item.visitType }}
@@ -45,21 +45,21 @@
 </template>
 
 <script setup lang="ts">
-// import type { PatientVisit } from '../../../../shared/types';
-import { formatDate, getVisitTypeTagClass } from "@/utils/uiHelpers";
-import { toRefs } from "vue";
+  // import type { PatientVisit } from '../../../../shared/types';
+  import { formatDate, getVisitTypeTagClass } from '@/utils/uiHelpers';
+  import { toRefs } from 'vue';
 
-// PrimeVue components
-import Timeline from "primevue/timeline";
-import ScrollPanel from "primevue/scrollpanel";
+  // PrimeVue components
+  import Timeline from 'primevue/timeline';
+  import ScrollPanel from 'primevue/scrollpanel';
 
-// Our custom component
-import EmptyState from "@/components/EmptyState.vue";
+  // Our custom component
+  import EmptyState from '@/components/EmptyState.vue';
 
-const props = defineProps<{
-  visits?: any[]; // Replace 'any' with 'PatientVisit' when the type is available
-  header?: string;
-}>();
+  const props = defineProps<{
+    visits?: any[]; // Replace 'any' with 'PatientVisit' when the type is available
+    header?: string;
+  }>();
 
-const { visits, header = "Treatment History" } = toRefs(props);
+  const { visits, header = 'Treatment History' } = toRefs(props);
 </script>

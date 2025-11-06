@@ -3,12 +3,12 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { SubscriptionStatus } from "./subscription-status";
-import { SubscriptionType } from "./subscription-type";
+import { SubscriptionStatus } from './subscription-status';
+import { SubscriptionType } from './subscription-type';
 
 export class ClinicResponseDto {
   id: string;
-  name: string = "";
+  name: string = '';
   email: string;
   phone: string;
   address: string;

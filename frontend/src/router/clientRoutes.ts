@@ -1,7 +1,5 @@
-import type { RouteRecordRaw } from "vue-router";
-import { Patients } from "@/types/backend/constants/patients";
-import { Payments } from "@/types/backend/constants/payments";
-import { Users } from "@/types/backend/constants/users";
+import { Patients } from '@/types/backend/constants/patients';
+import type { RouteRecordRaw } from 'vue-router';
 
 /**
  * Client Routes
@@ -16,22 +14,22 @@ import { Users } from "@/types/backend/constants/users";
 
 export const clientRoutes: RouteRecordRaw[] = [
   {
-    path: "/client",
-    component: () => import("@/layout/client/ClientLayout.vue"),
+    path: '/client',
+    component: () => import('@/layout/client/ClientLayout.vue'),
     meta: {
       requiresAuth: true,
-      title: "Client Area",
+      title: 'Client Area',
       public: false,
       // 🧠 Clinic users only
-      level: "clinic",
+      level: 'clinic',
     },
     children: [
       {
-        path: "",
-        name: "client-dashboard",
-        component: () => import("@/views/pages/client/Dashboard.vue"),
+        path: '',
+        name: 'client-dashboard',
+        component: () => import('@/views/pages/client/Dashboard.vue'),
         meta: {
-          title: "Client Dashboard",
+          title: 'Client Dashboard',
           permission: Patients.view,
           // ✅ Dashboard doesn't need individual resource checks
           abacResource: null,

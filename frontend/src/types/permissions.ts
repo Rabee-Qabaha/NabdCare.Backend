@@ -1,5 +1,5 @@
 // src/types/permissions.ts
-import { PermissionRegistry } from "@/config/permissionsRegistry";
+import { PermissionRegistry } from '@/config/permissionsRegistry';
 
 /**
  * Extracts only the static string fields from a given permission class.
@@ -27,10 +27,7 @@ export type PermissionValue = {
  * instead of the actual values, you can use this type.
  */
 export type PermissionKey = {
-  [K in keyof Registry]: `${Extract<K, string>}.${Extract<
-    keyof Registry[K],
-    string
-  >}`;
+  [K in keyof Registry]: `${Extract<K, string>}.${Extract<keyof Registry[K], string>}`;
 }[keyof Registry];
 
 /**
