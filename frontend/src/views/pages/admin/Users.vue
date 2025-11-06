@@ -13,6 +13,7 @@ import {
   useDeactivateUser,
   useSoftDeleteUser,
   useHardDeleteUser,
+  useRestoreUser,
 } from "@/composables/query/users/useUserActions";
 import { useRoles, useClinics } from "@/composables/query/useDropdownData";
 import UserDialog from "@/components/User/UserDialog.vue";
@@ -22,6 +23,8 @@ import { formatDate } from "@/utils/uiHelpers";
 import { usePermission } from "@/composables/usePermission";
 import { FilterMatchMode, FilterOperator } from "@primevue/core/api";
 import type { UserResponseDto } from "@/types/backend";
+import RoleSelect from "@/components/Dropdowns/RoleSelect.vue";
+import ClinicSelect from "@/components/Dropdowns/ClinicSelect.vue";
 
 // PrimeVue Components
 import InputText from "primevue/inputtext";
@@ -113,10 +116,8 @@ const initialFilters = {
 // DROPDOWN DATA (Cached)
 // ========================================
 
-const { data: rolesDropdown = [], isLoading: rolesDropdownLoading } =
-  useRoles();
-const { data: clinicsDropdown = [], isLoading: clinicsDropdownLoading } =
-  useClinics();
+useRoles();
+useClinics();
 
 // ========================================
 // STATE MANAGEMENT
@@ -129,6 +130,7 @@ const changePasswordDialog = ref(false);
 const deleteUserDialog = ref(false);
 const bulkActionDialog = ref(false);
 const softDeleteLoading = ref(false);
+const showDeleted = ref(false);
 
 const currentBulkAction = ref<"activate" | "deactivate" | "delete" | null>(
   null
@@ -173,6 +175,7 @@ const {
   isError,
 } = useInfiniteUsersPaged({
   search: "",
+  includeDeleted: showDeleted,
 });
 
 // CRUD Mutations
@@ -185,6 +188,7 @@ const hardDeleteUserMutation = useHardDeleteUser();
 const resetPasswordMutation = useResetPassword();
 const activateUserMutation = useActivateUser();
 const deactivateUserMutation = useDeactivateUser();
+const restoreUserMutation = useRestoreUser();
 
 // ========================================
 // COMPUTED PROPERTIES
@@ -219,7 +223,7 @@ const filteredUsers = computed(() => {
       contains(u.fullName, name) &&
       contains(u.email, email) &&
       contains(u.roleName, role) &&
-      contains(u.clinicName, clinic) &&
+      contains(u.clinicName ?? "", clinic) &&
       equals(u.isActive, status) &&
       sameDate(u.createdAt, created)
     );
@@ -310,6 +314,7 @@ function openFilters(): void {
 function applyFilters(): void {
   filtersDialogVisible.value = false;
   visibleCount.value = BATCH_SIZE;
+  refetch();
 }
 
 function clearFilters(): void {
@@ -496,6 +501,44 @@ async function handleChangePassword(data: {
   }
 }
 
+async function confirmRestore(u: UserResponseDto): Promise<void> {
+  confirm.require({
+    message: `Restore user ${u.fullName} (${u.email})?`,
+    header: "Restore User",
+    icon: "pi pi-refresh",
+    rejectLabel: "Cancel",
+    acceptLabel: "Restore",
+    acceptIcon: "pi pi-undo",
+    acceptProps: { severity: "success" },
+    rejectProps: { outlined: true },
+    accept: async () => {
+      try {
+        await restoreUserMutation.mutateAsync(u.id);
+        toast.add({
+          severity: "success",
+          summary: "Restored",
+          detail: `${u.fullName} has been restored`,
+          life: 3000,
+        });
+
+        // ✅ Immediately refresh the list
+        await refetch();
+
+        // Optional: if you were in "Show Deleted" mode, flip back to active list:
+        // showDeleted.value = false;
+        // await refetch();
+      } catch (err: any) {
+        toast.add({
+          severity: "error",
+          summary: "Error",
+          detail: err?.message || "Failed to restore user",
+          life: 4000,
+        });
+      }
+    },
+  });
+}
+
 // ========================================
 // BULK ACTIONS
 // ========================================
@@ -522,7 +565,7 @@ async function handleBulkActionConfirm(): Promise<void> {
   if (!action || !ids.length) return;
 
   bulkActionDialog.value = false;
-  bulkActionLoading.value = true; // ✅ NEW: Set loading state
+  bulkActionLoading.value = true;
   let successCount = 0;
   let errorCount = 0;
 
@@ -690,6 +733,19 @@ watch(
           outlined
           @click="openFilters"
         />
+        <!-- Toggle Active/Deleted view -->
+        <Button
+          :label="showDeleted ? 'Show Active' : 'Show Deleted'"
+          :icon="showDeleted ? 'pi pi-users' : 'pi pi-trash'"
+          outlined
+          @click="
+            () => {
+              showDeleted = !showDeleted;
+              visibleCount = BATCH_SIZE;
+              refetch();
+            }
+          "
+        />
         <Button
           icon="pi pi-filter-slash"
           label="Clear Filters"
@@ -793,95 +849,202 @@ watch(
     <!-- CONTENT -->
     <div
       v-else-if="visibleUsers.length"
-      class="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      class="grid gap-5 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
     >
-      <Card v-for="u in visibleUsers" :key="u.id">
-        <template #title>
-          <div class="flex items-start justify-between">
-            <div class="flex items-center gap-2">
-              <Avatar
-                :label="u.fullName?.charAt(0)"
-                shape="circle"
-                :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'"
-                class="text-white"
-              />
-              <div>
-                <p class="font-semibold m-0">{{ u.fullName }}</p>
-                <p class="text-600 text-sm m-0">{{ u.email }}</p>
-              </div>
+      <div
+        v-for="u in visibleUsers"
+        :key="u.id"
+        class="relative flex flex-col justify-between rounded-2xl border bg-surface-0 dark:bg-surface-900 shadow-sm transition-all duration-200 overflow-hidden"
+        :class="[
+          u.isDeleted
+            ? 'bg-pink-50 dark:bg-pink-100/10 dark:border-pink-100 ring-1 ring-pink-200/50 opacity-90'
+            : 'bg-surface-0 dark:bg-surface-900 border-surface-200 dark:border-surface-700 hover:shadow-primary/40',
+        ]"
+      >
+        <!-- Header -->
+        <div class="flex items-center justify-between p-4">
+          <div class="flex items-center gap-3">
+            <Avatar
+              :label="u.fullName?.charAt(0)"
+              size="large"
+              shape="circle"
+              class="text-white shadow-sm"
+              :class="[
+                u.isActive ? 'bg-green-500' : 'bg-gray-500',
+                u.isDeleted ? 'opacity-60 grayscale' : '',
+              ]"
+            />
+            <div>
+              <h4 class="font-semibold text-base text-900 dark:text-0 m-0">
+                {{ u.fullName }}
+              </h4>
+              <p
+                class="text-xs text-surface-500 dark:text-surface-400 m-0 truncate"
+              >
+                {{ u.email }}
+              </p>
             </div>
-            <Checkbox :value="u.id" v-model="selectedUserIds" />
           </div>
-        </template>
+          <Tag
+            v-if="u.isDeleted"
+            value="Deleted"
+            severity="danger"
+            rounded
+            class="ml-2"
+          />
+          <div class="flex items-center gap-2">
+            <Checkbox
+              v-if="!u.isDeleted"
+              :value="u.id"
+              v-model="selectedUserIds"
+            />
+          </div>
+        </div>
 
-        <template #content>
-          <div class="flex flex-col gap-1 text-sm">
-            <div class="flex justify-between">
-              <span>Role:</span>
-              <Tag :value="u.roleName" severity="info" />
+        <!-- Content -->
+        <div
+          class="px-4 pb-3 pt-2 text-sm border-t border-surface-200 dark:border-surface-700"
+        >
+          <!-- Status -->
+          <div class="flex justify-between items-center py-1">
+            <span
+              class="flex items-center gap-1 text-surface-600 dark:text-surface-400"
+            >
+              <i class="pi pi-check-circle text-surface-500"></i>
+              Status
+            </span>
+            <Tag
+              :value="u.isActive ? 'Active' : 'Inactive'"
+              :severity="u.isActive ? 'success' : 'danger'"
+              rounded
+              class="text-xs font-semibold"
+            />
+          </div>
+          <div class="flex justify-between items-center py-1">
+            <span
+              class="flex items-center gap-1 text-surface-600 dark:text-surface-400"
+            >
+              <i class="pi pi-id-card text-surface-500"></i>
+              Role
+            </span>
+            <Tag
+              :value="u.roleName"
+              :severity="u.isSystemRole ? 'danger' : 'info'"
+              rounded
+              class="text-xs font-medium px-2 py-0.5"
+            />
+          </div>
+
+          <div class="flex justify-between items-center py-1">
+            <span
+              class="flex items-center gap-1 text-surface-600 dark:text-surface-400"
+            >
+              <i class="pi pi-building text-surface-500"></i>
+              Clinic
+            </span>
+            <span class="truncate text-surface-700 dark:text-surface-200">
+              {{ u.clinicName || "No Clinic" }}
+            </span>
+          </div>
+
+          <!-- Static Details Section -->
+          <div
+            class="mt-3 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-3 py-2 text-xs text-surface-700 dark:text-surface-300 space-y-2"
+          >
+            <div class="flex justify-between items-center">
+              <span class="flex items-center gap-1 font-medium">
+                <i class="pi pi-user text-primary"></i> Created By
+              </span>
+              <span>{{ u.createdByUserName || "Unknown" }}</span>
             </div>
-            <div class="flex justify-between">
-              <span>Clinic:</span>
-              <span>{{ u.clinicName || "No Clinic" }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Status:</span>
-              <Tag
-                :value="u.isActive ? 'Active' : 'Inactive'"
-                :severity="u.isActive ? 'success' : 'danger'"
-              />
-            </div>
-            <div class="flex justify-between">
-              <span>Created:</span>
+
+            <div class="flex justify-between items-center">
+              <span class="flex items-center gap-1 font-medium">
+                <i class="pi pi-calendar text-green-500"></i> Created
+              </span>
               <span>{{ formatDate(u.createdAt) }}</span>
             </div>
-          </div>
-        </template>
 
-        <template #footer>
-          <div class="flex flex-wrap gap-2">
-            <Button
-              v-if="canEdit"
-              icon="pi pi-pencil"
-              text
-              @click="editUser(u)"
-              v-tooltip.top="'Edit user'"
-            />
-            <Button
-              v-if="canActivate"
-              :icon="u.isActive ? 'pi pi-ban' : 'pi pi-check'"
-              text
-              @click="toggleUserStatus(u)"
-              v-tooltip.top="u.isActive ? 'Deactivate' : 'Activate'"
-              :loading="loadingUserIds.has(u.id)"
-              :disabled="loadingUserIds.has(u.id)"
-            />
-            <Button
-              v-if="canResetPassword"
-              icon="pi pi-key"
-              text
-              @click="openChangePasswordDialog(u)"
-              v-tooltip.top="'Reset password'"
-            />
-            <Button
-              v-if="canDelete"
-              icon="pi pi-trash"
-              text
-              severity="danger"
-              @click="confirmDeleteUser(u)"
-              v-tooltip.top="'Soft delete'"
-            />
-            <Button
-              v-if="canDelete"
-              icon="pi pi-times-circle"
-              text
-              severity="danger"
-              @click="hardDeleteUser(u)"
-              v-tooltip.top="'Hard delete'"
-            />
+            <div class="flex justify-between items-center">
+              <span class="flex items-center gap-1 font-medium">
+                <i class="pi pi-refresh text-cyan-500"></i> Updated
+              </span>
+              <span>{{ formatDate(u.updatedAt) }}</span>
+            </div>
           </div>
-        </template>
-      </Card>
+        </div>
+
+        <!-- Footer (Actions) -->
+        <div
+          class="flex justify-between items-center px-4 py-2 border-t border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800"
+        >
+          <div class="text-xs text-surface-500 dark:text-surface-400 font-mono">
+            ID: {{ String(u.id).slice(0, 8) }}
+          </div>
+
+          <div class="flex gap-1">
+            <!-- ✅ When NOT DELETED -->
+            <template v-if="!u.isDeleted">
+              <Button
+                v-if="canEdit"
+                icon="pi pi-pencil"
+                text
+                size="small"
+                v-tooltip.top="'Edit user'"
+                @click="editUser(u)"
+              />
+              <Button
+                v-if="canActivate"
+                :icon="u.isActive ? 'pi pi-ban' : 'pi pi-check'"
+                text
+                size="small"
+                v-tooltip.top="u.isActive ? 'Deactivate' : 'Activate'"
+                @click="toggleUserStatus(u)"
+                :loading="loadingUserIds.has(u.id)"
+                :disabled="loadingUserIds.has(u.id)"
+              />
+              <Button
+                v-if="canResetPassword"
+                icon="pi pi-key"
+                text
+                size="small"
+                v-tooltip.top="'Reset password'"
+                @click="openChangePasswordDialog(u)"
+              />
+              <Button
+                v-if="canDelete"
+                icon="pi pi-trash"
+                text
+                size="small"
+                severity="danger"
+                v-tooltip.top="'Soft delete'"
+                @click="confirmDeleteUser(u)"
+              />
+            </template>
+
+            <!-- ✅ When DELETED -->
+            <template v-else>
+              <Button
+                icon="pi pi-undo"
+                text
+                size="small"
+                severity="success"
+                v-tooltip.top="'Restore user'"
+                @click="confirmRestore(u)"
+              />
+
+              <Button
+                icon="pi pi-trash"
+                text
+                size="small"
+                severity="danger"
+                v-tooltip.top="'Permanently delete'"
+                @click="hardDeleteUser(u)"
+              />
+            </template>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- EMPTY STATE -->
@@ -924,86 +1087,27 @@ watch(
           />
         </div>
 
+        <!-- ✅ Replaced with RoleSelect -->
         <div>
           <label class="block text-sm font-medium mb-2">Role</label>
-          <Select
+          <RoleSelect
             v-model="filters.roleName.constraints[0].value"
-            :options="rolesDropdown"
-            optionLabel="name"
-            optionValue="name"
             placeholder="Select a role..."
-            :loading="rolesDropdownLoading"
-            showClear
-            class="w-full"
-            filter
-            filterPlaceholder="Search roles..."
-          >
-            <template #value="{ value }">
-              <div v-if="value" class="flex items-center gap-2">
-                <i class="pi pi-shield"></i>
-                <span>{{ value }}</span>
-              </div>
-              <span v-else class="text-surface-500">Select a role</span>
-            </template>
-
-            <template #option="{ option }">
-              <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-shield text-primary"></i>
-                  <span class="font-semibold">{{ option.name }}</span>
-                </div>
-                <small class="text-surface-500">{{
-                  option.description || "No description"
-                }}</small>
-              </div>
-            </template>
-          </Select>
-          <small
-            v-if="rolesDropdownLoading"
-            class="text-surface-500 block mt-1"
-          >
-            Loading roles...
-          </small>
+            :showLabel="false"
+            clearable
+            valueKey="name"
+          />
         </div>
 
+        <!-- ✅ Replaced with ClinicSelect -->
         <div>
           <label class="block text-sm font-medium mb-2">Clinic</label>
-          <Select
+          <ClinicSelect
             v-model="filters.clinicName.constraints[0].value"
-            :options="clinicsDropdown"
-            optionLabel="name"
-            optionValue="name"
             placeholder="Select a clinic..."
-            :loading="clinicsDropdownLoading"
-            showClear
-            class="w-full"
-            filter
-            filterPlaceholder="Search clinics..."
-          >
-            <template #value="{ value }">
-              <div v-if="value" class="flex items-center gap-2">
-                <i class="pi pi-building"></i>
-                <span>{{ value }}</span>
-              </div>
-              <span v-else class="text-surface-500">Select a clinic</span>
-            </template>
-
-            <template #option="{ option }">
-              <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-building text-green-500"></i>
-                  <span class="font-semibold">{{ option.name }}</span>
-                </div>
-                <small class="text-surface-500">{{ option.email }}</small>
-              </div>
-            </template>
-          </Select>
-          <small
-            v-if="clinicsDropdownLoading"
-            class="text-surface-500 block mt-1"
-          >
-            Loading clinics...
-          </small>
+            :showLabel="false"
+            valueKey="name"
+          />
         </div>
 
         <div>
@@ -1034,6 +1138,14 @@ watch(
               <Tag :value="option.label" :severity="option.severity" />
             </template>
           </Select>
+        </div>
+
+        <!-- here -->
+        <div>
+          <label class="inline-flex items-center gap-2">
+            <Checkbox v-model="showDeleted" :binary="true" />
+            <span>Show deleted users</span>
+          </label>
         </div>
 
         <div>

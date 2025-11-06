@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { reactive, computed, watch, ref } from "vue";
+import { watch, ref } from "vue";
 import { useToast } from "primevue/usetoast";
 import { useResetPassword } from "@/composables/query/users/useUserActions";
+import { usePasswordValidation } from "@/composables/validation/usePasswordValidation";
 import type { UserResponseDto } from "@/types/backend";
 
-// ... existing imports ...
+// PrimeVue Components
+import Dialog from "primevue/dialog";
+import Avatar from "primevue/avatar";
+import Message from "primevue/message";
+import Password from "primevue/password";
+import Button from "primevue/button";
 
 /**
  * Change Password Dialog Component
@@ -21,9 +27,10 @@ import type { UserResponseDto } from "@/types/backend";
  * ✅ Password confirmation matching
  * ✅ Loading states with disabled buttons
  * ✅ Error handling with user feedback
+ * ✅ Shared password validation composable
  *
  * Author: Rabee Qabaha
- * Updated: 2025-11-02
+ * Updated: 2025-11-04 20:29:53 UTC
  */
 
 // ========================================
@@ -48,21 +55,23 @@ const emit = defineEmits<{
 const toast = useToast();
 const resetPasswordMutation = useResetPassword();
 
+// ✅ Use password validation composable
+const {
+  passwords,
+  fieldTouched,
+  isPasswordSecure,
+  isNewPasswordSecure,
+  doPasswordsMatch,
+  getFieldError,
+  markFieldTouched,
+  resetPasswords,
+  getFieldErrorMessage,
+} = usePasswordValidation();
+
 // ========================================
 // STATE MANAGEMENT
 // ========================================
 
-const localPasswords = reactive({
-  newPassword: "",
-  confirmPassword: "",
-});
-
-const fieldTouched = reactive({
-  newPassword: false,
-  confirmPassword: false,
-});
-
-// ✅ FIXED: Use local loading state instead of mutation.isPending
 const isLoading = ref(false);
 
 // ========================================
@@ -72,10 +81,7 @@ const isLoading = ref(false);
 watch(
   () => props.user,
   () => {
-    localPasswords.newPassword = "";
-    localPasswords.confirmPassword = "";
-    fieldTouched.newPassword = false;
-    fieldTouched.confirmPassword = false;
+    resetPasswords(); // ✅ Use composable reset
   },
   { deep: true }
 );
@@ -85,64 +91,10 @@ watch(
 // ========================================
 
 /**
- * Check individual password security requirements
- */
-const isPasswordSecure = computed(() => {
-  const password = localPasswords.newPassword;
-  return {
-    minLength: password.length >= 12,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    digit: /\d/.test(password),
-    specialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
-  };
-});
-
-/**
- * Check if password meets all security requirements
- */
-const isNewPasswordSecure = computed(() => {
-  const security = isPasswordSecure.value;
-  return (
-    security.minLength &&
-    security.uppercase &&
-    security.lowercase &&
-    security.digit &&
-    security.specialChar
-  );
-});
-
-/**
- * Get validation errors for a field
- */
-function getError(key: "newPassword" | "confirmPassword"): boolean {
-  if (!fieldTouched[key]) return false;
-
-  if (key === "newPassword") {
-    return !localPasswords.newPassword || !isNewPasswordSecure.value;
-  }
-
-  if (key === "confirmPassword") {
-    return (
-      !localPasswords.confirmPassword ||
-      localPasswords.confirmPassword !== localPasswords.newPassword
-    );
-  }
-
-  return false;
-}
-
-/**
  * Check if entire form is valid and ready to submit
+ * Uses composable validation
  */
-const isFormValid = computed(() => {
-  return (
-    localPasswords.newPassword &&
-    isNewPasswordSecure.value &&
-    localPasswords.confirmPassword &&
-    localPasswords.newPassword === localPasswords.confirmPassword
-  );
-});
+// This is now handled by composable's doPasswordsMatch and isNewPasswordSecure
 
 // ========================================
 // HANDLERS
@@ -150,38 +102,45 @@ const isFormValid = computed(() => {
 
 /**
  * Save password reset
- * ✅ FIXED: Proper loading state management
  */
 async function onSave(): Promise<void> {
-  fieldTouched.newPassword = true;
-  fieldTouched.confirmPassword = true;
+  // ✅ Mark all fields as touched
+  markFieldTouched("newPassword");
+  markFieldTouched("confirmPassword");
 
-  if (!isFormValid.value) return;
+  // ✅ Use composable validation
+  if (
+    !passwords.newPassword ||
+    !isNewPasswordSecure.value ||
+    !passwords.confirmPassword ||
+    !doPasswordsMatch.value
+  ) {
+    return;
+  }
 
-  // ✅ FIXED: Set local loading state
   isLoading.value = true;
 
   try {
-    // ✅ Call mutation
-    const result = await resetPasswordMutation.mutateAsync({
+    // Call mutation
+    await resetPasswordMutation.mutateAsync({
       id: props.user.id!,
-      data: { newPassword: localPasswords.newPassword } as any,
+      data: { newPassword: passwords.newPassword } as any,
     });
 
-    console.log("✅ Password reset successful:", result);
+    emit("save", { newPassword: passwords.newPassword });
 
-    emit("save", { newPassword: localPasswords.newPassword });
-
-    // ✅ Reset form before closing
-    localPasswords.newPassword = "";
-    localPasswords.confirmPassword = "";
-    fieldTouched.newPassword = false;
-    fieldTouched.confirmPassword = false;
+    // ✅ Use composable reset
+    resetPasswords();
 
     emit("update:visible", false);
-  } catch (err: any) {
-    console.error("❌ Password reset failed:", err);
 
+    toast.add({
+      severity: "success",
+      summary: "Success",
+      detail: "Password reset successfully",
+      life: 3000,
+    });
+  } catch (err: any) {
     toast.add({
       severity: "error",
       summary: "Error",
@@ -189,7 +148,6 @@ async function onSave(): Promise<void> {
       life: 3000,
     });
   } finally {
-    // ✅ FIXED: Clear loading state in finally block
     isLoading.value = false;
   }
 }
@@ -214,7 +172,7 @@ function onCancel(): void {
   >
     <!-- User Info Card -->
     <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
-      <div class="flex align-items-center gap-3">
+      <div class="flex items-center gap-3">
         <Avatar
           :label="user.fullName?.charAt(0) || '?'"
           shape="circle"
@@ -305,7 +263,7 @@ function onCancel(): void {
 
         <div class="grid gap-4">
           <!-- New Password Input -->
-          <div class="col-12">
+          <div>
             <label
               for="newPassword"
               class="block font-semibold mb-2 dark:text-white"
@@ -313,29 +271,23 @@ function onCancel(): void {
             >
             <Password
               id="newPassword"
-              v-model="localPasswords.newPassword"
+              v-model="passwords.newPassword"
               toggleMask
               :feedback="true"
               class="w-full"
               inputClass="w-full"
               placeholder="Enter new password"
-              @input="fieldTouched.newPassword = true"
-              :invalid="getError('newPassword')"
+              @input="markFieldTouched('newPassword')"
+              :invalid="getFieldError('newPassword')"
               :disabled="isLoading"
             />
-            <small
-              v-if="getError('newPassword') && localPasswords.newPassword"
-              class="text-red-500"
-            >
-              Password does not meet all security requirements.
-            </small>
-            <small v-else-if="getError('newPassword')" class="text-red-500">
-              New password is required.
+            <small v-if="getFieldError('newPassword')" class="text-red-500">
+              {{ getFieldErrorMessage("newPassword") }}
             </small>
           </div>
 
           <!-- Confirm Password Input -->
-          <div class="col-12">
+          <div>
             <label
               for="confirmPassword"
               class="block font-semibold mb-2 dark:text-white"
@@ -343,26 +295,18 @@ function onCancel(): void {
             >
             <Password
               id="confirmPassword"
-              v-model="localPasswords.confirmPassword"
+              v-model="passwords.confirmPassword"
               toggleMask
               :feedback="false"
               class="w-full"
               inputClass="w-full"
               placeholder="Re-enter new password"
-              @input="fieldTouched.confirmPassword = true"
-              :invalid="getError('confirmPassword')"
+              @input="markFieldTouched('confirmPassword')"
+              :invalid="getFieldError('confirmPassword')"
               :disabled="isLoading"
             />
-            <small
-              v-if="
-                getError('confirmPassword') && !localPasswords.confirmPassword
-              "
-              class="text-red-500"
-            >
-              Password confirmation is required.
-            </small>
-            <small v-else-if="getError('confirmPassword')" class="text-red-500">
-              Passwords do not match.
+            <small v-if="getFieldError('confirmPassword')" class="text-red-500">
+              {{ getFieldErrorMessage("confirmPassword") }}
             </small>
           </div>
         </div>
@@ -384,7 +328,13 @@ function onCancel(): void {
         icon="pi pi-key"
         severity="warning"
         @click="onSave"
-        :disabled="!isFormValid || isLoading"
+        :disabled="
+          !passwords.newPassword ||
+          !isNewPasswordSecure ||
+          !passwords.confirmPassword ||
+          !doPasswordsMatch ||
+          isLoading
+        "
         :loading="isLoading"
       />
     </template>

@@ -28,15 +28,14 @@ export const userApi = {
    * - search?: string - Search by email or name
    * - Descending?: boolean - Sort descending (required by backend)
    *
-   * ✅ FIXED: Added default Descending parameter
    */
   async getPaged(params?: Record<string, any>) {
     try {
-      // ✅ FIX: Ensure Descending is always sent (default: true)
       const queryParams = {
         Limit: 20,
         Descending: true,
-        ...params, // Allow override
+        includeDeleted: params?.includeDeleted ?? false,
+        ...params,
       };
 
       console.log("📍 Fetching users with params:", queryParams);
@@ -105,6 +104,39 @@ export const userApi = {
       return response;
     } catch (error) {
       console.error("❌ Error fetching current user:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Check email status (exists + soft-delete flag)
+   */
+  async CheckEmailExistsDetailed(email: string) {
+    try {
+      const response = await api.get<{
+        exists: boolean;
+        isDeleted: boolean;
+        userId: string | null;
+      }>("/users/check-email", {
+        params: { email },
+      });
+
+      return response;
+    } catch (error) {
+      console.error("❌ Error checking email status:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Restore soft-deleted user
+   */
+  async restoreUser(id: string) {
+    try {
+      const response = await api.put<UserResponseDto>(`/users/${id}/restore`);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error restoring user ${id}:`, error);
       throw error;
     }
   },

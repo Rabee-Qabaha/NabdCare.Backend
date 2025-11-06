@@ -111,6 +111,7 @@ public static class Permissions
         public const string ChangeRole = "Users.ChangeRole";
         public const string ResetPassword = "Users.ResetPassword";
         public const string ManagePermissions = "Users.ManagePermissions";
+        public const string Restore = "Users.Restore";
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {

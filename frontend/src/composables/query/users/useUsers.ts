@@ -11,6 +11,7 @@ import type {
   UserResponseDto,
   PaginatedResult,
 } from "@/types/backend";
+import { isRef } from "vue";
 
 /**
  * User Query Composables
@@ -62,11 +63,40 @@ export function useUsersPaged(params?: Record<string, any>) {
  * ```
  */
 export function useInfiniteUsersPaged(params?: Record<string, any>) {
+  // Pull primitives out of params so the key changes when toggled
+  const searchKey =
+    params && "search" in params
+      ? isRef(params.search)
+        ? params.search.value
+        : params.search
+      : "";
+  const includeDeletedKey =
+    params && "includeDeleted" in params
+      ? isRef(params.includeDeleted)
+        ? params.includeDeleted.value
+        : params.includeDeleted
+      : false;
+
   return useInfiniteQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ["users", "infinite", params],
+    queryKey: ["users", "infinite", searchKey, includeDeletedKey],
     queryFn: async ({ pageParam }) => {
-      const queryParams = {
-        ...(params?.search ? { search: params.search } : {}),
+      const includeDeleted =
+        params && "includeDeleted" in params
+          ? isRef(params.includeDeleted)
+            ? params.includeDeleted.value
+            : params.includeDeleted
+          : undefined;
+
+      const search =
+        params && "search" in params
+          ? isRef(params.search)
+            ? params.search.value
+            : params.search
+          : undefined;
+
+      const queryParams: Record<string, any> = {
+        ...(search ? { search } : {}),
+        ...(includeDeleted !== undefined ? { includeDeleted } : {}),
         ...(pageParam ? { cursor: pageParam } : {}),
       };
 
@@ -85,7 +115,7 @@ export function useInfiniteUsersPaged(params?: Record<string, any>) {
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : undefined,
     initialPageParam: undefined,
-    staleTime: 1000 * 60 * 5, // 5 min cache
+    staleTime: 1000 * 60 * 5,
     placeholderData: (prev) => prev,
   });
 }
@@ -166,6 +196,25 @@ export function useUpdateUser() {
     },
     onError: (error: any) => {
       console.error("❌ Failed to update user:", error);
+    },
+  });
+}
+
+/**
+ * Restore user (soft deleted → active)
+ */
+export function useRestoreUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["user", "restore"],
+    mutationFn: (id: string) => userApi.restoreUser(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["user", id] });
+    },
+    onError: (error: any) => {
+      console.error("❌ Failed to restore user:", error);
     },
   });
 }

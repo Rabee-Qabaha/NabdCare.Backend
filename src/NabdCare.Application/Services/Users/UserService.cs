@@ -74,19 +74,15 @@ public class UserService : IUserService
         return _mapper.Map<UserResponseDto>(user);
     }
 
-    public async Task<PaginatedResult<UserResponseDto>> GetAllPagedAsync(int limit, string? cursor)
+    public async Task<PaginatedResult<UserResponseDto>> GetAllPagedAsync(
+        int limit,
+        string? cursor,
+        bool includeDeleted = false)
     {
-        var currentUserId = _userContext.GetCurrentUserId();
-
-        // 🔒 Apply ABAC filter using centralized PermissionEvaluator
         var abacFilter = new Func<IQueryable<User>, IQueryable<User>>(query =>
-            _permissionEvaluator.FilterUsers(query, "Users.View", _userContext));
+            _permissionEvaluator.FilterUsers(query, Common.Constants.Permissions.Users.View, _userContext));
 
-        var result = await _userRepository.GetAllPagedAsync(limit, cursor, abacFilter);
-
-        _logger.LogInformation(
-            "User {CurrentUserId} retrieved {Count} users (HasMore={HasMore})",
-            currentUserId, result.Items.Count(), result.HasMore);
+        var result = await _userRepository.GetAllPagedAsync(limit, cursor, includeDeleted, abacFilter);
 
         return new PaginatedResult<UserResponseDto>
         {
@@ -97,7 +93,11 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<PaginatedResult<UserResponseDto>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor)
+    public async Task<PaginatedResult<UserResponseDto>> GetByClinicIdPagedAsync(
+        Guid clinicId,
+        int limit,
+        string? cursor,
+        bool includeDeleted = false)
     {
         var currentUserId = _userContext.GetCurrentUserId();
 
@@ -119,10 +119,16 @@ public class UserService : IUserService
             throw new UnauthorizedAccessException("You don't have permission to view this clinic's users");
         };
 
-        var result = await _userRepository.GetByClinicIdPagedAsync(clinicId, limit, cursor, abacFilter);
+        var result = await _userRepository.GetByClinicIdPagedAsync(
+            clinicId,
+            limit,
+            cursor,
+            includeDeleted,
+            abacFilter);
 
-        _logger.LogInformation("User {CurrentUserId} retrieved {Count} users from clinic {ClinicId} (HasMore={HasMore})",
-            currentUserId, result.Items.Count(), clinicId, result.HasMore);
+        _logger.LogInformation(
+            "User {CurrentUserId} retrieved {Count} users from clinic {ClinicId} (IncludeDeleted={IncludeDeleted}, HasMore={HasMore})",
+            currentUserId, result.Items.Count(), clinicId, includeDeleted, result.HasMore);
 
         return new PaginatedResult<UserResponseDto>
         {
@@ -146,6 +152,34 @@ public class UserService : IUserService
         return await GetUserByIdAsync(userId);
     }
 
+    public async Task<(bool exists, bool isDeleted, Guid? userId)> EmailExistsDetailedAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return (false, false, null);
+
+        var normalizedEmail = email.Trim().ToLower();
+
+        // ✅ This repository call must allow returning deleted users.
+        var user = await _userRepository.GetByEmailRawAsync(normalizedEmail);
+
+        if (user == null)
+            return (false, false, null);
+
+        return (true, user.IsDeleted, user.Id);
+    }
+    
+    public async Task<UserResponseDto?> RestoreUserAsync(Guid id)
+    {
+        var user = await _userRepository.GetByIdRawAsync(id);
+
+        if (user == null || !user.IsDeleted)
+            return null;
+
+        user.IsDeleted = false;
+
+        var updated = await _userRepository.UpdateAsync(user);
+        return _mapper.Map<UserResponseDto>(updated);
+    }
     #endregion
 
     #region COMMAND METHODS
@@ -374,28 +408,22 @@ public class UserService : IUserService
         }
 
         if (user.Id.ToString() == currentUserId)
-        {
-            _logger.LogWarning("User {CurrentUserId} attempted to delete themselves", currentUserId);
             throw new InvalidOperationException("You cannot delete your own account");
-        }
 
         if (!CanManageUser(user.ClinicId))
-        {
-            _logger.LogWarning("User {CurrentUserId} attempted to delete user {UserId} without permission",
-                currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to delete this user");
+
+        var result = await _userRepository.SoftDeleteAsync(id);
+
+        if (result)
+        {
+            _logger.LogInformation(
+                "User {CurrentUserId} successfully soft deleted user {UserId} ({Email})",
+                currentUserId, id, user.Email
+            );
         }
 
-        user.IsDeleted = true;
-        user.DeletedAt = DateTime.UtcNow;
-        user.DeletedBy = currentUserId;
-
-        await _userRepository.UpdateAsync(user);
-
-        _logger.LogInformation("User {CurrentUserId} successfully soft deleted user {UserId} ({Email})",
-            currentUserId, id, user.Email);
-
-        return true;
+        return result;
     }
 
     public async Task<bool> HardDeleteUserAsync(Guid id)
@@ -489,9 +517,48 @@ public class UserService : IUserService
         return _mapper.Map<UserResponseDto>(updated);
     }
 
+    // public async Task<UserResponseDto> ResetPasswordAsync(Guid id, ResetPasswordRequestDto dto)
+    // {
+    //     // Input validation
+    //     if (id == Guid.Empty)
+    //         throw new ArgumentException("User ID cannot be empty", nameof(id));
+    //
+    //     if (dto == null)
+    //         throw new ArgumentNullException(nameof(dto));
+    //
+    //     var currentUserId = _userContext.GetCurrentUserId();
+    //     _logger.LogInformation("User {CurrentUserId} resetting password for user {UserId}", currentUserId, id);
+    //
+    //     var user = await _userRepository.GetByIdAsync(id);
+    //     if (user == null)
+    //     {
+    //         _logger.LogWarning("User {UserId} not found for password reset", id);
+    //         throw new KeyNotFoundException($"User {id} not found");
+    //     }
+    //
+    //     // Multi-tenant authorization check
+    //     if (!CanManageUser(user.ClinicId))
+    //     {
+    //         _logger.LogWarning("User {CurrentUserId} attempted to reset password for user {UserId} without permission", 
+    //             currentUserId, id);
+    //         throw new UnauthorizedAccessException("You don't have permission to reset this user's password");
+    //     }
+    //
+    //     // Hash new password
+    //     user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
+    //     user.UpdatedAt = DateTime.UtcNow;
+    //     user.UpdatedBy = currentUserId;
+    //
+    //     var updated = await _userRepository.UpdateAsync(user);
+    //     
+    //     _logger.LogInformation("User {CurrentUserId} successfully reset password for user {UserId}", 
+    //         currentUserId, id);
+    //
+    //     return _mapper.Map<UserResponseDto>(updated);
+    // }
+    
     public async Task<UserResponseDto> ResetPasswordAsync(Guid id, ResetPasswordRequestDto dto)
     {
-        // Input validation
         if (id == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty", nameof(id));
 
@@ -503,69 +570,19 @@ public class UserService : IUserService
 
         var user = await _userRepository.GetByIdAsync(id);
         if (user == null)
-        {
-            _logger.LogWarning("User {UserId} not found for password reset", id);
             throw new KeyNotFoundException($"User {id} not found");
-        }
-
-        // Multi-tenant authorization check
+        
         if (!CanManageUser(user.ClinicId))
-        {
-            _logger.LogWarning("User {CurrentUserId} attempted to reset password for user {UserId} without permission", 
-                currentUserId, id);
             throw new UnauthorizedAccessException("You don't have permission to reset this user's password");
-        }
 
-        // Hash new password
+        // ✅ Apply new password
         user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = currentUserId;
 
         var updated = await _userRepository.UpdateAsync(user);
-        
-        _logger.LogInformation("User {CurrentUserId} successfully reset password for user {UserId}", 
-            currentUserId, id);
 
-        return _mapper.Map<UserResponseDto>(updated);
-    }
-
-    public async Task<UserResponseDto> AdminResetPasswordAsync(Guid id, ResetPasswordRequestDto dto)
-    {
-        // Input validation
-        if (id == Guid.Empty)
-            throw new ArgumentException("User ID cannot be empty", nameof(id));
-
-        if (dto == null)
-            throw new ArgumentNullException(nameof(dto));
-
-        var currentUserId = _userContext.GetCurrentUserId();
-
-        // Only SuperAdmin can use admin reset
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted admin password reset for user {UserId}", 
-                currentUserId, id);
-            throw new UnauthorizedAccessException("Only SuperAdmin can use admin password reset");
-        }
-
-        _logger.LogWarning("SuperAdmin {CurrentUserId} resetting password for user {UserId}", currentUserId, id);
-
-        var user = await _userRepository.GetByIdAsync(id);
-        if (user == null)
-        {
-            _logger.LogWarning("User {UserId} not found for admin password reset", id);
-            throw new KeyNotFoundException($"User {id} not found");
-        }
-
-        // Hash new password
-        user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
-        user.UpdatedAt = DateTime.UtcNow;
-        user.UpdatedBy = currentUserId;
-
-        var updated = await _userRepository.UpdateAsync(user);
-        
-        _logger.LogWarning("⚠️ SuperAdmin {CurrentUserId} reset password for user {UserId} ({Email}) in clinic {ClinicId}", 
-            currentUserId, id, user.Email, user.ClinicId);
+        _logger.LogInformation("User {CurrentUserId} successfully reset password for user {UserId}", currentUserId, id);
 
         return _mapper.Map<UserResponseDto>(updated);
     }

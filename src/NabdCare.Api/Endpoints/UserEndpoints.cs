@@ -58,11 +58,12 @@ public static class UserEndpoints
         .Produces(StatusCodes.Status409Conflict);
 
         // ============================================
-        // GET PAGED USERS (ABAC + Multi-Tenant)
+        // GET PAGED USERS (ABAC + Multi-Tenant + Soft-Delete Toggle)
         // ============================================
         group.MapGet("/paged", async (
             [AsParameters] PaginationRequestDto request,
             [FromQuery] Guid? clinicId,
+            [FromQuery] bool includeDeleted,
             [FromServices] IUserService userService,
             [FromServices] ITenantContext tenantContext) =>
         {
@@ -74,15 +75,16 @@ public static class UserEndpoints
             if (tenantContext.IsSuperAdmin)
             {
                 result = clinicId.HasValue
-                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, request.Limit, request.Cursor)
-                    : await userService.GetAllPagedAsync(request.Limit, request.Cursor);
+                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, request.Limit, request.Cursor,includeDeleted)
+                    : await userService.GetAllPagedAsync(request.Limit, request.Cursor,includeDeleted);
             }
             else if (tenantContext.ClinicId.HasValue)
             {
                 result = await userService.GetByClinicIdPagedAsync(
                     tenantContext.ClinicId.Value,
                     request.Limit,
-                    request.Cursor
+                    request.Cursor,
+                    includeDeleted
                 );
             }
             else
@@ -113,40 +115,57 @@ public static class UserEndpoints
         .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // GET USERS BY CLINIC (SuperAdmin Only)
+        // GET USERS BY CLINIC  (ABAC + Multi-Tenant + Soft-Delete Toggle)
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}/paged", async (
-            Guid clinicId,
-            [AsParameters] PaginationRequestDto request,
-            [FromServices] IUserService userService,
-            [FromServices] ITenantContext tenantContext) =>
-        {
-            if (clinicId == Guid.Empty)
-                return Results.BadRequest(new { Error = "Invalid clinic ID" });
-
-            if (!tenantContext.IsSuperAdmin)
-                return Results.Forbid();
-
-            var result = await userService.GetByClinicIdPagedAsync(clinicId, request.Limit, request.Cursor);
-            return Results.Ok(result);
-        })
-        .RequireAuthorization()
-        .RequirePermission(Permissions.Users.ViewAll)
-        .WithAbac<User>(
-            Permissions.Users.ViewAll,
-            "list",
-            async ctx =>
+                Guid clinicId,
+                [AsParameters] PaginationRequestDto request,
+                [FromQuery] bool includeDeleted,
+                [FromServices] IUserService userService,
+                [FromServices] ITenantContext tenantContext) =>
             {
-                var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
-                return await Task.FromResult(tenant.IsSuperAdmin
-                    ? null
-                    : new User { ClinicId = tenant.ClinicId });
+                if (clinicId == Guid.Empty)
+                    return Results.BadRequest(new { Error = "Invalid clinic ID" });
+
+                // ✅ If ClinicAdmin, enforce their own clinic
+                if (!tenantContext.IsSuperAdmin)
+                {
+                    if (!tenantContext.ClinicId.HasValue)
+                        return Results.Forbid();
+
+                    // ClinicAdmin is only allowed to request *their* clinic,
+                    // so ignore the clinicId passed in the URL.
+                    clinicId = tenantContext.ClinicId.Value;
+                }
+
+                var result = await userService.GetByClinicIdPagedAsync(
+                    clinicId,
+                    request.Limit,
+                    request.Cursor,
+                    includeDeleted
+                );
+
+                return Results.Ok(result);
             })
-        .WithName("GetUsersByClinicPaged")
-        .WithSummary("Get users in a specific clinic (paged)")
-        .Produces<PaginatedResult<UserResponseDto>>()
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden);
+            .RequireAuthorization()
+            .RequirePermission(Permissions.Users.View) // Works for ClinicAdmin + SuperAdmin
+            .WithAbac<User>(
+                Permissions.Users.View,
+                "list",
+                async ctx =>
+                {
+                    var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                    return await Task.FromResult(
+                        tenant.IsSuperAdmin
+                            ? null                        // SuperAdmin sees all
+                            : new User { ClinicId = tenant.ClinicId } // ClinicAdmin only their clinic
+                    );
+                })
+            .WithName("GetUsersByClinicPaged")
+            .WithSummary("Get users in a clinic (paged, with soft-delete & ABAC)")
+            .Produces<PaginatedResult<UserResponseDto>>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
         // GET USER BY ID
@@ -192,6 +211,72 @@ public static class UserEndpoints
         .RequireAuthorization()
         .WithName("GetCurrentUser");
 
+        // ============================================
+        // CHECK EMAIL STATUS (Exists + Deleted State)
+        // ============================================
+        group.MapGet("/check-email", async (
+                [FromQuery] string email,
+                [FromServices] IUserService userService) =>
+            {
+                if (string.IsNullOrWhiteSpace(email))
+                    return Results.BadRequest(new { Error = "Email is required" });
+
+                var (exists, isDeleted, userId) = await userService.EmailExistsDetailedAsync(email);
+
+                return Results.Ok(new
+                {
+                    Exists = exists,
+                    IsDeleted = isDeleted,
+                    UserId = userId
+                });
+            })
+            .RequireAuthorization()
+            .WithName("CheckEmailStatus")
+            .WithSummary("Check if an email exists and whether that user is soft-deleted.");
+        
+        // ============================================
+        // RESTORE USER (ABAC + Multi-Tenant)
+        // ============================================
+        group.MapPut("/{id:guid}/restore", async (
+                Guid id,
+                [FromServices] IUserService userService,
+                [FromServices] ITenantContext tenantContext) =>
+            {
+                var restored = await userService.RestoreUserAsync(id);
+
+                return restored is not null
+                    ? Results.Ok(restored)
+                    : Results.NotFound(new { Error = $"User {id} not found or not deleted" });
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.Users.Restore)
+            .WithAbac(
+                Permissions.Users.Restore,
+                "restore",
+                async ctx =>
+                {
+                    var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                    var svc = ctx.RequestServices.GetRequiredService<IUserService>();
+
+                    var idStr = ctx.Request.RouteValues["id"]?.ToString();
+
+                    if (!Guid.TryParse(idStr, out var userId))
+                        return null;
+
+                    // Fetch the user so ABAC can evaluate clinic ownership rules
+                    var user = await svc.GetUserByIdAsync(userId);
+
+                    return tenant.IsSuperAdmin
+                        ? null                           // SuperAdmin → no clinic restrictions
+                        : new User { ClinicId = tenant.ClinicId }; // ClinicAdmin → enforce same clinic
+                })
+            .WithName("RestoreUser")
+            .WithSummary("Restore a soft-deleted user")
+            .WithDescription("SuperAdmin: restore any user. ClinicAdmin: restore users only from their own clinic.")
+            .Produces<UserResponseDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden);
+        
         // ============================================
         // UPDATE USER
         // ============================================

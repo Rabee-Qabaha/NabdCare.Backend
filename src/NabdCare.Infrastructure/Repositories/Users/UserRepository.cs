@@ -48,6 +48,19 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
+    public async Task<User?> GetByEmailRawAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var normalizedEmail = email.Trim().ToLower();
+
+        return await _dbContext.Users
+            .IgnoreQueryFilters()        
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+    }
+    
     public async Task<User?> GetByEmailAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -70,6 +83,7 @@ public class UserRepository : IUserRepository
     public async Task<PaginatedResult<User>> GetAllPagedAsync(
         int limit,
         string? cursor,
+        bool includeDeleted = false,
         Func<IQueryable<User>, IQueryable<User>>? abacFilter = null)
     {
         if (limit <= 0) limit = 20;
@@ -78,13 +92,15 @@ public class UserRepository : IUserRepository
         var (createdAtCursor, idCursor) = DecodeCursor(cursor);
 
         IQueryable<User> query = _dbContext.Users
+            .IgnoreQueryFilters() // ✅ Bypass default soft delete filter
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Include(u => u.CreatedByUser)
-            .Where(u => !u.IsDeleted)
             .AsNoTracking();
 
-        // 🔒 Apply ABAC filter if provided (e.g., restrict to clinic)
+        if (!includeDeleted)
+            query = query.Where(u => !u.IsDeleted);
+
         if (abacFilter != null)
             query = abacFilter(query);
 
@@ -101,7 +117,7 @@ public class UserRepository : IUserRepository
             .Take(limit + 1)
             .ToListAsync();
 
-        var hasMore = users.Count > limit;
+        bool hasMore = users.Count > limit;
         if (hasMore) users.RemoveAt(users.Count - 1);
 
         string? nextCursor = hasMore && users.LastOrDefault() is { } last
@@ -126,6 +142,7 @@ public class UserRepository : IUserRepository
         Guid clinicId,
         int limit,
         string? cursor,
+        bool includeDeleted = false,
         Func<IQueryable<User>, IQueryable<User>>? abacFilter = null)
     {
         if (clinicId == Guid.Empty)
@@ -137,12 +154,18 @@ public class UserRepository : IUserRepository
         var (createdAtCursor, idCursor) = DecodeCursor(cursor);
 
         IQueryable<User> query = _dbContext.Users
+            .IgnoreQueryFilters() 
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Include(u => u.CreatedByUser)
-            .Where(u => u.ClinicId == clinicId && !u.IsDeleted)
+            .Where(u => u.ClinicId == clinicId)
             .AsNoTracking();
 
+        // ✅ Only filter deleted users if includeDeleted == false
+        if (!includeDeleted)
+            query = query.Where(u => !u.IsDeleted);
+
+        // 🔒 Optional ABAC restriction
         if (abacFilter != null)
             query = abacFilter(query);
 
@@ -159,14 +182,15 @@ public class UserRepository : IUserRepository
             .Take(limit + 1)
             .ToListAsync();
 
-        var hasMore = users.Count > limit;
-        if (hasMore) users.RemoveAt(users.Count - 1);
+        bool hasMore = users.Count > limit;
+        if (hasMore)
+            users.RemoveAt(users.Count - 1);
 
         string? nextCursor = hasMore && users.LastOrDefault() is { } last
             ? EncodeCursor(last.CreatedAt, last.Id)
             : null;
 
-        var totalCount = await query.CountAsync();
+        int totalCount = await query.CountAsync();
 
         return new PaginatedResult<User>
         {
@@ -186,7 +210,7 @@ public class UserRepository : IUserRepository
 
         return await _dbContext.Users
             .AsNoTracking()
-            .AnyAsync(u => u.Email == normalizedEmail && !u.IsDeleted);
+            .AnyAsync(u => u.Email == normalizedEmail);
     }
 
     public async Task<IEnumerable<User>> GetUsersByRoleIdAsync(Guid roleId)

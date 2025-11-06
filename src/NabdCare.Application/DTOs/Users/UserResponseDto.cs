@@ -15,9 +15,10 @@ public class UserResponseDto
     public bool IsSystemRole { get; set; }
     
     public bool IsActive { get; set; }
+    public bool IsDeleted { get; set; }
+    
     public Guid? ClinicId { get; set; }
     public string? ClinicName { get; set; }
-    
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     

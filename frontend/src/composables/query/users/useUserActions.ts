@@ -234,3 +234,37 @@ export function useUpdateUserRole() {
     },
   });
 }
+/** * ♻️ useRestoreUser
+ * Restore a soft-deleted user
+ *
+ * Usage:
+ * ```typescript
+ * const mutation = useRestoreUser();
+ * await mutation.mutateAsync(userId);
+ * ```
+ */
+export function useRestoreUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["user", "restore"],
+    mutationFn: (id: string) => userApi.restoreUser(id),
+    onSuccess: () => {
+      +(
+        // ✅ Refresh active list
+        (+queryClient.invalidateQueries({
+          queryKey: ["users", "infinite", "", false],
+        }))
+      );
+      +(
+        // ✅ Refresh deleted list
+        (+queryClient.invalidateQueries({
+          queryKey: ["users", "infinite", "", true],
+        }))
+      );
+    },
+    onError: (error: any) => {
+      console.error("❌ Failed to restore user:", error);
+    },
+  });
+}

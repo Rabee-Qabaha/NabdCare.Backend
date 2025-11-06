@@ -24,6 +24,11 @@ public interface IUserRepository
     Task<User?> GetByIdRawAsync(Guid id);
 
     /// <summary>
+    /// Get user by email (including soft deleted users)
+    /// </summary>
+    Task<User?> GetByEmailRawAsync(string email);
+    
+    /// <summary>
     /// Get user by email address
     /// </summary>
     Task<User?> GetByEmailAsync(string email);
@@ -35,6 +40,7 @@ public interface IUserRepository
     Task<PaginatedResult<User>> GetAllPagedAsync(
         int limit,
         string? cursor,
+        bool includeDeleted = false,
         Func<IQueryable<User>, IQueryable<User>>? abacFilter = null);
 
     /// <summary>
@@ -45,6 +51,7 @@ public interface IUserRepository
         Guid clinicId,
         int limit,
         string? cursor,
+        bool includeDeleted = false,
         Func<IQueryable<User>, IQueryable<User>>? abacFilter = null);
 
     Task<IEnumerable<User>> GetUsersByRoleIdAsync(Guid roleId);
@@ -58,7 +65,7 @@ public interface IUserRepository
     /// Check if user exists by ID
     /// </summary>
     Task<bool> ExistsAsync(Guid userId);
-
+    
     // ============================================
     // COMMAND METHODS
     // ============================================
