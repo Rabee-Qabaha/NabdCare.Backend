@@ -1,6 +1,6 @@
-import { computed } from "vue";
-import { useAuthStore } from "@/stores/authStore";
-import { permissionCache } from "@/utils/permissionCache";
+import { computed } from 'vue';
+import { useAuthStore } from '@/stores/authStore';
+import { permissionCache } from '@/utils/permissionCache';
 
 export function usePermission() {
   const authStore = useAuthStore();

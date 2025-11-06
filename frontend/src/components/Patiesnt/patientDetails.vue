@@ -1,12 +1,12 @@
 <template>
   <div class="card pl-4 pr-4">
     <!-- Header -->
-    <div class="text-muted-color font-semibold text-xl mb-4 ml-4">
+    <div class="mb-4 ml-4 text-xl font-semibold text-muted-color">
       {{ header }}
     </div>
 
     <!-- Patient Details Card -->
-    <div v-if="patient" class="rounded-lg pl-6 pr-6 pt-0 space-y-4">
+    <div v-if="patient" class="space-y-4 rounded-lg pl-6 pr-6 pt-0">
       <!-- Name -->
       <h2 class="m-0 text-lg font-bold">{{ patient?.name }}</h2>
 
@@ -43,11 +43,11 @@
       <!-- About Me Section -->
       <div class="flex items-center gap-2">
         <i class="pi pi-clipboard text-base text-muted-color"></i>
-        <span class="text-muted-color font-medium">Note</span>
+        <span class="font-medium text-muted-color">Note</span>
       </div>
       <ScrollPanel style="height: 4rem">
         <p class="text-sm leading-relaxed">
-          {{ patient?.description || "No description available." }}
+          {{ patient?.description || 'No description available.' }}
         </p>
       </ScrollPanel>
     </div>
@@ -55,14 +55,14 @@
 </template>
 
 <script setup lang="ts">
-// import type { Patient } from "@/../../shared/types";
-import { formatDate, formatPhone } from "@/utils/uiHelpers";
-import { toRefs } from "vue";
+  // import type { Patient } from "@/../../shared/types";
+  import { formatDate, formatPhone } from '@/utils/uiHelpers';
+  import { toRefs } from 'vue';
 
-const props = defineProps<{
-  patient: any | null; // Replace 'any' with 'Patient' when the type is available
-  header?: string;
-}>();
+  const props = defineProps<{
+    patient: any | null; // Replace 'any' with 'Patient' when the type is available
+    header?: string;
+  }>();
 
-const { patient, header } = toRefs(props);
+  const { patient, header } = toRefs(props);
 </script>

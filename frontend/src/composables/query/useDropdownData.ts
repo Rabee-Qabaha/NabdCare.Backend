@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/vue-query";
-import { DropdownDataService } from "@/service/api/DropdownDataService";
-import type { RoleResponseDto, ClinicResponseDto } from "@/types/backend";
+import { useQuery } from '@tanstack/vue-query';
+import { DropdownDataService } from '@/service/api/DropdownDataService';
+import type { RoleResponseDto, ClinicResponseDto } from '@/types/backend';
 
 /**
  * Composable: useDropdownData
@@ -26,7 +26,7 @@ import type { RoleResponseDto, ClinicResponseDto } from "@/types/backend";
  */
 export function useGroupedRoles() {
   return useQuery({
-    queryKey: ["dropdown", "roles", "grouped"],
+    queryKey: ['dropdown', 'roles', 'grouped'],
     queryFn: async () => await DropdownDataService.fetchGroupedRoles(),
     staleTime: 1000 * 60 * 5, // cache 5 min
     retry: 1,
@@ -38,7 +38,7 @@ export function useGroupedRoles() {
  */
 export function useRoles() {
   return useQuery({
-    queryKey: ["dropdown", "roles", "all"],
+    queryKey: ['dropdown', 'roles', 'all'],
     queryFn: async () => await DropdownDataService.fetchRoles(),
     staleTime: 1000 * 60 * 5,
     retry: 1,
@@ -50,7 +50,7 @@ export function useRoles() {
  */
 export function useClinics() {
   return useQuery<ClinicResponseDto[]>({
-    queryKey: ["dropdown", "clinics"],
+    queryKey: ['dropdown', 'clinics'],
     queryFn: async () => await DropdownDataService.fetchClinics(),
     staleTime: 1000 * 60 * 5,
     retry: 1,
@@ -62,7 +62,7 @@ export function useClinics() {
  */
 export function useSearchClinics(query: string) {
   return useQuery<ClinicResponseDto[]>({
-    queryKey: ["dropdown", "clinics", query],
+    queryKey: ['dropdown', 'clinics', query],
     queryFn: async () => await DropdownDataService.searchClinics(query),
     enabled: !!query,
     staleTime: 1000 * 60 * 2,
@@ -74,7 +74,7 @@ export function useSearchClinics(query: string) {
  */
 export function useSearchRoles(query: string) {
   return useQuery<RoleResponseDto[]>({
-    queryKey: ["dropdown", "roles", query],
+    queryKey: ['dropdown', 'roles', query],
     queryFn: async () => await DropdownDataService.searchRoles(query),
     enabled: !!query,
     staleTime: 1000 * 60 * 2,

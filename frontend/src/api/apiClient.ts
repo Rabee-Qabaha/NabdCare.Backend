@@ -1,13 +1,9 @@
-import axios, {
-  type AxiosError,
-  type AxiosInstance,
-  type InternalAxiosRequestConfig,
-} from "axios";
-import { AuthService } from "@/service/AuthService";
-import { tokenManager } from "@/utils/tokenManager";
-import { useAuthStore } from "@/stores/authStore";
-import { globalErrorHandler } from "@/utils/globalErrorHandler";
-import { showToast } from "@/service/toastService"; // ✅ optional global toast helper
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import { AuthService } from '@/service/AuthService';
+import { tokenManager } from '@/utils/tokenManager';
+import { useAuthStore } from '@/stores/authStore';
+import { globalErrorHandler } from '@/utils/globalErrorHandler';
+import { showToast } from '@/service/toastService'; // ✅ optional global toast helper
 
 let isRefreshing = false;
 let failedQueue: {
@@ -30,15 +26,13 @@ function processQueue(error: unknown, token: string | null) {
  * Redirect user to login page, preserving their current route.
  */
 function redirectToLogin() {
-  if (!window.location.pathname.includes("/auth/login")) {
+  if (!window.location.pathname.includes('/auth/login')) {
     // Preserve full path + query for accurate restore
-    const redirect = encodeURIComponent(
-      window.location.pathname + window.location.search
-    );
+    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
 
     // Avoid double redirects
     const currentUrl = new URL(window.location.href);
-    if (!currentUrl.searchParams.has("redirect")) {
+    if (!currentUrl.searchParams.has('redirect')) {
       window.location.href = `/auth/login?redirect=${redirect}`;
     }
   }
@@ -48,8 +42,8 @@ function redirectToLogin() {
  * Axios client instance
  */
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5175/api",
-  headers: { "Content-Type": "application/json" },
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5175/api',
+  headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
 
@@ -65,7 +59,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 /**
@@ -101,7 +95,7 @@ api.interceptors.response.use(
       try {
         // 🔁 Try to refresh the token
         const newToken = await tokenManager.refreshAccessToken();
-        if (!newToken) throw new Error("Token refresh failed");
+        if (!newToken) throw new Error('Token refresh failed');
 
         // Store new token and process queued requests
         AuthService.storeAccessToken(newToken);
@@ -122,9 +116,9 @@ api.interceptors.response.use(
 
         // 🧠 Optional: Show toast to the user
         showToast?.({
-          severity: "warn",
-          summary: "Session Expired",
-          detail: "Your session has expired. Please log in again.",
+          severity: 'warn',
+          summary: 'Session Expired',
+          detail: 'Your session has expired. Please log in again.',
           life: 4000,
         });
 
@@ -138,7 +132,7 @@ api.interceptors.response.use(
     // 🧠 Handle all other errors globally
     await globalErrorHandler(error);
     return Promise.reject(error);
-  }
+  },
 );
 
 export { api };

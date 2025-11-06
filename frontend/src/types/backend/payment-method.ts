@@ -4,8 +4,8 @@
  */
 
 export enum PaymentMethod {
-  Cash = "Cash",
-  Cheque = "Cheque",
-  Visa = "Visa",
-  BankTransfer = "BankTransfer",
+  Cash = 'Cash',
+  Cheque = 'Cheque',
+  Visa = 'Visa',
+  BankTransfer = 'BankTransfer',
 }

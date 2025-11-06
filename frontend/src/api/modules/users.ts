@@ -1,4 +1,4 @@
-import { api } from "@/api/apiClient";
+import { api } from '@/api/apiClient';
 import type {
   UserResponseDto,
   CreateUserRequestDto,
@@ -6,7 +6,7 @@ import type {
   ChangePasswordRequestDto,
   ResetPasswordRequestDto,
   PaginatedResult,
-} from "@/types/backend";
+} from '@/types/backend';
 
 /**
  * User API Module
@@ -38,16 +38,15 @@ export const userApi = {
         ...params,
       };
 
-      console.log("📍 Fetching users with params:", queryParams);
+      console.log('📍 Fetching users with params:', queryParams);
 
-      const response = await api.get<PaginatedResult<UserResponseDto>>(
-        "/users/paged",
-        { params: queryParams }
-      );
+      const response = await api.get<PaginatedResult<UserResponseDto>>('/users/paged', {
+        params: queryParams,
+      });
 
       return response;
     } catch (error) {
-      console.error("❌ Error fetching users:", error);
+      console.error('❌ Error fetching users:', error);
       throw error;
     }
   },
@@ -70,7 +69,7 @@ export const userApi = {
 
       const response = await api.get<PaginatedResult<UserResponseDto>>(
         `/users/clinic/${clinicId}/paged`,
-        { params: queryParams }
+        { params: queryParams },
       );
 
       return response;
@@ -100,10 +99,10 @@ export const userApi = {
    */
   async getMe() {
     try {
-      const response = await api.get<UserResponseDto>("/users/me");
+      const response = await api.get<UserResponseDto>('/users/me');
       return response;
     } catch (error) {
-      console.error("❌ Error fetching current user:", error);
+      console.error('❌ Error fetching current user:', error);
       throw error;
     }
   },
@@ -117,13 +116,13 @@ export const userApi = {
         exists: boolean;
         isDeleted: boolean;
         userId: string | null;
-      }>("/users/check-email", {
+      }>('/users/check-email', {
         params: { email },
       });
 
       return response;
     } catch (error) {
-      console.error("❌ Error checking email status:", error);
+      console.error('❌ Error checking email status:', error);
       throw error;
     }
   },
@@ -148,10 +147,10 @@ export const userApi = {
    */
   async create(data: CreateUserRequestDto) {
     try {
-      const response = await api.post<UserResponseDto>("/users", data);
+      const response = await api.post<UserResponseDto>('/users', data);
       return response;
     } catch (error) {
-      console.error("❌ Error creating user:", error);
+      console.error('❌ Error creating user:', error);
       throw error;
     }
   },
@@ -197,10 +196,7 @@ export const userApi = {
    */
   async activate(id: string) {
     try {
-      const response = await api.put<UserResponseDto>(
-        `/users/${id}/activate`,
-        {}
-      );
+      const response = await api.put<UserResponseDto>(`/users/${id}/activate`, {});
       return response;
     } catch (error) {
       console.error(`❌ Error activating user ${id}:`, error);
@@ -215,10 +211,7 @@ export const userApi = {
    */
   async deactivate(id: string) {
     try {
-      const response = await api.put<UserResponseDto>(
-        `/users/${id}/deactivate`,
-        {}
-      );
+      const response = await api.put<UserResponseDto>(`/users/${id}/deactivate`, {});
       return response;
     } catch (error) {
       console.error(`❌ Error deactivating user ${id}:`, error);

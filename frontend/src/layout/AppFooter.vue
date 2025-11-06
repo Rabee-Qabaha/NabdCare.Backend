@@ -8,7 +8,7 @@
       href="https://primevue.org"
       target="_blank"
       rel="noopener noreferrer"
-      class="text-primary font-bold hover:underline"
+      class="font-bold text-primary hover:underline"
       >Rabee Qabaha</a
     >
   </div>

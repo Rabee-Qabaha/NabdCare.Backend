@@ -1,13 +1,13 @@
 // vite.config.ts
-import { PrimeVueResolver } from "@primevue/auto-import-resolver";
-import vue from "@vitejs/plugin-vue";
-import { fileURLToPath, URL } from "node:url";
-import Components from "unplugin-vue-components/vite";
-import { defineConfig } from "vite";
+import { PrimeVueResolver } from '@primevue/auto-import-resolver';
+import vue from '@vitejs/plugin-vue';
+import { fileURLToPath, URL } from 'node:url';
+import Components from 'unplugin-vue-components/vite';
+import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: "/",
+  base: '/',
   optimizeDeps: {
     noDiscovery: false,
   },
@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {
@@ -27,11 +27,11 @@ export default defineConfig({
     host: true,
     // Proxy API requests to backend during development
     proxy: {
-      "/api": {
-        target: process.env.VITE_API_BASE_URL || "http://localhost:5175/api",
+      '/api': {
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:5175/api',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },
@@ -41,8 +41,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ["vue", "vue-router", "pinia"],
-          primevue: ["primevue"],
+          vendor: ['vue', 'vue-router', 'pinia'],
+          primevue: ['primevue'],
         },
       },
     },

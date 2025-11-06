@@ -4,7 +4,7 @@
  */
 
 export enum SubscriptionType {
-  Monthly = "Monthly",
-  Yearly = "Yearly",
-  Lifetime = "Lifetime",
+  Monthly = 'Monthly',
+  Yearly = 'Yearly',
+  Lifetime = 'Lifetime',
 }

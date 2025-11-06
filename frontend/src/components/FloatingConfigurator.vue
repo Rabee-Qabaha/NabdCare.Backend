@@ -1,12 +1,12 @@
 <script setup>
-import AppConfigurator from "@/layout/AppConfigurator.vue";
-import { useLayout } from "@/layout/composables/layout";
+  import AppConfigurator from '@/layout/AppConfigurator.vue';
+  import { useLayout } from '@/layout/composables/layout';
 
-const { toggleDarkMode, isDarkTheme } = useLayout();
+  const { toggleDarkMode, isDarkTheme } = useLayout();
 </script>
 
 <template>
-  <div class="fixed flex gap-4 top-8 right-8">
+  <div class="fixed right-8 top-8 flex gap-4">
     <Button
       type="button"
       @click="toggleDarkMode"

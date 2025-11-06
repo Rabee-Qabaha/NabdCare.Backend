@@ -1,11 +1,11 @@
-import { api } from "@/api/apiClient";
-import type { PaginatedResult, PaginationRequestDto } from "@/types/backend";
+import { api } from '@/api/apiClient';
+import type { PaginatedResult, PaginationRequestDto } from '@/types/backend';
 import type {
   ClinicResponseDto,
   CreateClinicRequestDto,
   UpdateClinicRequestDto,
   UpdateClinicStatusDto,
-} from "@/types/backend";
+} from '@/types/backend';
 
 /**
  * Clinics API Module
@@ -30,11 +30,11 @@ export const clinicsApi = {
       ...params,
     };
 
-    console.log("📍 Clinics API - getAll params:", queryParams);
+    console.log('📍 Clinics API - getAll params:', queryParams);
 
     const { data } = await api.get<PaginatedResult<ClinicResponseDto>>(
-      "/clinics",
-      { params: queryParams } // ✅ FIXED: Explicitly pass params
+      '/clinics',
+      { params: queryParams }, // ✅ FIXED: Explicitly pass params
     );
     return data;
   },
@@ -46,10 +46,9 @@ export const clinicsApi = {
       ...params,
     };
 
-    const { data } = await api.get<PaginatedResult<ClinicResponseDto>>(
-      "/clinics/active",
-      { params: queryParams }
-    );
+    const { data } = await api.get<PaginatedResult<ClinicResponseDto>>('/clinics/active', {
+      params: queryParams,
+    });
     return data;
   },
 
@@ -61,15 +60,14 @@ export const clinicsApi = {
       query,
     };
 
-    const { data } = await api.get<PaginatedResult<ClinicResponseDto>>(
-      "/clinics/search",
-      { params: queryParams }
-    );
+    const { data } = await api.get<PaginatedResult<ClinicResponseDto>>('/clinics/search', {
+      params: queryParams,
+    });
     return data;
   },
 
   async getMyClinic() {
-    const { data } = await api.get<ClinicResponseDto>("/clinics/me");
+    const { data } = await api.get<ClinicResponseDto>('/clinics/me');
     return data;
   },
 
@@ -84,7 +82,7 @@ export const clinicsApi = {
   },
 
   async create(dto: CreateClinicRequestDto) {
-    const { data } = await api.post<ClinicResponseDto>("/clinics", dto);
+    const { data } = await api.post<ClinicResponseDto>('/clinics', dto);
     return data;
   },
 
@@ -94,10 +92,7 @@ export const clinicsApi = {
   },
 
   async updateStatus(id: string, dto: UpdateClinicStatusDto) {
-    const { data } = await api.put<ClinicResponseDto>(
-      `/clinics/${id}/status`,
-      dto
-    );
+    const { data } = await api.put<ClinicResponseDto>(`/clinics/${id}/status`, dto);
     return data;
   },
 

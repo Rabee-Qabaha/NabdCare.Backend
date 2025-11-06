@@ -3,12 +3,12 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { Clinic } from "./clinic";
-import { RolePermission } from "./role-permission";
-import { User } from "./user";
+import { Clinic } from './clinic';
+import { RolePermission } from './role-permission';
+import { User } from './user';
 
 export class Role {
-  name: string = "";
+  name: string = '';
   description: string;
   clinicId: string;
   clinic: Clinic;

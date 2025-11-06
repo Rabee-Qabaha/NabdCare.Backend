@@ -1,4 +1,4 @@
-import { jwtDecode, type JwtPayload } from "jwt-decode";
+import { jwtDecode, type JwtPayload } from 'jwt-decode';
 
 /**
  * TokenManager
@@ -13,7 +13,7 @@ class TokenManager {
   private accessToken: string | null = null;
   private refreshTimeoutId: number | null = null;
   private refreshPromise: Promise<string | null> | null = null;
-  private readonly BACKUP_KEY = "_at_backup";
+  private readonly BACKUP_KEY = '_at_backup';
 
   /**
    * ✅ Store token in memory and optional session backup
@@ -25,9 +25,7 @@ class TokenManager {
       try {
         sessionStorage.setItem(this.BACKUP_KEY, token);
       } catch {
-        console.warn(
-          "⚠️ SessionStorage not available — running in private mode?"
-        );
+        console.warn('⚠️ SessionStorage not available — running in private mode?');
       }
     }
 
@@ -48,7 +46,7 @@ class TokenManager {
         return backup;
       }
     } catch {
-      console.warn("⚠️ Could not read from sessionStorage.");
+      console.warn('⚠️ Could not read from sessionStorage.');
     }
 
     return null;
@@ -88,31 +86,30 @@ class TokenManager {
   }
 
   private async _performRefresh(): Promise<string | null> {
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "/api";
+    const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 
     try {
       const response = await fetch(`${baseURL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include", // ✅ Send HttpOnly cookie
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        credentials: 'include', // ✅ Send HttpOnly cookie
+        headers: { 'Content-Type': 'application/json' },
       });
 
-      if (!response.ok)
-        throw new Error(`Token refresh failed (${response.status})`);
+      if (!response.ok) throw new Error(`Token refresh failed (${response.status})`);
 
       const data = await response.json();
 
       if (data?.accessToken) {
         this.setAccessToken(data.accessToken, true);
-        console.log("🔁 Access token refreshed successfully");
+        console.log('🔁 Access token refreshed successfully');
         return data.accessToken;
       }
 
-      console.warn("⚠️ No token received during refresh");
+      console.warn('⚠️ No token received during refresh');
       this.clearTokens();
       return null;
     } catch (error) {
-      console.error("❌ Token refresh error:", error);
+      console.error('❌ Token refresh error:', error);
       this.clearTokens();
       return null;
     }
@@ -136,17 +133,13 @@ class TokenManager {
       const msUntilExpire = expiresAt - now;
       const refreshDelay = Math.max(msUntilExpire - 5 * 60 * 1000, 10_000); // at least 10s before
 
-      console.log(
-        `🕐 Scheduling next refresh in ${(refreshDelay / 1000 / 60).toFixed(1)} min`
-      );
+      console.log(`🕐 Scheduling next refresh in ${(refreshDelay / 1000 / 60).toFixed(1)} min`);
 
       this.refreshTimeoutId = window.setTimeout(() => {
-        this.refreshAccessToken().catch((err) =>
-          console.error("⚠️ Auto-refresh failed:", err)
-        );
+        this.refreshAccessToken().catch((err) => console.error('⚠️ Auto-refresh failed:', err));
       }, refreshDelay);
     } catch (err) {
-      console.error("❌ Failed to schedule refresh:", err);
+      console.error('❌ Failed to schedule refresh:', err);
     }
   }
 

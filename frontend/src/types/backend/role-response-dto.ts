@@ -5,7 +5,7 @@
 
 export class RoleResponseDto {
   id: string;
-  name: string = "";
+  name: string = '';
   description: string;
   isSystemRole: boolean;
   isTemplate: boolean;

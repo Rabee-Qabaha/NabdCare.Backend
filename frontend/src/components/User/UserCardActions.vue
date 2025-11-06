@@ -1,75 +1,77 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useResourceAuthorization } from "@/composables/query/authorization/useResourceAuthorization";
-import Button from "primevue/button";
-import type { UserResponseDto } from "@/types/backend";
+  import { computed } from 'vue';
+  import { useResourceAuthorization } from '@/composables/query/authorization/useResourceAuthorization';
+  import Button from 'primevue/button';
+  import type { UserResponseDto } from '@/types/backend';
 
-/**
- * User Card Action Buttons Component
- * Location: src/components/User/UserCardActions.vue
- *
- * Resource-aware Edit/Delete buttons using ABAC composable
- * Shows buttons based on RBAC permissions AND ABAC resource policies
- *
- * Author: Rabee Qabaha
- * Updated: 2025-11-02
- */
+  /**
+   * User Card Action Buttons Component
+   * Location: src/components/User/UserCardActions.vue
+   *
+   * Resource-aware Edit/Delete buttons using ABAC composable
+   * Shows buttons based on RBAC permissions AND ABAC resource policies
+   *
+   * Author: Rabee Qabaha
+   * Updated: 2025-11-02
+   */
 
-interface Props {
-  user: UserResponseDto;
-  canEdit: boolean;
-  canDelete: boolean;
-  canResetPassword: boolean;
-  canActivate: boolean;
-}
+  interface Props {
+    user: UserResponseDto;
+    canEdit: boolean;
+    canDelete: boolean;
+    canResetPassword: boolean;
+    canActivate: boolean;
+  }
 
-interface Emits {
-  (e: "edit", user: UserResponseDto): void;
-  (e: "delete", user: UserResponseDto): void;
-  (e: "toggle-status", user: UserResponseDto): void;
-  (e: "show-auth", user: UserResponseDto): void;
-}
+  interface Emits {
+    (e: 'edit', user: UserResponseDto): void;
+    (e: 'delete', user: UserResponseDto): void;
+    (e: 'toggle-status', user: UserResponseDto): void;
+    (e: 'show-auth', user: UserResponseDto): void;
+  }
 
-const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+  const props = defineProps<Props>();
+  const emit = defineEmits<Emits>();
 
-// ✅ ABAC checks for this specific user
-const { allowed: canEditThis, isLoading: isCheckingEdit } =
-  useResourceAuthorization("user", props.user.id, "edit");
+  // ✅ ABAC checks for this specific user
+  const { allowed: canEditThis, isLoading: isCheckingEdit } = useResourceAuthorization(
+    'user',
+    props.user.id,
+    'edit',
+  );
 
-const { allowed: canDeleteThis, isLoading: isCheckingDelete } =
-  useResourceAuthorization("user", props.user.id, "delete");
+  const { allowed: canDeleteThis, isLoading: isCheckingDelete } = useResourceAuthorization(
+    'user',
+    props.user.id,
+    'delete',
+  );
 
-// Computed: show button if RBAC allows AND ABAC allows
-const showEditButton = computed(() => props.canEdit && canEditThis.value);
-const showDeleteButton = computed(() => props.canDelete && canDeleteThis.value);
+  // Computed: show button if RBAC allows AND ABAC allows
+  const showEditButton = computed(() => props.canEdit && canEditThis.value);
+  const showDeleteButton = computed(() => props.canDelete && canDeleteThis.value);
 
-// Computed: show disabled state while loading
-const editButtonDisabled = computed(() => isCheckingEdit.value);
-const deleteButtonDisabled = computed(
-  () => isCheckingDelete.value || (!canEditThis.value && !isCheckingEdit.value)
-);
+  // Computed: show disabled state while loading
+  const editButtonDisabled = computed(() => isCheckingEdit.value);
+  const deleteButtonDisabled = computed(
+    () => isCheckingDelete.value || (!canEditThis.value && !isCheckingEdit.value),
+  );
 
-// Computed: button severity based on authorization
-const editButtonSeverity = computed(() =>
-  canEditThis.value ? "primary" : "warning"
-);
-const deleteButtonSeverity = computed(() =>
-  canDeleteThis.value ? "danger" : "danger"
-);
+  // Computed: button severity based on authorization
+  const editButtonSeverity = computed(() => (canEditThis.value ? 'primary' : 'warning'));
+  const deleteButtonSeverity = computed(() => (canDeleteThis.value ? 'danger' : 'danger'));
 
-// Tooltips
-const editTooltip = computed(() => {
-  if (isCheckingEdit.value) return "Checking permissions...";
-  if (!canEditThis.value) return "You cannot edit this user";
-  return "Edit user";
-});
+  // Tooltips
+  const editTooltip = computed(() => {
+    if (isCheckingEdit.value) return 'Checking permissions...';
+    if (!canEditThis.value) return 'You cannot edit this user';
+    return 'Edit user';
+  });
 
-const deleteTooltip = computed(() => {
-  if (isCheckingDelete.value) return "Checking permissions...";
-  if (!canDeleteThis.value) return "You cannot delete this user";
-  return "Delete user";
-});
+  const deleteTooltip = computed(() => {
+    if (isCheckingDelete.value) return 'Checking permissions...';
+    if (!canDeleteThis.value) return 'You cannot delete this user';
+    return 'Delete user';
+  });
 </script>
 
 <template>

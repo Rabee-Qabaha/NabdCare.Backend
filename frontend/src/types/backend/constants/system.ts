@@ -4,8 +4,12 @@
  */
 
 export class System {
-  static readonly descriptions: { [key: string]: string; } = {"System.ManageSettings":"Manage system-wide configuration settings","System.ViewLogs":"View application and infrastructure logs","System.ManageRoles":"Manage system and template roles"};
-  static readonly manageSettings: string = "System.ManageSettings";
-  static readonly viewLogs: string = "System.ViewLogs";
-  static readonly manageRoles: string = "System.ManageRoles";
+  static readonly descriptions: { [key: string]: string } = {
+    'System.ManageSettings': 'Manage system-wide configuration settings',
+    'System.ViewLogs': 'View application and infrastructure logs',
+    'System.ManageRoles': 'Manage system and template roles',
+  };
+  static readonly manageSettings: string = 'System.ManageSettings';
+  static readonly viewLogs: string = 'System.ViewLogs';
+  static readonly manageRoles: string = 'System.ManageRoles';
 }

@@ -1,19 +1,17 @@
 // src/api/modules/subscriptions.ts
-import { api } from "@/api/apiClient";
-import type { PaginatedResult } from "@/types/backend";
+import { api } from '@/api/apiClient';
+import type { PaginatedResult } from '@/types/backend';
 import type {
   SubscriptionResponseDto,
   CreateSubscriptionRequestDto,
   UpdateSubscriptionRequestDto,
-} from "@/types/backend";
-import type { SubscriptionStatus, SubscriptionType } from "@/types/backend";
+} from '@/types/backend';
+import type { SubscriptionStatus, SubscriptionType } from '@/types/backend';
 
 export const subscriptionsApi = {
   /** 🔹 Get subscription by ID */
   async getById(id: string) {
-    const { data } = await api.get<SubscriptionResponseDto>(
-      `/subscriptions/${id}`
-    );
+    const { data } = await api.get<SubscriptionResponseDto>(`/subscriptions/${id}`);
     return data;
   },
 
@@ -27,35 +25,28 @@ export const subscriptionsApi = {
   async getByClinicId(clinicId: string, params: Record<string, any> = {}) {
     const { data } = await api.get<PaginatedResult<SubscriptionResponseDto>>(
       `/subscriptions/clinic/${clinicId}`,
-      { params }
+      { params },
     );
     return data;
   },
 
   /** 🔹 Get all subscriptions (SuperAdmin only, paginated) */
   async getAll(params: Record<string, any> = {}) {
-    const { data } = await api.get<PaginatedResult<SubscriptionResponseDto>>(
-      "/subscriptions",
-      { params }
-    );
+    const { data } = await api.get<PaginatedResult<SubscriptionResponseDto>>('/subscriptions', {
+      params,
+    });
     return data;
   },
 
   /** 🔹 Create subscription */
   async create(payload: CreateSubscriptionRequestDto) {
-    const { data } = await api.post<SubscriptionResponseDto>(
-      "/subscriptions",
-      payload
-    );
+    const { data } = await api.post<SubscriptionResponseDto>('/subscriptions', payload);
     return data;
   },
 
   /** 🔹 Update subscription */
   async update(id: string, payload: UpdateSubscriptionRequestDto) {
-    const { data } = await api.put<SubscriptionResponseDto>(
-      `/subscriptions/${id}`,
-      payload
-    );
+    const { data } = await api.put<SubscriptionResponseDto>(`/subscriptions/${id}`, payload);
     return data;
   },
 

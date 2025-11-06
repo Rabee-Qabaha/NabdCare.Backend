@@ -1,4 +1,4 @@
-import { jwtDecode, type JwtPayload } from "jwt-decode";
+import { jwtDecode, type JwtPayload } from 'jwt-decode';
 
 export interface UserInfo extends JwtPayload {
   sub?: string;
@@ -30,7 +30,7 @@ export function getUserFromToken(token: string): UserInfo | null {
 
     return normalized;
   } catch (err) {
-    console.error("❌ Invalid token:", err);
+    console.error('❌ Invalid token:', err);
     return null;
   }
 }

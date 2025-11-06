@@ -7,6 +7,6 @@ export class AuthorizationResultDto {
   allowed: boolean;
   reason: string;
   policy: string;
-  resourceType: string = "";
-  action: string = "";
+  resourceType: string = '';
+  action: string = '';
 }

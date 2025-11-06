@@ -4,7 +4,7 @@
  */
 
 export class UpdateRoleRequestDto {
-  name: string = "";
+  name: string = '';
   description: string;
   displayOrder: number = 100;
   colorCode: string;

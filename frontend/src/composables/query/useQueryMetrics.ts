@@ -1,5 +1,5 @@
-import { computed } from "vue";
-import { queryMetrics } from "./queryClient";
+import { computed } from 'vue';
+import { queryMetrics } from './queryClient';
 
 /**
  * useQueryMetrics()
@@ -18,10 +18,10 @@ export function useQueryMetrics() {
       refetches: queryMetrics.refetchCount,
       lastSync: queryMetrics.lastSyncTime
         ? new Date(queryMetrics.lastSyncTime).toLocaleTimeString()
-        : "—",
+        : '—',
       idleSince: queryMetrics.idleSince
         ? new Date(queryMetrics.idleSince).toLocaleTimeString()
-        : "Active",
+        : 'Active',
     })),
   };
 }

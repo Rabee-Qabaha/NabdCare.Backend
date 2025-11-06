@@ -1,19 +1,16 @@
 // ClientTopbar.vue
 <script setup type="ts">
-import { useLayout } from "@/layout/composables/layout";
-import AppConfigurator from "@/layout/AppConfigurator.vue";
-import UserProfileMenu from "@/components/User/UserProfileMenu.vue";
+  import { useLayout } from "@/layout/composables/layout";
+  import AppConfigurator from "@/layout/AppConfigurator.vue";
+  import UserProfileMenu from "@/components/User/UserProfileMenu.vue";
 
-const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
+  const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
 </script>
 
 <template>
   <div class="layout-topbar">
     <div class="layout-topbar-logo-container">
-      <button
-        class="layout-menu-button layout-topbar-action"
-        @click="toggleMenu"
-      >
+      <button class="layout-menu-button layout-topbar-action" @click="toggleMenu">
         <i class="pi pi-bars"></i>
       </button>
       <router-link to="/" class="layout-topbar-logo">
@@ -24,14 +21,8 @@ const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
 
     <div class="layout-topbar-actions flex items-center justify-end space-x-1">
       <div class="layout-config-menu">
-        <button
-          type="button"
-          class="layout-topbar-action"
-          @click="toggleDarkMode"
-        >
-          <i
-            :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"
-          ></i>
+        <button type="button" class="layout-topbar-action" @click="toggleDarkMode">
+          <i :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"></i>
         </button>
         <div class="relative">
           <button

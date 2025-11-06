@@ -1,8 +1,5 @@
-import { api } from "@/api/apiClient";
-import type {
-  AuthorizationCheckRequestDto,
-  AuthorizationResultDto,
-} from "@/types/backend";
+import { api } from '@/api/apiClient';
+import type { AuthorizationCheckRequestDto, AuthorizationResultDto } from '@/types/backend';
 
 /**
  * Authorization API Module
@@ -26,7 +23,7 @@ import type {
 export async function checkResourceAuthorization(
   resourceType: string,
   resourceId: string,
-  action: string
+  action: string,
 ): Promise<AuthorizationResultDto> {
   const request: AuthorizationCheckRequestDto = {
     resourceType,
@@ -34,10 +31,7 @@ export async function checkResourceAuthorization(
     action,
   };
 
-  const response = await api.post<AuthorizationResultDto>(
-    "/authorization/check",
-    request
-  );
+  const response = await api.post<AuthorizationResultDto>('/authorization/check', request);
 
   return response.data;
 }
@@ -50,22 +44,20 @@ export async function checkResourceAuthorization(
  * @returns Array of authorization results
  */
 export async function checkMultipleResourceAuthorizations(
-  checks: AuthorizationCheckRequestDto[]
+  checks: AuthorizationCheckRequestDto[],
 ): Promise<AuthorizationResultDto[]> {
   const results = await Promise.all(
     checks.map((check) =>
-      checkResourceAuthorization(
-        check.resourceType,
-        check.resourceId,
-        check.action
-      ).catch((err) => ({
-        allowed: false,
-        reason: `Authorization check failed: ${err.message}`,
-        policy: null,
-        resourceType: check.resourceType,
-        action: check.action,
-      }))
-    )
+      checkResourceAuthorization(check.resourceType, check.resourceId, check.action).catch(
+        (err) => ({
+          allowed: false,
+          reason: `Authorization check failed: ${err.message}`,
+          policy: null,
+          resourceType: check.resourceType,
+          action: check.action,
+        }),
+      ),
+    ),
   );
 
   return results;

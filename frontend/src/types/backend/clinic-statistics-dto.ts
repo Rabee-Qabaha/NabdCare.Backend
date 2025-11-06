@@ -3,12 +3,12 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { SubscriptionStatus } from "./subscription-status";
-import { SubscriptionResponseDto } from "./subscription-response-dto";
+import { SubscriptionStatus } from './subscription-status';
+import { SubscriptionResponseDto } from './subscription-response-dto';
 
 export class ClinicStatisticsDto {
   clinicId: string;
-  clinicName: string = "";
+  clinicName: string = '';
   status: SubscriptionStatus;
   branchCount: number;
   totalSubscriptions: number;

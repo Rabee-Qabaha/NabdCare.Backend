@@ -3,8 +3,8 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { Role } from "./role";
-import { AppPermission } from "./app-permission";
+import { Role } from './role';
+import { AppPermission } from './app-permission';
 
 export class RolePermission {
   roleId: string;

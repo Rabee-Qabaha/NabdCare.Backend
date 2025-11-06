@@ -1,12 +1,12 @@
 // scripts/validateRoutePermissions.ts
-import fs from "fs";
-import path from "path";
-import chalk from "chalk";
-import { PermissionRegistry } from "../src/config/permissionsRegistry";
+import fs from 'fs';
+import path from 'path';
+import chalk from 'chalk';
+import { PermissionRegistry } from '../src/config/permissionsRegistry';
 
-const ROUTER_DIR = path.resolve("src/router");
-const REPORT_DIR = path.resolve("dist/reports");
-const REPORT_FILE = path.join(REPORT_DIR, "permissions-report.html");
+const ROUTER_DIR = path.resolve('src/router');
+const REPORT_DIR = path.resolve('dist/reports');
+const REPORT_FILE = path.join(REPORT_DIR, 'permissions-report.html');
 
 // ---------- Utils ----------
 function loadRouteFiles(dir: string): string[] {
@@ -14,7 +14,7 @@ function loadRouteFiles(dir: string): string[] {
   for (const entry of fs.readdirSync(dir)) {
     const full = path.join(dir, entry);
     if (fs.statSync(full).isDirectory()) files.push(...loadRouteFiles(full));
-    else if (entry.endsWith(".ts")) files.push(full);
+    else if (entry.endsWith('.ts')) files.push(full);
   }
   return files;
 }
@@ -26,15 +26,11 @@ function ensureDir(p: string) {
 // ---------- Load Permission Keys ----------
 const knownKeys = Object.values(PermissionRegistry)
   .flatMap((cls: any) => Object.values(cls))
-  .filter((v) => typeof v === "string");
+  .filter((v) => typeof v === 'string');
 
-console.log(
-  chalk.cyan(`🔍 Loaded ${knownKeys.length} permission keys from registry.`)
-);
+console.log(chalk.cyan(`🔍 Loaded ${knownKeys.length} permission keys from registry.`));
 if (!knownKeys.length) {
-  console.error(
-    chalk.red("❌ No permissions found. Run npm run sync:permissions first.")
-  );
+  console.error(chalk.red('❌ No permissions found. Run npm run sync:permissions first.'));
   process.exit(1);
 }
 
@@ -44,45 +40,44 @@ const results: {
   file: string;
   permission?: string;
   isPublic?: boolean;
-  status: "ok" | "missing" | "invalid" | "publicWithPerm";
+  status: 'ok' | 'missing' | 'invalid' | 'publicWithPerm';
 }[] = [];
 
 for (const file of routeFiles) {
-  const content = fs.readFileSync(file, "utf8");
+  const content = fs.readFileSync(file, 'utf8');
   const matches = [...content.matchAll(/meta:\s*{([^}]+)}/g)];
 
   for (const match of matches) {
     const meta = match[1];
     const perm = meta.match(/permission:\s*["'`](.*?)["'`]/)?.[1];
-    const isPublic = meta.match(/public:\s*(true|false)/)?.[1] === "true";
+    const isPublic = meta.match(/public:\s*(true|false)/)?.[1] === 'true';
 
     if (isPublic && perm)
       results.push({
         file,
         permission: perm,
         isPublic,
-        status: "publicWithPerm",
+        status: 'publicWithPerm',
       });
-    else if (!isPublic && !perm)
-      results.push({ file, isPublic, status: "missing" });
+    else if (!isPublic && !perm) results.push({ file, isPublic, status: 'missing' });
     else if (perm && !knownKeys.includes(perm))
-      results.push({ file, permission: perm, isPublic, status: "invalid" });
-    else results.push({ file, permission: perm, isPublic, status: "ok" });
+      results.push({ file, permission: perm, isPublic, status: 'invalid' });
+    else results.push({ file, permission: perm, isPublic, status: 'ok' });
   }
 }
 
 // ---------- Console Summary ----------
-const invalid = results.filter((r) => r.status === "invalid").length;
-const missing = results.filter((r) => r.status === "missing").length;
-const publicPerm = results.filter((r) => r.status === "publicWithPerm").length;
+const invalid = results.filter((r) => r.status === 'invalid').length;
+const missing = results.filter((r) => r.status === 'missing').length;
+const publicPerm = results.filter((r) => r.status === 'publicWithPerm').length;
 
-console.log("\n-------------------------------------");
+console.log('\n-------------------------------------');
 console.log(chalk.bold(`🧾 Total Routes Scanned: ${routeFiles.length}`));
 console.log(chalk.yellow(`⚠️ Missing Permissions: ${missing}`));
 console.log(chalk.red(`❌ Invalid Permissions: ${invalid}`));
 console.log(chalk.magenta(`🚫 Public Routes with Permissions: ${publicPerm}`));
 console.log(chalk.green(`✅ Registry Size: ${knownKeys.length}`));
-console.log("-------------------------------------");
+console.log('-------------------------------------');
 
 // ---------- Generate HTML Report ----------
 ensureDir(REPORT_DIR);
@@ -91,12 +86,12 @@ const rows = results
     (r) => `
       <tr class="${r.status}">
         <td>${path.relative(process.cwd(), r.file)}</td>
-        <td>${r.permission || "-"}</td>
-        <td>${r.isPublic ? "✅" : "❌"}</td>
+        <td>${r.permission || '-'}</td>
+        <td>${r.isPublic ? '✅' : '❌'}</td>
         <td>${r.status}</td>
-      </tr>`
+      </tr>`,
   )
-  .join("\n");
+  .join('\n');
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -130,11 +125,7 @@ console.log(chalk.greenBright(`📄 Report saved to ${REPORT_FILE}`));
 
 // ---------- Exit Status ----------
 if (invalid || missing || publicPerm) {
-  console.error(
-    chalk.redBright("🚫 Validation failed! Some routes have permission issues.")
-  );
+  console.error(chalk.redBright('🚫 Validation failed! Some routes have permission issues.'));
   process.exit(1);
 }
-console.log(
-  chalk.greenBright("✅ All route permissions validated successfully!")
-);
+console.log(chalk.greenBright('✅ All route permissions validated successfully!'));

@@ -1,7 +1,7 @@
-import { useQuery, type UseQueryOptions } from "@tanstack/vue-query";
-import { computed } from "vue";
-import { checkResourceAuthorization } from "@/api/modules/authorization";
-import type { AuthorizationResultDto } from "@/types/backend";
+import { useQuery, type UseQueryOptions } from '@tanstack/vue-query';
+import { computed } from 'vue';
+import { checkResourceAuthorization } from '@/api/modules/authorization';
+import type { AuthorizationResultDto } from '@/types/backend';
 
 /**
  * Vue Query Composable for Resource Authorization Checks
@@ -38,10 +38,10 @@ export function useResourceAuthorization(
   resourceType: string,
   resourceId: string,
   action: string,
-  options?: UseQueryOptions<AuthorizationResultDto>
+  options?: UseQueryOptions<AuthorizationResultDto>,
 ) {
   const { data, isLoading, error, refetch } = useQuery<AuthorizationResultDto>({
-    queryKey: ["authorization", resourceType, resourceId, action],
+    queryKey: ['authorization', resourceType, resourceId, action],
     queryFn: () => checkResourceAuthorization(resourceType, resourceId, action),
     staleTime: 5 * 60 * 1000, // 5 minutes - cached data is considered fresh
     gcTime: 10 * 60 * 1000, // 10 minutes - keep in memory for 10 min (was cacheTime)
@@ -93,23 +93,21 @@ export function useMultipleResourceAuthorizations(
   resourceType: string,
   resourceIds: string[],
   action: string,
-  options?: UseQueryOptions<Record<string, AuthorizationResultDto>>
+  options?: UseQueryOptions<Record<string, AuthorizationResultDto>>,
 ) {
-  const { data, isLoading, error, refetch } = useQuery<
-    Record<string, AuthorizationResultDto>
-  >({
-    queryKey: ["authorization:batch", resourceType, resourceIds, action],
+  const { data, isLoading, error, refetch } = useQuery<Record<string, AuthorizationResultDto>>({
+    queryKey: ['authorization:batch', resourceType, resourceIds, action],
     queryFn: async () => {
       const results = await Promise.all(
         resourceIds.map((id) =>
           checkResourceAuthorization(resourceType, id, action).catch((err) => ({
             allowed: false,
             reason: `Check failed: ${err.message}`,
-            policy: "",
+            policy: '',
             resourceType,
             action,
-          }))
-        )
+          })),
+        ),
       );
 
       return resourceIds.reduce(
@@ -117,7 +115,7 @@ export function useMultipleResourceAuthorizations(
           acc[id] = results[idx];
           return acc;
         },
-        {} as Record<string, AuthorizationResultDto>
+        {} as Record<string, AuthorizationResultDto>,
       );
     },
     staleTime: 5 * 60 * 1000,
@@ -129,8 +127,7 @@ export function useMultipleResourceAuthorizations(
   });
 
   // Helper to check single resource from batch
-  const canAccess = (resourceId: string): boolean =>
-    data.value?.[resourceId]?.allowed ?? false;
+  const canAccess = (resourceId: string): boolean => data.value?.[resourceId]?.allowed ?? false;
   const getDenialReason = (resourceId: string): string | undefined =>
     data.value?.[resourceId]?.reason;
 

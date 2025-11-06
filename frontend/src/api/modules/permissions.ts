@@ -1,30 +1,27 @@
-import { api } from "@/api/apiClient";
-import type { PaginationRequestDto, PaginatedResult } from "@/types/backend";
+import { api } from '@/api/apiClient';
+import type { PaginationRequestDto, PaginatedResult } from '@/types/backend';
 import type {
   PermissionResponseDto,
   CreatePermissionDto,
   UpdatePermissionDto,
   AssignPermissionToUserDto,
-} from "@/types/backend";
+} from '@/types/backend';
 
 export const permissionsApi = {
   async getAllPaged(params: PaginationRequestDto) {
-    const { data } = await api.get<PaginatedResult<PermissionResponseDto>>(
-      "/permissions/paged",
-      { params }
-    );
+    const { data } = await api.get<PaginatedResult<PermissionResponseDto>>('/permissions/paged', {
+      params,
+    });
     return data;
   },
 
   async getAll() {
-    const { data } = await api.get<PermissionResponseDto[]>("/permissions");
+    const { data } = await api.get<PermissionResponseDto[]>('/permissions');
     return data;
   },
 
   async getGrouped() {
-    const { data } = await api.get<Record<string, PermissionResponseDto[]>>(
-      "/permissions/grouped"
-    );
+    const { data } = await api.get<Record<string, PermissionResponseDto[]>>('/permissions/grouped');
     return data;
   },
 
@@ -39,21 +36,17 @@ export const permissionsApi = {
       roleId: string;
       permissions: string[];
       permissionsVersion: string;
-    }>("/permissions/me");
+    }>('/permissions/me');
     return data;
   },
 
   async getByUser(userId: string) {
-    const { data } = await api.get<PermissionResponseDto[]>(
-      `/permissions/user/${userId}`
-    );
+    const { data } = await api.get<PermissionResponseDto[]>(`/permissions/user/${userId}`);
     return data;
   },
 
   async getByRole(roleId: string) {
-    const { data } = await api.get<PermissionResponseDto[]>(
-      `/permissions/role/${roleId}`
-    );
+    const { data } = await api.get<PermissionResponseDto[]>(`/permissions/role/${roleId}`);
     return data;
   },
 
@@ -63,15 +56,12 @@ export const permissionsApi = {
   },
 
   async create(dto: CreatePermissionDto) {
-    const { data } = await api.post<PermissionResponseDto>("/permissions", dto);
+    const { data } = await api.post<PermissionResponseDto>('/permissions', dto);
     return data;
   },
 
   async update(id: string, dto: UpdatePermissionDto) {
-    const { data } = await api.put<PermissionResponseDto>(
-      `/permissions/${id}`,
-      dto
-    );
+    const { data } = await api.put<PermissionResponseDto>(`/permissions/${id}`, dto);
     return data;
   },
 
@@ -81,14 +71,12 @@ export const permissionsApi = {
   },
 
   async assignToUser(dto: AssignPermissionToUserDto) {
-    const { data } = await api.post("/permissions/assign-user", dto);
+    const { data } = await api.post('/permissions/assign-user', dto);
     return data;
   },
 
   async removeFromUser(userId: string, permissionId: string) {
-    const { data } = await api.delete(
-      `/permissions/user/${userId}/permission/${permissionId}`
-    );
+    const { data } = await api.delete(`/permissions/user/${userId}/permission/${permissionId}`);
     return data;
   },
 };

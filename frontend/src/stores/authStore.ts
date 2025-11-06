@@ -1,17 +1,13 @@
 // src/stores/authStore.ts
-import { defineStore } from "pinia";
-import { ref, computed, watch, nextTick } from "vue";
-import { AuthService } from "@/service/AuthService";
-import { permissionsApi } from "@/api/modules/permissions";
-import {
-  getUserFromToken,
-  isTokenExpired,
-  type UserInfo,
-} from "@/utils/jwtUtils";
-import { PermissionRegistry } from "@/config/permissionsRegistry";
-import type { LoginRequestDto } from "@/types/backend";
+import { defineStore } from 'pinia';
+import { ref, computed, watch, nextTick } from 'vue';
+import { AuthService } from '@/service/AuthService';
+import { permissionsApi } from '@/api/modules/permissions';
+import { getUserFromToken, isTokenExpired, type UserInfo } from '@/utils/jwtUtils';
+import { PermissionRegistry } from '@/config/permissionsRegistry';
+import type { LoginRequestDto } from '@/types/backend';
 
-export const useAuthStore = defineStore("auth", () => {
+export const useAuthStore = defineStore('auth', () => {
   // 🔹 Reactive state
   const currentUser = ref<UserInfo | null>(null);
   const permissions = ref<string[]>([]);
@@ -43,7 +39,7 @@ export const useAuthStore = defineStore("auth", () => {
    */
   const isSuperAdmin = computed(() => {
     // 1️⃣ Primary: Check JWT role (most reliable)
-    if (currentUser.value?.role === "SuperAdmin") return true;
+    if (currentUser.value?.role === 'SuperAdmin') return true;
 
     // 2️⃣ Fallback: Check if permissions are loaded
     if (!isPermissionsLoaded.value) return false;
@@ -54,7 +50,7 @@ export const useAuthStore = defineStore("auth", () => {
         PermissionRegistry.System.manageSettings,
         PermissionRegistry.System.viewLogs,
         PermissionRegistry.System.manageRoles,
-      ].includes(p)
+      ].includes(p),
     );
   });
 
@@ -65,16 +61,12 @@ export const useAuthStore = defineStore("auth", () => {
   const hasClinicContext = computed(() => {
     if (!currentUser.value?.clinicId) return false;
     // Avoid "undefined" or null clinic IDs
-    return (
-      currentUser.value.clinicId !== "00000000-0000-0000-0000-000000000000"
-    );
+    return currentUser.value.clinicId !== '00000000-0000-0000-0000-000000000000';
   });
 
   const currentClinicId = computed(() => currentUser.value?.clinicId);
 
-  const fullName = computed(
-    () => currentUser.value?.name || currentUser.value?.email || "User"
-  );
+  const fullName = computed(() => currentUser.value?.name || currentUser.value?.email || 'User');
 
   // ===========================
   // 🧹 WATCHERS (HANDLE SIDE EFFECTS)
@@ -88,13 +80,13 @@ export const useAuthStore = defineStore("auth", () => {
     () => AuthService.getAccessToken(),
     (token) => {
       if (!token || isTokenExpired(token)) {
-        console.warn("⚠️ Token expired - clearing state");
+        console.warn('⚠️ Token expired - clearing state');
         currentUser.value = null;
         permissions.value = [];
         isPermissionsLoaded.value = false;
       }
     },
-    { immediate: true }
+    { immediate: true },
   );
 
   /**
@@ -103,7 +95,7 @@ export const useAuthStore = defineStore("auth", () => {
    */
   watch(isLoggedIn, (newValue, oldValue) => {
     if (oldValue && !newValue) {
-      console.log("🔒 Session ended - clearing auth state");
+      console.log('🔒 Session ended - clearing auth state');
       currentUser.value = null;
       permissions.value = [];
       isPermissionsLoaded.value = false;
@@ -129,25 +121,17 @@ export const useAuthStore = defineStore("auth", () => {
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
         const data = await permissionsApi.getMine();
-        console.log("🔍 Permissions API response:", data);
+        console.log('🔍 Permissions API response:', data);
 
         permissions.value = data.permissions || [];
-        console.log(
-          `✅ Loaded ${permissions.value.length} permissions on attempt ${attempt + 1}`
-        );
+        console.log(`✅ Loaded ${permissions.value.length} permissions on attempt ${attempt + 1}`);
         isPermissionsLoaded.value = true;
         return;
       } catch (err) {
-        console.error(
-          `❌ Failed to load permissions (attempt ${attempt + 1}/${retries}):`,
-          err
-        );
+        console.error(`❌ Failed to load permissions (attempt ${attempt + 1}/${retries}):`, err);
 
         // Don't retry on 401/403 (auth errors)
-        if (
-          (err as any)?.response?.status === 401 ||
-          (err as any)?.response?.status === 403
-        ) {
+        if ((err as any)?.response?.status === 401 || (err as any)?.response?.status === 403) {
           isPermissionsLoaded.value = true;
           permissions.value = [];
           throw err;
@@ -163,7 +147,7 @@ export const useAuthStore = defineStore("auth", () => {
     }
 
     // ❌ All retries failed
-    console.error("❌ Failed to load permissions after all retries");
+    console.error('❌ Failed to load permissions after all retries');
     permissions.value = [];
     isPermissionsLoaded.value = true; // Mark as loaded even on failure
   };
@@ -201,9 +185,7 @@ export const useAuthStore = defineStore("auth", () => {
 
       // Timeout after specified duration
       timeoutId = setTimeout(() => {
-        console.warn(
-          `⚠️ Permission loading timeout after ${timeoutMs}ms - continuing anyway`
-        );
+        console.warn(`⚠️ Permission loading timeout after ${timeoutMs}ms - continuing anyway`);
         stop();
         cleanup();
       }, timeoutMs);
@@ -233,7 +215,7 @@ export const useAuthStore = defineStore("auth", () => {
    * Restores user session from token if available
    */
   const initAuth = async (): Promise<void> => {
-    console.log("🔄 Initializing auth...");
+    console.log('🔄 Initializing auth...');
     isInitialized.value = false;
     isPermissionsLoaded.value = false;
 
@@ -244,7 +226,7 @@ export const useAuthStore = defineStore("auth", () => {
       permissions.value = [];
       isPermissionsLoaded.value = true;
       isInitialized.value = true;
-      console.log("ℹ️ No token found - user is guest");
+      console.log('ℹ️ No token found - user is guest');
       return;
     }
 
@@ -254,14 +236,14 @@ export const useAuthStore = defineStore("auth", () => {
       permissions.value = [];
       isPermissionsLoaded.value = true;
       isInitialized.value = true;
-      console.log("⚠️ Token expired - cleared");
+      console.log('⚠️ Token expired - cleared');
       return;
     }
 
     // ✅ Restore user info from token
     const user = getUserFromToken(token);
     if (!user || !user.email) {
-      console.error("❌ Invalid token payload");
+      console.error('❌ Invalid token payload');
       AuthService.clearTokens();
       currentUser.value = null;
       permissions.value = [];
@@ -271,22 +253,17 @@ export const useAuthStore = defineStore("auth", () => {
     }
 
     currentUser.value = user;
-    console.log("✅ User restored:", currentUser.value.email);
+    console.log('✅ User restored:', currentUser.value.email);
 
     // ✅ Load permissions asynchronously (don't block init)
     try {
       await loadPermissions();
     } catch (err) {
-      console.error("⚠️ Permission loading failed during init:", err);
+      console.error('⚠️ Permission loading failed during init:', err);
       // Continue anyway - user is still logged in
     }
 
-    console.log(
-      "✅ Auth initialized:",
-      currentUser.value.email,
-      "| Role:",
-      currentUser.value.role
-    );
+    console.log('✅ Auth initialized:', currentUser.value.email, '| Role:', currentUser.value.role);
     isInitialized.value = true;
   };
 
@@ -297,11 +274,7 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * ✅ Login user and load permissions
    */
-  const login = async (
-    email: string,
-    password: string,
-    _rememberMe = false
-  ): Promise<UserInfo> => {
+  const login = async (email: string, password: string, _rememberMe = false): Promise<UserInfo> => {
     loading.value = true;
     error.value = null;
 
@@ -312,7 +285,7 @@ export const useAuthStore = defineStore("auth", () => {
         password,
       } as LoginRequestDto);
 
-      if (!accessToken || !user) throw new Error("Invalid login response");
+      if (!accessToken || !user) throw new Error('Invalid login response');
 
       // ✅ Save decoded user info
       currentUser.value = user;
@@ -323,13 +296,12 @@ export const useAuthStore = defineStore("auth", () => {
       // ✅ Wait one tick so reactivity settles before router push
       await nextTick();
 
-      console.log("✅ Login successful:", currentUser.value.email);
+      console.log('✅ Login successful:', currentUser.value.email);
       return currentUser.value;
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error?.message || err.message || "Login failed";
+      const errorMessage = err.response?.data?.error?.message || err.message || 'Login failed';
       error.value = errorMessage;
-      console.error("❌ Login failed:", errorMessage);
+      console.error('❌ Login failed:', errorMessage);
       currentUser.value = null;
       throw new Error(errorMessage);
     } finally {

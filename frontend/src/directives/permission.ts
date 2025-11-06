@@ -1,7 +1,7 @@
 // src/directives/permission.ts
-import { watch } from "vue";
-import { useAuthStore } from "@/stores/authStore";
-import { hasAnyPermission } from "@/utils/permissions";
+import { watch } from 'vue';
+import { useAuthStore } from '@/stores/authStore';
+import { hasAnyPermission } from '@/utils/permissions';
 
 /**
  * v-permission directive
@@ -15,11 +15,9 @@ export const permissionDirective = {
     const store = useAuthStore();
 
     const evaluate = () => {
-      const perms = Array.isArray(binding.value)
-        ? binding.value
-        : [binding.value];
+      const perms = Array.isArray(binding.value) ? binding.value : [binding.value];
       const visible = hasAnyPermission(...perms);
-      el.style.display = visible ? "" : "none";
+      el.style.display = visible ? '' : 'none';
     };
 
     // 🧠 If permissions aren't ready yet, wait
@@ -32,7 +30,7 @@ export const permissionDirective = {
             stop();
           }
         },
-        { immediate: true }
+        { immediate: true },
       );
     } else {
       evaluate();

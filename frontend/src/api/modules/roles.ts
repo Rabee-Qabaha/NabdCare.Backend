@@ -1,36 +1,34 @@
 // src/api/modules/roles.ts
-import { api } from "@/api/apiClient";
+import { api } from '@/api/apiClient';
 import type {
   RoleResponseDto,
   CreateRoleRequestDto,
   UpdateRoleRequestDto,
   CloneRoleRequestDto,
-} from "@/types/backend/index";
+} from '@/types/backend/index';
 
 export const rolesApi = {
   /** 📋 Get all roles (filtered by tenant context) */
   async getAll() {
-    const { data } = await api.get<RoleResponseDto[]>("/roles");
+    const { data } = await api.get<RoleResponseDto[]>('/roles');
     return data;
   },
 
   /** 📋 Get system roles (SuperAdmin only) */
   async getSystem() {
-    const { data } = await api.get<RoleResponseDto[]>("/roles/system");
+    const { data } = await api.get<RoleResponseDto[]>('/roles/system');
     return data;
   },
 
   /** 📋 Get template roles */
   async getTemplates() {
-    const { data } = await api.get<RoleResponseDto[]>("/roles/templates");
+    const { data } = await api.get<RoleResponseDto[]>('/roles/templates');
     return data;
   },
 
   /** 📋 Get roles for a specific clinic */
   async getClinicRoles(clinicId: string) {
-    const { data } = await api.get<RoleResponseDto[]>(
-      `/roles/clinic/${clinicId}`
-    );
+    const { data } = await api.get<RoleResponseDto[]>(`/roles/clinic/${clinicId}`);
     return data;
   },
 
@@ -42,16 +40,13 @@ export const rolesApi = {
 
   /** ➕ Create custom role */
   async create(payload: CreateRoleRequestDto) {
-    const { data } = await api.post<RoleResponseDto>("/roles", payload);
+    const { data } = await api.post<RoleResponseDto>('/roles', payload);
     return data;
   },
 
   /** 🔄 Clone template role for a clinic */
   async clone(templateRoleId: string, payload: CloneRoleRequestDto) {
-    const { data } = await api.post<RoleResponseDto>(
-      `/roles/clone/${templateRoleId}`,
-      payload
-    );
+    const { data } = await api.post<RoleResponseDto>(`/roles/clone/${templateRoleId}`, payload);
     return data;
   },
 
@@ -75,17 +70,13 @@ export const rolesApi = {
 
   /** ➕ Assign a permission to a role */
   async assignPermission(roleId: string, permissionId: string) {
-    const { data } = await api.post(
-      `/roles/${roleId}/permissions/${permissionId}`
-    );
+    const { data } = await api.post(`/roles/${roleId}/permissions/${permissionId}`);
     return data;
   },
 
   /** ➖ Remove a permission from a role */
   async removePermission(roleId: string, permissionId: string) {
-    const { data } = await api.delete(
-      `/roles/${roleId}/permissions/${permissionId}`
-    );
+    const { data } = await api.delete(`/roles/${roleId}/permissions/${permissionId}`);
     return data;
   },
 };

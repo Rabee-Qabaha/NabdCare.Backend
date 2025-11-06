@@ -4,7 +4,10 @@
  */
 
 export class AuditLogs {
-  static readonly descriptions: { [key: string]: string; } = {"AuditLogs.View":"View system and clinic audit logs","AuditLogs.Export":"Export audit logs as CSV or Excel"};
-  static readonly view: string = "AuditLogs.View";
-  static readonly export: string = "AuditLogs.Export";
+  static readonly descriptions: { [key: string]: string } = {
+    'AuditLogs.View': 'View system and clinic audit logs',
+    'AuditLogs.Export': 'Export audit logs as CSV or Excel',
+  };
+  static readonly view: string = 'AuditLogs.View';
+  static readonly export: string = 'AuditLogs.Export';
 }

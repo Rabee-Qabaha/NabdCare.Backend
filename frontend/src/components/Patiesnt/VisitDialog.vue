@@ -9,9 +9,7 @@
     <div class="flex flex-col gap-6">
       <!-- Practitioner -->
       <div>
-        <label for="visit-practitioner" class="block font-bold mb-2"
-          >Practitioner Name</label
-        >
+        <label for="visit-practitioner" class="mb-2 block font-bold">Practitioner Name</label>
         <InputText
           id="visit-practitioner"
           v-model.trim="localVisit.practitioner"
@@ -25,9 +23,9 @@
       </div>
 
       <!-- Reason & Visit Type -->
-      <div class="grid grid-nogutter md:grid-cols-2 gap-4">
+      <div class="grid-nogutter grid gap-4 md:grid-cols-2">
         <div>
-          <label for="visit-reason" class="block font-bold mb-2">Reason</label>
+          <label for="visit-reason" class="mb-2 block font-bold">Reason</label>
           <InputText
             id="visit-reason"
             v-model.trim="localVisit.reason"
@@ -39,12 +37,10 @@
           >
         </div>
 
-        <div class="grid grid-nogutter md:grid-cols-2 gap-4">
+        <div class="grid-nogutter grid gap-4 md:grid-cols-2">
           <!-- Visit Type -->
           <div>
-            <label for="visit-type" class="block font-bold mb-2"
-              >Visit Type</label
-            >
+            <label for="visit-type" class="mb-2 block font-bold">Visit Type</label>
             <!-- Replace [] with VisitType when available -->
             <Select
               id="visit-type"
@@ -56,16 +52,14 @@
               :invalid="submitted && !localVisit.visitType"
               class="w-full"
             />
-            <small
-              v-if="submitted && !localVisit.visitType"
-              class="text-red-500"
+            <small v-if="submitted && !localVisit.visitType" class="text-red-500"
               >Visit Type is required.</small
             >
           </div>
 
           <!-- Amount -->
           <div>
-            <label for="fee" class="block font-bold mb-2">Fee</label>
+            <label for="fee" class="mb-2 block font-bold">Fee</label>
             <InputNumber
               id="fee"
               v-model="localVisit.fee"
@@ -90,12 +84,10 @@
       </div>
 
       <!-- Dates -->
-      <div class="grid grid-nogutter md:grid-cols-2 gap-4">
+      <div class="grid-nogutter grid gap-4 md:grid-cols-2">
         <!-- Visit Date -->
         <div>
-          <label for="visit-date" class="block font-bold mb-2"
-            >Visit Date</label
-          >
+          <label for="visit-date" class="mb-2 block font-bold">Visit Date</label>
           <DatePicker
             id="visit-date"
             v-model="localVisit.date"
@@ -111,9 +103,7 @@
 
         <!-- Next Appointment -->
         <div>
-          <label for="visit-appointment" class="block font-bold mb-2"
-            >Next Appointment</label
-          >
+          <label for="visit-appointment" class="mb-2 block font-bold">Next Appointment</label>
           <DatePicker
             id="visit-appointment"
             v-model="localVisit.nextAppointment"
@@ -126,9 +116,7 @@
 
       <!-- Description -->
       <div>
-        <label for="visit-description" class="block font-bold mb-2"
-          >Description</label
-        >
+        <label for="visit-description" class="mb-2 block font-bold">Description</label>
         <Editor
           id="visit-description"
           v-model="localVisit.description"
@@ -140,69 +128,64 @@
     <!-- Footer -->
     <template #footer>
       <Button label="Cancel" icon="pi pi-times" text @click="onCancel" />
-      <Button
-        label="Save"
-        icon="pi pi-check"
-        :loading="props.isProcessing"
-        @click="onSave"
-      />
+      <Button label="Save" icon="pi pi-check" :loading="props.isProcessing" @click="onSave" />
     </template>
   </Dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
-// import { VISIT_TYPES, type PatientVisit } from '@/../../shared/types';
+  import { ref, watch, computed } from 'vue';
+  // import { VISIT_TYPES, type PatientVisit } from '@/../../shared/types';
 
-const props = defineProps<{
-  visible: boolean;
-  visit: Partial<any>; // Replace 'any' with 'PatientVisit' when the type is available
-  isProcessing?: boolean;
-}>();
+  const props = defineProps<{
+    visible: boolean;
+    visit: Partial<any>; // Replace 'any' with 'PatientVisit' when the type is available
+    isProcessing?: boolean;
+  }>();
 
-// const VisitType = ref(VISIT_TYPES.map((v) => ({ label: v, value: v })));
+  // const VisitType = ref(VISIT_TYPES.map((v) => ({ label: v, value: v })));
 
-const emit = defineEmits(["update:visible", "save", "cancel"]);
+  const emit = defineEmits(['update:visible', 'save', 'cancel']);
 
-const localVisit = ref<Partial<any>>({ ...props.visit }); // Replace 'any' with 'PatientVisit' when the type is available
-const submitted = ref(false);
+  const localVisit = ref<Partial<any>>({ ...props.visit }); // Replace 'any' with 'PatientVisit' when the type is available
+  const submitted = ref(false);
 
-watch(
-  () => props.visible,
-  (newVal) => {
-    if (newVal) {
-      submitted.value = false;
-      localVisit.value = { ...props.visit };
-    }
+  watch(
+    () => props.visible,
+    (newVal) => {
+      if (newVal) {
+        submitted.value = false;
+        localVisit.value = { ...props.visit };
+      }
+    },
+  );
+
+  // Validation
+  const isFeeValid = computed(
+    () =>
+      localVisit.value.fee !== null &&
+      localVisit.value.fee !== undefined &&
+      localVisit.value.fee >= 0,
+  );
+  const isFormValid = computed(
+    () =>
+      !!localVisit.value.practitioner &&
+      !!localVisit.value.reason &&
+      !!localVisit.value.visitType &&
+      !!localVisit.value.date &&
+      isFeeValid.value,
+  );
+
+  function onSave() {
+    if (props.isProcessing) return; // prevent multiple clicks
+    submitted.value = true;
+    if (!isFormValid.value) return;
+
+    emit('save', { ...localVisit.value });
   }
-);
 
-// Validation
-const isFeeValid = computed(
-  () =>
-    localVisit.value.fee !== null &&
-    localVisit.value.fee !== undefined &&
-    localVisit.value.fee >= 0
-);
-const isFormValid = computed(
-  () =>
-    !!localVisit.value.practitioner &&
-    !!localVisit.value.reason &&
-    !!localVisit.value.visitType &&
-    !!localVisit.value.date &&
-    isFeeValid.value
-);
-
-function onSave() {
-  if (props.isProcessing) return; // prevent multiple clicks
-  submitted.value = true;
-  if (!isFormValid.value) return;
-
-  emit("save", { ...localVisit.value });
-}
-
-function onCancel() {
-  emit("cancel");
-  emit("update:visible", false);
-}
+  function onCancel() {
+    emit('cancel');
+    emit('update:visible', false);
+  }
 </script>
