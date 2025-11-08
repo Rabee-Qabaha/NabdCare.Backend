@@ -1,3 +1,4 @@
+// src/router/superadminRoutes.ts
 import { PermissionRegistry } from '@/config/permissionsRegistry';
 import type { RouteRecordRaw } from 'vue-router';
 

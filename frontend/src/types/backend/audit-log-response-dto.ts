@@ -6,11 +6,11 @@
 export class AuditLogResponseDto {
   id: string;
   userId: string;
-  userEmail: string = '';
+  userEmail: string = "";
   clinicId: string;
-  entityType: string = '';
+  entityType: string = "";
   entityId: string;
-  action: string = '';
+  action: string = "";
   changes: string;
   reason: string;
   timestamp: Date;

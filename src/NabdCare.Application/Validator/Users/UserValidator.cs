@@ -13,7 +13,7 @@ public class UserValidator : AbstractValidator<User>
 
         RuleFor(user => user.PasswordHash)
             .NotEmpty().WithMessage("Password is required.")
-            .MinimumLength(6).WithMessage("Password must be at least 6 characters long.");
+            .MinimumLength(9).WithMessage("Password must be at least 9 characters long.");
 
         RuleFor(user => user.ClinicId)
             .NotEmpty().WithMessage("ClinicId is required.");

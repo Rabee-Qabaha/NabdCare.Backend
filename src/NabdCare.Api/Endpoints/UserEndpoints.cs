@@ -1,5 +1,4 @@
-﻿using FluentValidation;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
@@ -23,14 +22,8 @@ public static class UserEndpoints
         group.MapPost("/", async (
             [FromBody] CreateUserRequestDto dto,
             [FromServices] IUserService userService,
-            [FromServices] ITenantContext tenantContext,
-            [FromServices] IValidator<CreateUserRequestDto> validator) =>
+            [FromServices] ITenantContext tenantContext) =>
         {
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
-
-            // ✅ ABAC check: ClinicAdmin can only create in their own clinic
             if (!tenantContext.IsSuperAdmin && dto.ClinicId != tenantContext.ClinicId)
                 return Results.Forbid();
 
@@ -75,8 +68,8 @@ public static class UserEndpoints
             if (tenantContext.IsSuperAdmin)
             {
                 result = clinicId.HasValue
-                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, request.Limit, request.Cursor,includeDeleted)
-                    : await userService.GetAllPagedAsync(request.Limit, request.Cursor,includeDeleted);
+                    ? await userService.GetByClinicIdPagedAsync(clinicId.Value, request.Limit, request.Cursor, includeDeleted)
+                    : await userService.GetAllPagedAsync(request.Limit, request.Cursor, includeDeleted);
             }
             else if (tenantContext.ClinicId.HasValue)
             {
@@ -115,57 +108,54 @@ public static class UserEndpoints
         .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // GET USERS BY CLINIC  (ABAC + Multi-Tenant + Soft-Delete Toggle)
+        // GET USERS BY CLINIC (ABAC + Multi-Tenant + Soft-Delete Toggle)
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}/paged", async (
-                Guid clinicId,
-                [AsParameters] PaginationRequestDto request,
-                [FromQuery] bool includeDeleted,
-                [FromServices] IUserService userService,
-                [FromServices] ITenantContext tenantContext) =>
+            Guid clinicId,
+            [AsParameters] PaginationRequestDto request,
+            [FromQuery] bool includeDeleted,
+            [FromServices] IUserService userService,
+            [FromServices] ITenantContext tenantContext) =>
+        {
+            if (clinicId == Guid.Empty)
+                return Results.BadRequest(new { Error = "Invalid clinic ID" });
+
+            if (!tenantContext.IsSuperAdmin)
             {
-                if (clinicId == Guid.Empty)
-                    return Results.BadRequest(new { Error = "Invalid clinic ID" });
+                if (!tenantContext.ClinicId.HasValue)
+                    return Results.Forbid();
 
-                // ✅ If ClinicAdmin, enforce their own clinic
-                if (!tenantContext.IsSuperAdmin)
-                {
-                    if (!tenantContext.ClinicId.HasValue)
-                        return Results.Forbid();
+                clinicId = tenantContext.ClinicId.Value;
+            }
 
-                    // ClinicAdmin is only allowed to request *their* clinic,
-                    // so ignore the clinicId passed in the URL.
-                    clinicId = tenantContext.ClinicId.Value;
-                }
+            var result = await userService.GetByClinicIdPagedAsync(
+                clinicId,
+                request.Limit,
+                request.Cursor,
+                includeDeleted
+            );
 
-                var result = await userService.GetByClinicIdPagedAsync(
-                    clinicId,
-                    request.Limit,
-                    request.Cursor,
-                    includeDeleted
+            return Results.Ok(result);
+        })
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.View)
+        .WithAbac<User>(
+            Permissions.Users.View,
+            "list",
+            async ctx =>
+            {
+                var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                return await Task.FromResult(
+                    tenant.IsSuperAdmin
+                        ? null
+                        : new User { ClinicId = tenant.ClinicId }
                 );
-
-                return Results.Ok(result);
             })
-            .RequireAuthorization()
-            .RequirePermission(Permissions.Users.View) // Works for ClinicAdmin + SuperAdmin
-            .WithAbac<User>(
-                Permissions.Users.View,
-                "list",
-                async ctx =>
-                {
-                    var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
-                    return await Task.FromResult(
-                        tenant.IsSuperAdmin
-                            ? null                        // SuperAdmin sees all
-                            : new User { ClinicId = tenant.ClinicId } // ClinicAdmin only their clinic
-                    );
-                })
-            .WithName("GetUsersByClinicPaged")
-            .WithSummary("Get users in a clinic (paged, with soft-delete & ABAC)")
-            .Produces<PaginatedResult<UserResponseDto>>()
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status403Forbidden);
+        .WithName("GetUsersByClinicPaged")
+        .WithSummary("Get users in a clinic (paged, with soft-delete & ABAC)")
+        .Produces<PaginatedResult<UserResponseDto>>()
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
         // GET USER BY ID
@@ -215,81 +205,76 @@ public static class UserEndpoints
         // CHECK EMAIL STATUS (Exists + Deleted State)
         // ============================================
         group.MapGet("/check-email", async (
-                [FromQuery] string email,
-                [FromServices] IUserService userService) =>
+            [FromQuery] string email,
+            [FromServices] IUserService userService) =>
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return Results.BadRequest(new { Error = "Email is required" });
+
+            var (exists, isDeleted, userId) = await userService.EmailExistsDetailedAsync(email);
+
+            return Results.Ok(new
             {
-                if (string.IsNullOrWhiteSpace(email))
-                    return Results.BadRequest(new { Error = "Email is required" });
+                Exists = exists,
+                IsDeleted = isDeleted,
+                UserId = userId
+            });
+        })
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Create)
+        .WithName("CheckEmailStatus")
+        .WithSummary("Check if an email exists and whether that user is soft-deleted.");
 
-                var (exists, isDeleted, userId) = await userService.EmailExistsDetailedAsync(email);
-
-                return Results.Ok(new
-                {
-                    Exists = exists,
-                    IsDeleted = isDeleted,
-                    UserId = userId
-                });
-            })
-            .RequireAuthorization()
-            .WithName("CheckEmailStatus")
-            .WithSummary("Check if an email exists and whether that user is soft-deleted.");
-        
         // ============================================
         // RESTORE USER (ABAC + Multi-Tenant)
         // ============================================
         group.MapPut("/{id:guid}/restore", async (
-                Guid id,
-                [FromServices] IUserService userService,
-                [FromServices] ITenantContext tenantContext) =>
+            Guid id,
+            [FromServices] IUserService userService,
+            [FromServices] ITenantContext tenantContext) =>
+        {
+            var restored = await userService.RestoreUserAsync(id);
+
+            return restored is not null
+                ? Results.Ok(restored)
+                : Results.NotFound(new { Error = $"User {id} not found or not deleted" });
+        })
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Users.Restore)
+        .WithAbac(
+            Permissions.Users.Restore,
+            "restore",
+            async ctx =>
             {
-                var restored = await userService.RestoreUserAsync(id);
+                var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
+                var svc = ctx.RequestServices.GetRequiredService<IUserService>();
 
-                return restored is not null
-                    ? Results.Ok(restored)
-                    : Results.NotFound(new { Error = $"User {id} not found or not deleted" });
+                var idStr = ctx.Request.RouteValues["id"]?.ToString();
+
+                if (!Guid.TryParse(idStr, out var userId))
+                    return null;
+
+                var user = await svc.GetUserByIdAsync(userId);
+
+                return tenant.IsSuperAdmin
+                    ? null
+                    : new User { ClinicId = tenant.ClinicId };
             })
-            .RequireAuthorization()
-            .RequirePermission(Permissions.Users.Restore)
-            .WithAbac(
-                Permissions.Users.Restore,
-                "restore",
-                async ctx =>
-                {
-                    var tenant = ctx.RequestServices.GetRequiredService<ITenantContext>();
-                    var svc = ctx.RequestServices.GetRequiredService<IUserService>();
+        .WithName("RestoreUser")
+        .WithSummary("Restore a soft-deleted user")
+        .WithDescription("SuperAdmin: restore any user. ClinicAdmin: restore users only from their own clinic.")
+        .Produces<UserResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden);
 
-                    var idStr = ctx.Request.RouteValues["id"]?.ToString();
-
-                    if (!Guid.TryParse(idStr, out var userId))
-                        return null;
-
-                    // Fetch the user so ABAC can evaluate clinic ownership rules
-                    var user = await svc.GetUserByIdAsync(userId);
-
-                    return tenant.IsSuperAdmin
-                        ? null                           // SuperAdmin → no clinic restrictions
-                        : new User { ClinicId = tenant.ClinicId }; // ClinicAdmin → enforce same clinic
-                })
-            .WithName("RestoreUser")
-            .WithSummary("Restore a soft-deleted user")
-            .WithDescription("SuperAdmin: restore any user. ClinicAdmin: restore users only from their own clinic.")
-            .Produces<UserResponseDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status403Forbidden);
-        
         // ============================================
         // UPDATE USER
         // ============================================
         group.MapPut("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateUserRequestDto dto,
-            [FromServices] IUserService userService,
-            [FromServices] IValidator<UpdateUserRequestDto> validator) =>
+            [FromServices] IUserService userService) =>
         {
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
-
             var updatedUser = await userService.UpdateUserAsync(id, dto);
             return updatedUser is not null
                 ? Results.Ok(updatedUser)
@@ -307,7 +292,8 @@ public static class UserEndpoints
                 return Guid.TryParse(idStr, out var uid)
                     ? await svc.GetUserByIdAsync(uid)
                     : null;
-            });
+            })
+        .WithName("UpdateUser");
 
         // ============================================
         // UPDATE USER ROLE
@@ -315,13 +301,8 @@ public static class UserEndpoints
         group.MapPut("/{id:guid}/role", async (
             Guid id,
             [FromBody] UpdateUserRoleDto dto,
-            [FromServices] IUserService userService,
-            [FromServices] IValidator<UpdateUserRoleDto> validator) =>
+            [FromServices] IUserService userService) =>
         {
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
-
             var updatedUser = await userService.UpdateUserRoleAsync(id, dto.RoleId);
             return updatedUser is not null ? Results.Ok(updatedUser) : Results.NotFound();
         })
@@ -337,7 +318,8 @@ public static class UserEndpoints
                 return Guid.TryParse(idStr, out var uid)
                     ? await svc.GetUserByIdAsync(uid)
                     : null;
-            });
+            })
+        .WithName("UpdateUserRole");
 
         // ============================================
         // ACTIVATE / DEACTIVATE
@@ -359,7 +341,8 @@ public static class UserEndpoints
                 return Guid.TryParse(idStr, out var uid)
                     ? await s.GetUserByIdAsync(uid)
                     : null;
-            });
+            })
+        .WithName("ActivateUser");
 
         group.MapPut("/{id:guid}/deactivate", async (Guid id, [FromServices] IUserService svc) =>
         {
@@ -378,7 +361,8 @@ public static class UserEndpoints
                 return Guid.TryParse(idStr, out var uid)
                     ? await s.GetUserByIdAsync(uid)
                     : null;
-            });
+            })
+        .WithName("DeactivateUser");
 
         // ============================================
         // SOFT / HARD DELETE
@@ -400,7 +384,8 @@ public static class UserEndpoints
                 return Guid.TryParse(idStr, out var uid)
                     ? await s.GetUserByIdAsync(uid)
                     : null;
-            });
+            })
+        .WithName("DeleteUser");
 
         group.MapDelete("/{id:guid}/permanent", async (
             Guid id,
@@ -414,7 +399,8 @@ public static class UserEndpoints
             return success ? Results.Ok() : Results.NotFound();
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Users.HardDelete);
+        .RequirePermission(Permissions.Users.HardDelete)
+        .WithName("HardDeleteUser");
 
         // ============================================
         // PASSWORD OPERATIONS
@@ -422,28 +408,19 @@ public static class UserEndpoints
         group.MapPost("/{id:guid}/change-password", async (
             Guid id,
             [FromBody] ChangePasswordRequestDto dto,
-            [FromServices] IUserService userService,
-            [FromServices] IValidator<ChangePasswordRequestDto> validator) =>
+            [FromServices] IUserService userService) =>
         {
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
-
             var updated = await userService.ChangePasswordAsync(id, dto);
             return Results.Ok(updated);
         })
-        .RequireAuthorization();
+        .RequireAuthorization()
+        .WithName("ChangePassword");
 
         group.MapPost("/{id:guid}/reset-password", async (
             Guid id,
             [FromBody] ResetPasswordRequestDto dto,
-            [FromServices] IUserService userService,
-            [FromServices] IValidator<ResetPasswordRequestDto> validator) =>
+            [FromServices] IUserService userService) =>
         {
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
-
             var updated = await userService.ResetPasswordAsync(id, dto);
             return Results.Ok(updated);
         })
@@ -459,6 +436,7 @@ public static class UserEndpoints
                 return Guid.TryParse(idStr, out var uid)
                     ? await svc.GetUserByIdAsync(uid)
                     : null;
-            });
+            })
+        .WithName("ResetPassword");
     }
 }

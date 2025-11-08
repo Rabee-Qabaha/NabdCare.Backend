@@ -1,3 +1,4 @@
+// src/views/pages/auth/Login.vue
 <script setup lang="ts">
   import { ref, computed } from 'vue';
   import { useRouter, useRoute } from 'vue-router';

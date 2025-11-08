@@ -4,7 +4,7 @@
  */
 
 export class CreateRoleRequestDto {
-  name: string = '';
+  name: string = "";
   description: string;
   clinicId: string;
   isTemplate: boolean;

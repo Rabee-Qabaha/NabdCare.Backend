@@ -812,8 +812,8 @@
         class="relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-surface-0 shadow-sm transition-all duration-200 dark:bg-surface-900"
         :class="[
           u.isDeleted
-            ? 'bg-pink-50 opacity-90 ring-1 ring-pink-200/50 dark:border-pink-100 dark:bg-pink-100/10'
-            : 'border-surface-200 bg-surface-0 hover:shadow-primary/40 dark:border-surface-700 dark:bg-surface-900',
+            ? 'bg-pink-100/40 dark:bg-pink-900/10 ring-1 ring-pink-300/50 opacity-90'
+            : 'bg-surface-0 dark:bg-surface-900 border-surface-200 dark:border-surface-700 hover:shadow-primary/40',
         ]"
       >
         <!-- Header -->

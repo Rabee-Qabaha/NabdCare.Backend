@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,8 @@ using NabdCare.Api.Middleware;
 using NabdCare.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using DotNetEnv;
+using NabdCare.Application.Common.Constants;
+using NabdCare.Application.DTOs.Common;
 using NabdCare.Infrastructure.Persistence.DataSeed;
 
 // ✅ Disable legacy JWT claim mapping
@@ -29,30 +32,48 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// Handle FluentValidation model errors consistently
+// ✅ Handle FluentValidation model errors consistently
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
         var errors = context.ModelState
             .Where(e => e.Value?.Errors.Count > 0)
-            .SelectMany(e => e.Value!.Errors.Select(x => x.ErrorMessage))
-            .ToList();
+            .ToDictionary(
+                e => e.Key,
+                e => e.Value!.Errors
+                    .Select(x => x.ErrorMessage)
+                    .ToArray()
+            );
 
         var traceId = Guid.NewGuid().ToString("N");
         context.HttpContext.Response.Headers["X-Trace-Id"] = traceId;
 
-        return new BadRequestObjectResult(new
+        var isDevelopment = context.HttpContext.RequestServices
+            .GetRequiredService<IWebHostEnvironment>()
+            .IsDevelopment();
+
+        var errorResponse = new ApiErrorResponse
         {
-            error = new
+            Error = new ErrorResponseDto
             {
-                message = "Validation failed",
-                type = "ValidationError",
-                statusCode = 400,
-                traceId,
-                details = errors
+                Message = "Validation failed. Please check your input.",
+                Code = ErrorCodes.VALIDATION_ERROR,
+                Type = "BadRequest",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = traceId,
+                Details = isDevelopment ? new { validationErrors = errors } : null
             }
-        });
+        };
+
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = isDevelopment
+        };
+
+        return new BadRequestObjectResult(errorResponse);
     };
 });
 

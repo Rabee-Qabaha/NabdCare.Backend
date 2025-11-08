@@ -1,3 +1,4 @@
+// src/router/clientRoutes.ts
 import { Patients } from '@/types/backend/constants/patients';
 import type { RouteRecordRaw } from 'vue-router';
 

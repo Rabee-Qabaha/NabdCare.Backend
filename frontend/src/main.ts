@@ -12,7 +12,7 @@ import ToastService from 'primevue/toastservice';
 import '@/assets/styles.scss';
 import '@/assets/tailwind.css';
 
-import { permissionDirective } from './directives/permission'; // ✅ keep only this one
+import { permissionDirective } from './directives/permission';
 import { useAuthStore } from './stores/authStore';
 
 // 🧠 Vue Query imports

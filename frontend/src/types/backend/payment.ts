@@ -3,12 +3,12 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { ChequePaymentDetail } from './cheque-payment-detail';
-import { Clinic } from './clinic';
-import { Patient } from './patient';
-import { PaymentContext } from './payment-context';
-import { PaymentMethod } from './payment-method';
-import { PaymentStatus } from './payment-status';
+import { PaymentContext } from "./payment-context";
+import { Clinic } from "./clinic";
+import { Patient } from "./patient";
+import { PaymentMethod } from "./payment-method";
+import { PaymentStatus } from "./payment-status";
+import { ChequePaymentDetail } from "./cheque-payment-detail";
 
 export class Payment {
   context: PaymentContext;
@@ -17,7 +17,7 @@ export class Payment {
   patientId: string;
   patient: Patient;
   amount: number;
-  paymentDate: Date = new Date('2025-11-02T21:15:51.4610740Z');
+  paymentDate: Date = new Date("2025-11-08T12:55:00.3963710Z");
   method: PaymentMethod;
   status: PaymentStatus;
   chequeDetail: ChequePaymentDetail;

@@ -1,3 +1,4 @@
+// src/composables/query/auth/useAuth.ts
 import { authApi } from '@/api/modules/auth';
 import { useMutationWithInvalidate } from '@/composables/query/helpers/useMutationWithInvalidate';
 import type { LoginRequestDto } from '@/types/backend/index';
