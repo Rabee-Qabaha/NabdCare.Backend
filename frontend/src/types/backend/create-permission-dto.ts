@@ -4,6 +4,6 @@
  */
 
 export class CreatePermissionDto {
-  name: string = '';
+  name: string = "";
   description: string;
 }

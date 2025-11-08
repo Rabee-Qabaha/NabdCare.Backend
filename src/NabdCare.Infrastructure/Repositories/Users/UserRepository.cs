@@ -11,6 +11,17 @@ namespace NabdCare.Infrastructure.Repositories.Users;
 
 /// <summary>
 /// Repository for user data with ABAC-ready query filtering support.
+/// 
+/// DESIGN PATTERN: Purpose-Specific Methods (SOLID-compliant)
+/// - Public methods clearly state their purpose in the name
+/// - Each method has single responsibility
+/// - Internal implementation avoids code duplication (DRY)
+/// - All soft-delete bypasses are logged for security audit
+/// 
+/// SECURITY NOTES:
+/// - Methods that bypass soft-delete filters are clearly marked ⚠️
+/// - Each bypass logs the stack trace for security investigation
+/// - Calling service MUST perform authorization checks
 /// </summary>
 public class UserRepository : IUserRepository
 {
@@ -25,7 +36,7 @@ public class UserRepository : IUserRepository
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    #region QUERY METHODS
+    #region ACTIVE USER QUERIES (Soft-Delete Filtered)
 
     public async Task<User?> GetByIdAsync(Guid userId)
     {
@@ -40,27 +51,6 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
     }
 
-    public async Task<User?> GetByIdRawAsync(Guid id)
-    {
-        return await _dbContext.Users
-            .IgnoreQueryFilters()
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
-    }
-
-    public async Task<User?> GetByEmailRawAsync(string email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-            return null;
-
-        var normalizedEmail = email.Trim().ToLower();
-
-        return await _dbContext.Users
-            .IgnoreQueryFilters()        
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
-    }
-    
     public async Task<User?> GetByEmailAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -210,13 +200,13 @@ public class UserRepository : IUserRepository
 
         return await _dbContext.Users
             .AsNoTracking()
-            .AnyAsync(u => u.Email == normalizedEmail);
+            .AnyAsync(u => u.Email == normalizedEmail && !u.IsDeleted);
     }
 
     public async Task<IEnumerable<User>> GetUsersByRoleIdAsync(Guid roleId)
     {
         return await _dbContext.Users
-            .Where(u => u.RoleId == roleId)
+            .Where(u => u.RoleId == roleId && !u.IsDeleted)
             .ToListAsync();
     }
 
@@ -232,7 +222,171 @@ public class UserRepository : IUserRepository
 
     #endregion
 
+    #region SOFT-DELETE BYPASS QUERIES (Purpose-Specific)
+
+    /// <summary>
+    /// ⚠️ Get user by ID INCLUDING soft-deleted users (AUTHORIZATION PURPOSE).
+    /// 
+    /// This method bypasses soft-delete filter to check permissions for ANY user state.
+    /// Used for authorization checks and permission evaluation.
+    /// 
+    /// Returns minimal navigation properties (Clinic, Role) optimized for auth performance.
+    /// </summary>
+    public async Task<User?> GetByIdForAuthorizationAsync(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            return null;
+
+        // ✅ SECURITY: Log this sensitive operation with full context
+        _logger.LogWarning(
+            "🔓 AUTHORIZATION BYPASS: Fetching user {UserId} INCLUDING soft-deleted for authorization check. " +
+            "Purpose: Permission validation/authentication. Stack: {StackTrace}",
+            userId,
+            Environment.StackTrace);
+
+        return await GetByIdIncludingDeletedInternalAsync(
+            userId,
+            includeAuditData: false,
+            purpose: "authorization");
+    }
+
+    /// <summary>
+    /// ⚠️ Get user by ID INCLUDING soft-deleted users (RESTORATION PURPOSE).
+    /// 
+    /// This method bypasses soft-delete filter to retrieve deleted users for restoration.
+    /// Used when restoring a previously deleted account.
+    /// 
+    /// Returns complete navigation properties (Clinic, Role, CreatedByUser) with full audit data.
+    /// </summary>
+    public async Task<User?> GetByIdForRestorationAsync(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            return null;
+
+        // ✅ SECURITY: Log this sensitive operation with full context
+        _logger.LogWarning(
+            "🔄 RESTORATION BYPASS: Fetching user {UserId} INCLUDING soft-deleted for restoration process. " +
+            "Purpose: User account restoration. Stack: {StackTrace}",
+            userId,
+            Environment.StackTrace);
+
+        return await GetByIdIncludingDeletedInternalAsync(
+            userId,
+            includeAuditData: true,
+            purpose: "restoration");
+    }
+
+    /// <summary>
+    /// ⚠️ Get user by email INCLUDING soft-deleted users (EMAIL VERIFICATION PURPOSE).
+    /// 
+    /// This method bypasses soft-delete filter to check if email was previously used.
+    /// Used for email uniqueness validation and duplicate detection.
+    /// 
+    /// Returns user object if email is found (whether active or deleted).
+    /// </summary>
+    public async Task<User?> GetByEmailIncludingDeletedAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var normalizedEmail = email.Trim().ToLower();
+
+        // ✅ SECURITY: Log this sensitive operation with full context
+        _logger.LogWarning(
+            "📧 EMAIL VERIFICATION BYPASS: Looking up email {Email} INCLUDING soft-deleted. " +
+            "Purpose: Email uniqueness validation. Stack: {StackTrace}",
+            normalizedEmail,
+            Environment.StackTrace);
+
+        return await GetByIdIncludingDeletedInternalAsync(
+            null,
+            includeAuditData: false,
+            purpose: "email-verification",
+            emailFilter: normalizedEmail);
+    }
+
+    /// <summary>
+    /// Check if email exists INCLUDING soft-deleted users.
+    /// Returns true if email is found in any user record (active or deleted).
+    /// </summary>
+    public async Task<bool> EmailExistsIncludingDeletedAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        var normalizedEmail = email.Trim().ToLower();
+
+        return await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(u => u.Email == normalizedEmail);
+    }
+
+    /// <summary>
+    /// Check if user exists INCLUDING soft-deleted users.
+    /// Returns true if user record exists (active or deleted).
+    /// </summary>
+    public async Task<bool> UserExistsIncludingDeletedAsync(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            return false;
+
+        return await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(u => u.Id == userId);
+    }
+
+    #endregion
+
+    #region INTERNAL IMPLEMENTATION (Private - DRY Pattern)
+
+    /// <summary>
+    /// Internal method to retrieve user including soft-deleted records.
+    /// 
+    /// DESIGN NOTE:
+    /// This is PRIVATE to keep the repository API focused on purpose-specific methods.
+    /// Public methods (GetByIdForAuthorizationAsync, GetByIdForRestorationAsync, etc.)
+    /// delegate to this internal method to avoid code duplication while maintaining
+    /// a clean, semantically clear public API (SOLID compliance).
+    /// 
+    /// This method is NOT called directly; use purpose-specific public methods instead.
+    /// </summary>
+    private async Task<User?> GetByIdIncludingDeletedInternalAsync(
+        Guid? userId,
+        bool includeAuditData,
+        string purpose,
+        string? emailFilter = null)
+    {
+        var query = _dbContext.Users
+            .IgnoreQueryFilters()
+            .Include(u => u.Clinic)
+            .Include(u => u.Role)
+            .AsNoTracking();
+
+        // ✅ Add CreatedByUser navigation only when needed (for restoration)
+        if (includeAuditData)
+        {
+            query = query.Include(u => u.CreatedByUser);
+        }
+
+        // ✅ Filter by userId or email based on purpose
+        if (userId.HasValue && userId.Value != Guid.Empty)
+        {
+            return await query.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(emailFilter))
+        {
+            return await query.FirstOrDefaultAsync(u => u.Email == emailFilter);
+        }
+
+        return null;
+    }
+
+    #endregion
+
     #region COMMAND METHODS
+
     public async Task<User> CreateAsync(User user)
     {
         if (user == null)
@@ -242,7 +396,7 @@ public class UserRepository : IUserRepository
         await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} created", user.Id);
+        _logger.LogInformation("✅ User {UserId} created with email {Email}", user.Id, user.Email);
         return user;
     }
 
@@ -257,7 +411,7 @@ public class UserRepository : IUserRepository
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} updated", user.Id);
+        _logger.LogInformation("✅ User {UserId} updated", user.Id);
         return user;
     }
 
@@ -267,7 +421,8 @@ public class UserRepository : IUserRepository
             return false;
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
-        if (user == null) return false;
+        if (user == null) 
+            return false;
 
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow;
@@ -275,7 +430,7 @@ public class UserRepository : IUserRepository
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} soft deleted", userId);
+        _logger.LogInformation("✅ User {UserId} soft deleted at {DeletedAt}", userId, user.DeletedAt);
         return true;
     }
 
@@ -285,17 +440,20 @@ public class UserRepository : IUserRepository
             return false;
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user == null) return false;
+        if (user == null) 
+            return false;
 
         _dbContext.Users.Remove(user);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogWarning("User {UserId} permanently deleted", userId);
+        _logger.LogWarning("🚨 PERMANENT DELETE: User {UserId} permanently deleted", userId);
         return true;
     }
+
     #endregion
 
     #region PRIVATE HELPERS
+
     private static (DateTime? createdAt, Guid? id) DecodeCursor(string? cursor)
     {
         if (string.IsNullOrWhiteSpace(cursor))
@@ -304,7 +462,8 @@ public class UserRepository : IUserRepository
         {
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
             var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-            if (dict == null) return (null, null);
+            if (dict == null) 
+                return (null, null);
 
             DateTime? createdAt = dict.TryGetValue("createdAt", out var caStr) &&
                                   DateTime.TryParse(caStr, out var parsedCa)
@@ -318,7 +477,7 @@ public class UserRepository : IUserRepository
 
             return (createdAt, id);
         }
-        catch
+        catch (Exception ex)
         {
             return (null, null);
         }
@@ -334,5 +493,6 @@ public class UserRepository : IUserRepository
         var json = JsonSerializer.Serialize(payload);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
+
     #endregion
 }

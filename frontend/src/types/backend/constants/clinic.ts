@@ -4,16 +4,10 @@
  */
 
 export class Clinic {
-  static readonly descriptions: { [key: string]: string } = {
-    'Clinic.View': 'View own clinic information',
-    'Clinic.Edit': 'Edit clinic details and contact information',
-    'Clinic.ViewSettings': 'View clinic configuration settings',
-    'Clinic.EditSettings': 'Modify clinic configuration settings',
-    'Clinic.ManageBranches': 'Add, edit, or remove clinic branches',
-  };
-  static readonly view: string = 'Clinic.View';
-  static readonly edit: string = 'Clinic.Edit';
-  static readonly viewSettings: string = 'Clinic.ViewSettings';
-  static readonly editSettings: string = 'Clinic.EditSettings';
-  static readonly manageBranches: string = 'Clinic.ManageBranches';
+  static readonly descriptions: { [key: string]: string; } = {"Clinic.View":"View own clinic information","Clinic.Edit":"Edit clinic details and contact information","Clinic.ViewSettings":"View clinic configuration settings","Clinic.EditSettings":"Modify clinic configuration settings","Clinic.ManageBranches":"Add, edit, or remove clinic branches"};
+  static readonly view: string = "Clinic.View";
+  static readonly edit: string = "Clinic.Edit";
+  static readonly viewSettings: string = "Clinic.ViewSettings";
+  static readonly editSettings: string = "Clinic.EditSettings";
+  static readonly manageBranches: string = "Clinic.ManageBranches";
 }

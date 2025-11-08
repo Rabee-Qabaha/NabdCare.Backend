@@ -5,12 +5,13 @@
 
 export class UserResponseDto {
   id: string;
-  email: string = '';
-  fullName: string = '';
+  email: string = "";
+  fullName: string = "";
   roleId: string;
-  roleName: string = '';
+  roleName: string = "";
   isSystemRole: boolean;
   isActive: boolean;
+  isDeleted: boolean;
   clinicId: string;
   clinicName: string;
   createdAt: Date;

@@ -1,3 +1,4 @@
+// src/utils/jwtUtils.ts
 import { jwtDecode, type JwtPayload } from 'jwt-decode';
 
 export interface UserInfo extends JwtPayload {

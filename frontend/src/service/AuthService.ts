@@ -1,3 +1,4 @@
+// src/service/AuthService.ts
 import { api } from '@/api/apiClient';
 import type { AuthResponseDto, LoginRequestDto } from '@/types/backend';
 import { getUserFromToken, isTokenExpired, type UserInfo } from '@/utils/jwtUtils';

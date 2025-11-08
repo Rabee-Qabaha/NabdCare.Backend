@@ -4,6 +4,6 @@
  */
 
 export class ChangePasswordRequestDto {
-  currentPassword: string = '';
-  newPassword: string = '';
+  currentPassword: string = "";
+  newPassword: string = "";
 }

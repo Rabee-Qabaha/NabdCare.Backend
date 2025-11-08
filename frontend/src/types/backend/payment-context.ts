@@ -4,6 +4,6 @@
  */
 
 export enum PaymentContext {
-  Clinic = 'Clinic',
-  Patient = 'Patient',
+  Clinic = "Clinic",
+  Patient = "Patient",
 }

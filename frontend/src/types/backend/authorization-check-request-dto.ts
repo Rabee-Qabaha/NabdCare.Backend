@@ -4,7 +4,7 @@
  */
 
 export class AuthorizationCheckRequestDto {
-  resourceType: string = '';
-  resourceId: string = '';
-  action: string = '';
+  resourceType: string = "";
+  resourceId: string = "";
+  action: string = "";
 }

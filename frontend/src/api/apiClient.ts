@@ -1,9 +1,11 @@
+// src/api/apiClient.ts
+
 import { AuthService } from '@/service/AuthService';
-import { showToast } from '@/service/toastService'; // ✅ optional global toast helper
+import { showToast } from '@/service/toastService';
 import { useAuthStore } from '@/stores/authStore';
-import { globalErrorHandler } from '@/utils/globalErrorHandler';
 import { tokenManager } from '@/utils/tokenManager';
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import { setupErrorInterceptor } from '@/api/errorInterceptor'; // ✅ ADD THIS
 
 let isRefreshing = false;
 let failedQueue: {
@@ -11,9 +13,6 @@ let failedQueue: {
   reject: (error: unknown) => void;
 }[] = [];
 
-/**
- * Resolve or reject all queued requests waiting for a new token.
- */
 function processQueue(error: unknown, token: string | null) {
   failedQueue.forEach((p) => {
     if (error) p.reject(error);
@@ -22,15 +21,9 @@ function processQueue(error: unknown, token: string | null) {
   failedQueue = [];
 }
 
-/**
- * Redirect user to login page, preserving their current route.
- */
 function redirectToLogin() {
   if (!window.location.pathname.includes('/auth/login')) {
-    // Preserve full path + query for accurate restore
     const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-
-    // Avoid double redirects
     const currentUrl = new URL(window.location.href);
     if (!currentUrl.searchParams.has('redirect')) {
       window.location.href = `/auth/login?redirect=${redirect}`;
@@ -38,19 +31,13 @@ function redirectToLogin() {
   }
 }
 
-/**
- * Axios client instance
- */
 const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5175/api',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
 
-/**
- * ✅ Request Interceptor
- * Attaches the access token to all outgoing requests.
- */
+// ✅ Request Interceptor
 api.interceptors.request.use(
   (config) => {
     const token = AuthService.getAccessToken();
@@ -62,10 +49,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-/**
- * ✅ Response Interceptor
- * Handles token refresh and global errors.
- */
+// ✅ Response Interceptor (token refresh)
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<any>) => {
@@ -73,10 +57,8 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // 🔒 Handle 401 Unauthorized (expired or invalid access token)
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // If refresh is in progress, queue this request
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -93,11 +75,9 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // 🔁 Try to refresh the token
         const newToken = await tokenManager.refreshAccessToken();
         if (!newToken) throw new Error('Token refresh failed');
 
-        // Store new token and process queued requests
         AuthService.storeAccessToken(newToken);
         processQueue(null, newToken);
 
@@ -107,14 +87,12 @@ api.interceptors.response.use(
 
         return api(originalRequest);
       } catch (err) {
-        // ❌ Refresh failed — clear tokens and log out
         processQueue(err, null);
         AuthService.clearTokens();
 
         const authStore = useAuthStore();
         await authStore.logout();
 
-        // 🧠 Optional: Show toast to the user
         showToast?.({
           severity: 'warn',
           summary: 'Session Expired',
@@ -129,10 +107,13 @@ api.interceptors.response.use(
       }
     }
 
-    // 🧠 Handle all other errors globally
-    await globalErrorHandler(error);
+    // ✅ REMOVED: Old global error handler
+    // Now using setupErrorInterceptor instead
     return Promise.reject(error);
   },
 );
+
+// ✅ ADD ERROR INTERCEPTOR
+setupErrorInterceptor(api);
 
 export { api };

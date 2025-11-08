@@ -1,3 +1,4 @@
+// src/composables/query/authorization/useResourceAuthorization.ts
 import { checkResourceAuthorization } from '@/api/modules/authorization';
 import type { AuthorizationResultDto } from '@/types/backend';
 import { useQuery, type UseQueryOptions } from '@tanstack/vue-query';

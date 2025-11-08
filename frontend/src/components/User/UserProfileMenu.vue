@@ -129,11 +129,12 @@
     @click="toggleProfileMenu"
   >
     <Avatar
-      icon="pi pi-user"
+      :label="userName?.charAt(0)"
       shape="circle"
       size="large"
       class="mr-2 bg-surface-100 dark:bg-surface-800"
     />
+    
     <div class="flex flex-col text-left leading-tight">
       <span class="text-[13px] font-semibold text-surface-900 dark:text-surface-0">
         {{ userName }}

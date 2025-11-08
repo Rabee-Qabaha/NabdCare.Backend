@@ -18,7 +18,7 @@ public class CreateUserRequestDtoValidator : AbstractValidator<CreateUserRequest
 
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Password is required.")
-            .MinimumLength(12).WithMessage("Password must be at least 12 characters long.")
+            .MinimumLength(9).WithMessage("Password must be at least 9 characters long.")
             .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter.")
             .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter.")
             .Matches(@"[0-9]").WithMessage("Password must contain at least one digit.")

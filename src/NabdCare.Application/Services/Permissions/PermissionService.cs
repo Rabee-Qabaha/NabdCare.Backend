@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Permissions;
 using NabdCare.Application.Interfaces.Permissions;
@@ -10,9 +11,6 @@ using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Permissions;
 
-/// <summary>
-/// Handles all application-level permission logic (CRUD + role/user linking).
-/// </summary>
 public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
@@ -28,281 +26,344 @@ public class PermissionService : IPermissionService
         IMapper mapper,
         ILogger<PermissionService> logger)
     {
-        _permissionRepository = permissionRepository;
-        _roleRepository = roleRepository;
-        _userRepository = userRepository;
-        _mapper = mapper;
-        _logger = logger;
+        _permissionRepository = permissionRepository ?? throw new ArgumentNullException(nameof(permissionRepository));
+        _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+        _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-
-    // ============================================
-    // PAGINATED QUERIES
-    // ============================================
 
     public async Task<PaginatedResult<PermissionResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination)
     {
-        try
-        {
-            var result = await _permissionRepository.GetAllPagedAsync(pagination);
-            var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(result.Items);
+        if (pagination == null)
+            throw new ArgumentNullException(nameof(pagination));
 
-            return new PaginatedResult<PermissionResponseDto>
-            {
-                Items = mapped,
-                TotalCount = result.TotalCount,
-                HasMore = result.HasMore,
-                NextCursor = result.NextCursor
-            };
-        }
-        catch (Exception ex)
+        _logger.LogInformation("Retrieving paginated permissions (Limit={Limit})", pagination.Limit);
+
+        var result = await _permissionRepository.GetAllPagedAsync(pagination);
+        var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(result.Items);
+
+        _logger.LogInformation("Retrieved {Count} paginated permissions", result.Items.Count());
+
+        return new PaginatedResult<PermissionResponseDto>
         {
-            _logger.LogError(ex, "Failed to retrieve paged permissions.");
-            throw new InvalidOperationException("Failed to retrieve paginated permissions.", ex);
-        }
+            Items = mapped,
+            TotalCount = result.TotalCount,
+            HasMore = result.HasMore,
+            NextCursor = result.NextCursor
+        };
     }
-
-    // ============================================
-    // BASIC CRUD
-    // ============================================
 
     public async Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
     {
-        try
-        {
-            var permissions = await _permissionRepository.GetAllPermissionsAsync();
-            return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to retrieve all permissions.");
-            throw new InvalidOperationException("Failed to retrieve permissions.", ex);
-        }
+        _logger.LogInformation("Retrieving all permissions");
+
+        var permissions = await _permissionRepository.GetAllPermissionsAsync();
+        var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
+
+        _logger.LogInformation("Retrieved {Count} permissions", permissions.Count());
+
+        return mapped;
     }
 
     public async Task<PermissionResponseDto?> GetPermissionByIdAsync(Guid id)
     {
-        try
+        if (id == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+
+        _logger.LogInformation("Retrieving permission {PermissionId}", id);
+
+        var permission = await _permissionRepository.GetPermissionByIdAsync(id);
+        if (permission == null)
         {
-            var permission = await _permissionRepository.GetPermissionByIdAsync(id);
-            return permission == null ? null : _mapper.Map<PermissionResponseDto>(permission);
+            _logger.LogWarning("Permission {PermissionId} not found. Error code: {ErrorCode}", id, ErrorCodes.NOT_FOUND);
+            return null;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to retrieve permission {PermissionId}.", id);
-            throw new InvalidOperationException($"Failed to retrieve permission {id}.", ex);
-        }
+
+        return _mapper.Map<PermissionResponseDto>(permission);
     }
 
     public async Task<PermissionResponseDto> CreatePermissionAsync(CreatePermissionDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            throw new ArgumentException("Permission name is required.", nameof(dto.Name));
+        if (dto == null)
+            throw new ArgumentNullException(nameof(dto));
 
-        try
-        {
-            var entity = _mapper.Map<AppPermission>(dto);
-            var created = await _permissionRepository.CreatePermissionAsync(entity);
-            return _mapper.Map<PermissionResponseDto>(created);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create permission {PermissionName}.", dto.Name);
-            throw new InvalidOperationException($"Failed to create permission {dto.Name}.", ex);
-        }
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new ArgumentException($"Permission name is required. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.Name));
+
+        _logger.LogInformation("Creating permission {PermissionName}", dto.Name);
+
+        var entity = _mapper.Map<AppPermission>(dto);
+        var created = await _permissionRepository.CreatePermissionAsync(entity);
+
+        _logger.LogInformation("Created permission {PermissionId} with name {PermissionName}", created.Id, created.Name);
+
+        return _mapper.Map<PermissionResponseDto>(created);
     }
 
     public async Task<PermissionResponseDto?> UpdatePermissionAsync(Guid id, UpdatePermissionDto dto)
     {
-        try
+        if (id == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+
+        if (dto == null)
+            throw new ArgumentNullException(nameof(dto));
+
+        _logger.LogInformation("Updating permission {PermissionId}", id);
+
+        var entity = _mapper.Map<AppPermission>(dto);
+        var updated = await _permissionRepository.UpdatePermissionAsync(id, entity);
+
+        if (updated == null)
         {
-            var entity = _mapper.Map<AppPermission>(dto);
-            var updated = await _permissionRepository.UpdatePermissionAsync(id, entity);
-            return updated == null ? null : _mapper.Map<PermissionResponseDto>(updated);
+            _logger.LogWarning("Permission {PermissionId} not found for update. Error code: {ErrorCode}", id, ErrorCodes.NOT_FOUND);
+            return null;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to update permission {PermissionId}.", id);
-            throw new InvalidOperationException($"Failed to update permission {id}.", ex);
-        }
+
+        _logger.LogInformation("Updated permission {PermissionId}", id);
+
+        return _mapper.Map<PermissionResponseDto>(updated);
     }
 
     public async Task<bool> DeletePermissionAsync(Guid id)
     {
-        try
-        {
-            return await _permissionRepository.DeletePermissionAsync(id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete permission {PermissionId}.", id);
-            throw new InvalidOperationException($"Failed to delete permission {id}.", ex);
-        }
-    }
+        if (id == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
 
-    // ============================================
-    // ROLE PERMISSIONS
-    // ============================================
+        _logger.LogInformation("Deleting permission {PermissionId}", id);
+
+        var deleted = await _permissionRepository.DeletePermissionAsync(id);
+
+        if (deleted)
+        {
+            _logger.LogInformation("Deleted permission {PermissionId}", id);
+        }
+        else
+        {
+            _logger.LogWarning("Permission {PermissionId} not found for deletion. Error code: {ErrorCode}", id, ErrorCodes.NOT_FOUND);
+        }
+
+        return deleted;
+    }
 
     public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByRoleAsync(Guid roleId)
     {
-        try
-        {
-            var permissions = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
-            return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to retrieve permissions for role {RoleId}.", roleId);
-            throw new InvalidOperationException("Failed to retrieve role permissions.", ex);
-        }
+        if (roleId == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+
+        _logger.LogInformation("Retrieving permissions for role {RoleId}", roleId);
+
+        var permissions = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
+        var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
+
+        _logger.LogInformation("Retrieved {Count} permissions for role {RoleId}", permissions.Count(), roleId);
+
+        return mapped;
     }
 
     public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
-        try
-        {
-            var role = await _roleRepository.GetRoleByIdAsync(roleId);
-            if (role == null)
-                throw new KeyNotFoundException($"Role {roleId} not found.");
+        if (roleId == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
 
-            return await _permissionRepository.AssignPermissionToRoleAsync(roleId, permissionId);
-        }
-        catch (Exception ex)
+        if (permissionId == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
+
+        _logger.LogInformation("Assigning permission {PermissionId} to role {RoleId}", permissionId, roleId);
+
+        var role = await _roleRepository.GetRoleByIdAsync(roleId);
+        if (role == null)
         {
-            _logger.LogError(ex, "Failed to assign permission {PermissionId} to role {RoleId}.", permissionId, roleId);
-            throw new InvalidOperationException("Failed to assign permission to role.", ex);
+            _logger.LogWarning("Role {RoleId} not found. Error code: {ErrorCode}", roleId, ErrorCodes.ROLE_NOT_FOUND);
+            throw new KeyNotFoundException($"Role {roleId} not found. Error code: {ErrorCodes.ROLE_NOT_FOUND}");
         }
+
+        var result = await _permissionRepository.AssignPermissionToRoleAsync(roleId, permissionId);
+
+        if (result)
+            _logger.LogInformation("Assigned permission {PermissionId} to role {RoleId}", permissionId, roleId);
+
+        return result;
     }
 
     public async Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
     {
-        try
-        {
-            var role = await _roleRepository.GetRoleByIdAsync(roleId);
-            if (role == null)
-                throw new KeyNotFoundException($"Role {roleId} not found.");
+        if (roleId == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
 
-            return await _permissionRepository.RemovePermissionFromRoleAsync(roleId, permissionId);
-        }
-        catch (Exception ex)
+        if (permissionId == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
+
+        _logger.LogInformation("Removing permission {PermissionId} from role {RoleId}", permissionId, roleId);
+
+        var role = await _roleRepository.GetRoleByIdAsync(roleId);
+        if (role == null)
         {
-            _logger.LogError(ex, "Failed to remove permission {PermissionId} from role {RoleId}.", permissionId, roleId);
-            throw new InvalidOperationException("Failed to remove permission from role.", ex);
+            _logger.LogWarning("Role {RoleId} not found. Error code: {ErrorCode}", roleId, ErrorCodes.ROLE_NOT_FOUND);
+            throw new KeyNotFoundException($"Role {roleId} not found. Error code: {ErrorCodes.ROLE_NOT_FOUND}");
         }
+
+        var result = await _permissionRepository.RemovePermissionFromRoleAsync(roleId, permissionId);
+
+        if (result)
+            _logger.LogInformation("Removed permission {PermissionId} from role {RoleId}", permissionId, roleId);
+
+        return result;
     }
-
-    // ============================================
-    // USER PERMISSIONS
-    // ============================================
 
     public async Task<IEnumerable<PermissionResponseDto>> GetPermissionsByUserAsync(Guid userId)
     {
-        try
-        {
-            var permissions = await _permissionRepository.GetPermissionsByUserAsync(userId);
-            return _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to retrieve permissions for user {UserId}.", userId);
-            throw new InvalidOperationException("Failed to retrieve user permissions.", ex);
-        }
+        if (userId == Guid.Empty)
+            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
+
+        _logger.LogInformation("Retrieving permissions for user {UserId}", userId);
+
+        var permissions = await _permissionRepository.GetPermissionsByUserAsync(userId);
+        var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
+
+        _logger.LogInformation("Retrieved {Count} permissions for user {UserId}", permissions.Count(), userId);
+
+        return mapped;
     }
 
     public async Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId)
     {
+        if (userId == Guid.Empty)
+            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
+
+        if (permissionId == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
+
+        _logger.LogInformation("Assigning permission {PermissionId} to user {UserId}", permissionId, userId);
+
         try
         {
-            return await _permissionRepository.AssignPermissionToUserAsync(userId, permissionId);
+            var result = await _permissionRepository.AssignPermissionToUserAsync(userId, permissionId);
+
+            if (result)
+                _logger.LogInformation("Assigned permission {PermissionId} to user {UserId}", permissionId, userId);
+
+            return result;
         }
         catch (DbUpdateException ex)
         {
             var message = ex.InnerException?.Message ?? ex.Message;
 
-            if (message.Contains("Users") && message.Contains("foreign key"))
-                throw new KeyNotFoundException($"User with ID {userId} does not exist.");
-            if (message.Contains("Permissions") && message.Contains("foreign key"))
-                throw new KeyNotFoundException($"Permission with ID {permissionId} does not exist.");
+            if (message.Contains("Users", StringComparison.OrdinalIgnoreCase) && 
+                message.Contains("foreign key", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("User {UserId} not found. Error code: {ErrorCode}", userId, ErrorCodes.USER_NOT_FOUND);
+                throw new KeyNotFoundException($"User with ID {userId} does not exist. Error code: {ErrorCodes.USER_NOT_FOUND}");
+            }
 
-            _logger.LogError(ex, "Database error assigning permission {PermissionId} to user {UserId}.", permissionId, userId);
-            throw new InvalidOperationException("Failed to assign permission to user.", ex);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to assign permission {PermissionId} to user {UserId}.", permissionId, userId);
-            throw new InvalidOperationException("Failed to assign permission to user.", ex);
+            if (message.Contains("Permissions", StringComparison.OrdinalIgnoreCase) && 
+                message.Contains("foreign key", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Permission {PermissionId} not found. Error code: {ErrorCode}", permissionId, ErrorCodes.NOT_FOUND);
+                throw new KeyNotFoundException($"Permission with ID {permissionId} does not exist. Error code: {ErrorCodes.NOT_FOUND}");
+            }
+
+            _logger.LogError(ex, "Database error assigning permission {PermissionId} to user {UserId}. Error code: {ErrorCode}", 
+                permissionId, userId, ErrorCodes.DATABASE_ERROR);
+            throw new InvalidOperationException($"Failed to assign permission to user. Error code: {ErrorCodes.DATABASE_ERROR}", ex);
         }
     }
 
     public async Task<bool> RemovePermissionFromUserAsync(Guid userId, Guid permissionId)
     {
-        try
-        {
-            return await _permissionRepository.RemovePermissionFromUserAsync(userId, permissionId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to remove permission {PermissionId} from user {UserId}.", permissionId, userId);
-            throw new InvalidOperationException("Failed to remove permission from user.", ex);
-        }
-    }
+        if (userId == Guid.Empty)
+            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
 
-    // ============================================
-    // EFFECTIVE PERMISSIONS
-    // ============================================
+        if (permissionId == Guid.Empty)
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
+
+        _logger.LogInformation("Removing permission {PermissionId} from user {UserId}", permissionId, userId);
+
+        var result = await _permissionRepository.RemovePermissionFromUserAsync(userId, permissionId);
+
+        if (result)
+            _logger.LogInformation("Removed permission {PermissionId} from user {UserId}", permissionId, userId);
+
+        return result;
+    }
 
     public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, Guid roleId)
     {
-        try
-        {
-            var rolePerms = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
-            var userPerms = await _permissionRepository.GetPermissionsByUserAsync(userId);
+        if (userId == Guid.Empty)
+            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
 
-            var combined = rolePerms.Concat(userPerms)
-                .GroupBy(p => p.Id)
-                .Select(g => g.First());
+        if (roleId == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
 
-            return _mapper.Map<IEnumerable<PermissionResponseDto>>(combined);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to fetch effective permissions for user {UserId}.", userId);
-            throw new InvalidOperationException("Failed to fetch effective permissions.", ex);
-        }
+        _logger.LogInformation("Retrieving effective permissions for user {UserId} with role {RoleId}", userId, roleId);
+
+        var rolePerms = await _permissionRepository.GetPermissionsByRoleAsync(roleId);
+        var userPerms = await _permissionRepository.GetPermissionsByUserAsync(userId);
+
+        var combined = rolePerms.Concat(userPerms)
+            .GroupBy(p => p.Id)
+            .Select(g => g.First())
+            .ToList();
+
+        var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(combined);
+
+        _logger.LogInformation("User {UserId} has {Count} effective permissions", userId, combined.Count);
+
+        return mapped;
     }
 
     public async Task<bool> UserHasPermissionAsync(Guid userId, Guid roleId, string permissionName)
     {
+        if (userId == Guid.Empty)
+            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
+
+        if (roleId == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+
         if (string.IsNullOrWhiteSpace(permissionName))
-            throw new ArgumentException("Permission name is required.", nameof(permissionName));
+            throw new ArgumentException($"Permission name is required. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionName));
+
+        _logger.LogInformation("Checking if user {UserId} has permission {PermissionName}", userId, permissionName);
 
         var effective = await GetUserEffectivePermissionsAsync(userId, roleId);
-        return effective.Any(p => p.Name.Equals(permissionName, StringComparison.OrdinalIgnoreCase));
+        var hasPermission = effective.Any(p => p.Name.Equals(permissionName, StringComparison.OrdinalIgnoreCase));
+
+        if (!hasPermission)
+            _logger.LogWarning("User {UserId} does not have permission {PermissionName}. Error code: {ErrorCode}", 
+                userId, permissionName, ErrorCodes.INSUFFICIENT_PERMISSIONS);
+
+        return hasPermission;
     }
 
     public async Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId)
     {
-        var user = await _userRepository.GetByIdRawAsync(userId); // Ignoring filters
-        if (user == null) return null;
+        if (userId == Guid.Empty)
+            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
+
+        _logger.LogInformation("Retrieving authorization info for user {UserId}", userId);
+
+        var user = await _userRepository.GetByIdForAuthorizationAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User {UserId} not found. Error code: {ErrorCode}", userId, ErrorCodes.USER_NOT_FOUND);
+            return null;
+        }
 
         return (user.RoleId, user.ClinicId);
     }
-    
-    // ============================================
-    // ROLE -> USERS HELPER (For cache invalidation)
-    // ============================================
 
     public async Task<IEnumerable<(Guid UserId, Guid RoleId)>> GetUsersByRoleAsync(Guid roleId)
     {
-        try
-        {
-            var users = await _userRepository.GetUsersByRoleIdAsync(roleId);
-            return users.Select(u => (u.Id, u.RoleId));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to retrieve users for role {RoleId}.", roleId);
-            throw new InvalidOperationException($"Failed to get users for role {roleId}.", ex);
-        }
+        if (roleId == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+
+        _logger.LogInformation("Retrieving users for role {RoleId}", roleId);
+
+        var users = await _userRepository.GetUsersByRoleIdAsync(roleId);
+        var result = users.Select(u => (u.Id, u.RoleId)).ToList();
+
+        _logger.LogInformation("Retrieved {Count} users for role {RoleId}", result.Count, roleId);
+
+        return result;
     }
 }

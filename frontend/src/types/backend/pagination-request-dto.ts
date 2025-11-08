@@ -7,6 +7,6 @@ export class PaginationRequestDto {
   limit: number = 20;
   cursor: string;
   sortBy: string;
-  descending: boolean = true;
+  descending: boolean;
   filter: string;
 }

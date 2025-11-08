@@ -1,22 +1,23 @@
+// src/views/pages/auth/Login.vue
 <script setup lang="ts">
   import { ref, computed } from 'vue';
   import { useRouter, useRoute } from 'vue-router';
   import { useToast } from 'primevue/usetoast';
   import { useId } from 'vue';
   import { useAuthStore } from '@/stores/authStore';
+  import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
   import { getDefaultDashboardRoute } from '@/utils/navigation';
 
   const authStore = useAuthStore();
   const router = useRouter();
   const route = useRoute();
   const toast = useToast();
+  const { handleErrorAndNotify } = useErrorHandler();
 
-  // 🔹 Form state
   const email = ref('');
   const password = ref('');
   const rememberMe = ref(false);
 
-  // 🔹 Unique IDs (for accessibility)
   const baseId = useId();
   const ids = {
     email: `${baseId}-email`,
@@ -26,7 +27,6 @@
 
   const isFormValid = computed(() => email.value.trim() && password.value.trim());
 
-  // 🔹 Handle login
   const handleLogin = async (): Promise<void> => {
     if (!isFormValid.value) return;
 
@@ -40,16 +40,13 @@
         life: 3000,
       });
 
-      // ✅ Determine redirect target
       let redirectPath: string | null =
         (route.query.redirect as string | undefined) ?? localStorage.getItem('lastVisitedRoute');
 
-      // 🧠 If we have a redirect query, persist it for page reloads
       if (route.query.redirect) {
         localStorage.setItem('redirectAfterLogin', route.query.redirect as string);
       }
 
-      // 🧩 Recover saved redirect if we lost it (e.g., after refresh)
       if (!redirectPath) {
         redirectPath = localStorage.getItem('redirectAfterLogin');
       }
@@ -62,10 +59,8 @@
         await router.isReady();
         await router.replace(normalizedRedirect);
 
-        // ✅ Clean up URL (remove ?redirect=...)
         window.history.replaceState({}, '', normalizedRedirect);
 
-        // 🧹 Cleanup stored redirects
         localStorage.removeItem('lastVisitedRoute');
         localStorage.removeItem('redirectAfterLogin');
       } else {
@@ -74,7 +69,6 @@
         await router.isReady();
         await router.replace(target);
 
-        // ✅ Clean URL
         if (typeof target === 'string') {
           window.history.replaceState({}, '', target);
         } else if ('name' in target) {
@@ -82,13 +76,9 @@
           window.history.replaceState({}, '', resolved.fullPath);
         }
       }
-    } catch (err: any) {
-      toast.add({
-        severity: 'error',
-        summary: 'Login Failed',
-        detail: err.message || 'Invalid email or password',
-        life: 5000,
-      });
+    } catch (error) {
+      // ✅ SIMPLE: Just call handleErrorAndNotify
+      await handleErrorAndNotify(error);
     }
   };
 
