@@ -2,9 +2,9 @@ using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
 using NabdCare.Application.Interfaces.Permissions;
-using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Application.Services.Permissions;
 

@@ -118,7 +118,7 @@ public class UserPermissionTests : IClassFixture<NabdCareWebApplicationFactory>
         {
             Email = "newdoctor@test.com",
             FullName = "New Doctor",
-            Password = TestDataHelper.NewUserPassword, // ✅ FIXED
+            Password = TestDataHelper.NewUserPassword,
             RoleId = _factory.DoctorRoleId,
             ClinicId = _factory.ClinicId
         };
@@ -136,7 +136,7 @@ public class UserPermissionTests : IClassFixture<NabdCareWebApplicationFactory>
         {
             Email = "unauthorized@test.com",
             FullName = "Unauthorized User",
-            Password = TestDataHelper.NewUserPassword, // ✅ FIXED
+            Password = TestDataHelper.NewUserPassword,
             RoleId = _factory.DoctorRoleId,
             ClinicId = _factory.ClinicId
         };

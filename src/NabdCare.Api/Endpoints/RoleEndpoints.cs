@@ -5,7 +5,7 @@ using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Roles;
 using NabdCare.Application.Interfaces.Roles;
-using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Api.Endpoints;
 

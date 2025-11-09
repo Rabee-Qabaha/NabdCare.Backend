@@ -1,6 +1,6 @@
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces.Permissions;
-using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Application.Services.Permissions.Policies;
 

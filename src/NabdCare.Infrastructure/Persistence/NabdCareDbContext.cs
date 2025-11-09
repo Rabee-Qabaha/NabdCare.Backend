@@ -4,6 +4,7 @@ using NabdCare.Domain.Entities.Audits;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Payments;
 using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Interfaces;
 

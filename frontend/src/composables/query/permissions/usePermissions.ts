@@ -1,3 +1,4 @@
+// src/composables/query/permissions/usePermissions.ts
 import { permissionsApi } from '@/api/modules/permissions';
 import { useMutationWithInvalidate } from '@/composables/query/helpers/useMutationWithInvalidate';
 import { useQueryWithToasts } from '@/composables/query/helpers/useQueryWithToasts';

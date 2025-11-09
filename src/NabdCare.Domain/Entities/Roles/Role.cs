@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Users;
 
-namespace NabdCare.Domain.Entities.Permissions;
+namespace NabdCare.Domain.Entities.Roles;
 
 /// <summary>
 /// Dynamic role entity supporting both SaaS-level and tenant-level roles

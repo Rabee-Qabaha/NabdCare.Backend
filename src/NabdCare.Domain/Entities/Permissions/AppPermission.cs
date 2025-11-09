@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Domain.Entities.Permissions;
 

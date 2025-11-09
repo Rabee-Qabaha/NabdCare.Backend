@@ -6,7 +6,7 @@ using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Roles;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
-using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Application.Services.Roles;
 

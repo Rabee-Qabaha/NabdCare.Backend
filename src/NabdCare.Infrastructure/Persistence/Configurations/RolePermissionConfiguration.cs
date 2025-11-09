@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Infrastructure.Persistence.Configurations;
 

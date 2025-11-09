@@ -1,3 +1,4 @@
+// src/utils/permissionCache.ts
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission } from '@/utils/permissions';
 

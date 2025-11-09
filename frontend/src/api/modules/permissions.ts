@@ -1,3 +1,4 @@
+// src/api/modules/permissions.ts
 import { api } from '@/api/apiClient';
 import type {
   AssignPermissionToUserDto,

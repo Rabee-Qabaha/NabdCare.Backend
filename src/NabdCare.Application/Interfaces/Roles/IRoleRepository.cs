@@ -1,5 +1,5 @@
 using NabdCare.Application.DTOs.Pagination;
-using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 
 namespace NabdCare.Application.Interfaces.Roles;
 

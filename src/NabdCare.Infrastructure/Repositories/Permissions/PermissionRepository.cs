@@ -3,6 +3,7 @@ using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 using NabdCare.Infrastructure.Persistence;
 
 namespace NabdCare.Infrastructure.Repositories.Permissions;

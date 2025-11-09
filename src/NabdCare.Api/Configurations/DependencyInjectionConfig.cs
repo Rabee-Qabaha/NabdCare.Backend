@@ -33,6 +33,7 @@ using NabdCare.Application.mappings;
 using NabdCare.Application.Services.Authorizations;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Infrastructure.Repositories.Authorization;
 using NabdCare.Infrastructure.Services.Caching;

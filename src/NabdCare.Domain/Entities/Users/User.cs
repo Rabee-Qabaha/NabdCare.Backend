@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Permissions;
+using NabdCare.Domain.Entities.Roles;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Domain.Entities.Users;

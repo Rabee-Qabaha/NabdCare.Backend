@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NabdCare.Domain.Entities.Permissions;
 
-namespace NabdCare.Domain.Entities.Permissions;
+namespace NabdCare.Domain.Entities.Roles;
 
 public class RolePermission : BaseEntity
 {
