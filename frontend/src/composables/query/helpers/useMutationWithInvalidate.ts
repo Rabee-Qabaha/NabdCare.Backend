@@ -1,15 +1,14 @@
-// src/composables/query/helpers/useMutationWithInvalidate.ts
-import type { MutationFunction } from '@tanstack/vue-query';
-import { useMutation, useQueryClient } from '@tanstack/vue-query';
-import { useToast } from 'primevue/usetoast';
-import { isRef, unref, type Ref } from 'vue';
+import type { MutationFunction } from "@tanstack/vue-query";
+import { useMutation, useQueryClient } from "@tanstack/vue-query";
+import { useToast } from "primevue/usetoast";
+import { isRef, unref, type Ref } from "vue";
 
 /**
- * ✅ Vue Query v5-compatible helper for Vue
+ * ✅ Vue Query v5-compatible helper
  * Adds:
- *  - Toast messages
- *  - Automatic cache invalidation
- *  - Supports `ref()` or plain object options
+ *  • Toast messages
+ *  • Automatic cache invalidation
+ *  • Supports ref() or plain option objects
  */
 export function useMutationWithInvalidate<
   TData = unknown,
@@ -17,7 +16,7 @@ export function useMutationWithInvalidate<
   TVariables = void,
   TContext = unknown,
 >(options: {
-  // Vue Query options
+  // Vue Query core
   mutationFn?: MutationFunction<TData, TVariables>;
   mutationKey?: readonly unknown[];
   onSuccess?: (data: TData, variables: TVariables, context: TContext) => Promise<unknown> | unknown;
@@ -28,7 +27,7 @@ export function useMutationWithInvalidate<
   ) => Promise<unknown> | unknown;
   onMutate?: (variables: TVariables) => Promise<TContext> | TContext;
 
-  // Custom options - now accepts readonly arrays and functions
+  // Custom
   invalidateKeys?: readonly (
     | readonly unknown[]
     | ((variables: TVariables) => readonly unknown[])
@@ -36,16 +35,15 @@ export function useMutationWithInvalidate<
   successMessage?: string;
   errorMessage?: string;
 
-  // Other Vue Query options
+  // Extra options
   throwOnError?: boolean | ((error: TError) => boolean);
   retry?: number | boolean | ((failureCount: number, error: TError) => boolean);
   retryDelay?: number | ((attemptIndex: number, error: TError) => number);
-  networkMode?: 'always' | 'online' | 'offlineFirst';
+  networkMode?: "always" | "online" | "offlineFirst";
   gcTime?: number;
   meta?: Record<string, unknown>;
 }) {
   const opts = unref(options) as typeof options;
-
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -61,13 +59,9 @@ export function useMutationWithInvalidate<
     ...rest
   } = opts;
 
-  // Safely unwrap callback if it's a Ref
   const unwrapCallback = <T extends (...args: any[]) => any>(
-    callback: T | Ref<T | undefined> | undefined,
-  ): T | undefined => {
-    if (!callback) return undefined;
-    return isRef(callback) ? (callback.value as T | undefined) : (callback as T);
-  };
+    cb: T | Ref<T | undefined> | undefined,
+  ): T | undefined => (isRef(cb) ? cb.value : cb);
 
   return useMutation<TData, TError, TVariables, TContext>({
     mutationFn,
@@ -75,47 +69,25 @@ export function useMutationWithInvalidate<
     onMutate,
     ...rest,
     async onSuccess(data, variables, context) {
-      // Invalidate cache - support both static and dynamic keys
+      // 🔁 invalidate cache
       for (const key of invalidateKeys) {
-        const resolvedKey = typeof key === 'function' ? key(variables) : key;
-        await queryClient.invalidateQueries({
-          queryKey: resolvedKey as unknown[],
-        });
+        const resolved = typeof key === "function" ? key(variables) : key;
+        await queryClient.invalidateQueries({ queryKey: resolved as unknown[] });
       }
 
-      // Toast success
-      if (successMessage) {
-        toast.add({
-          severity: 'success',
-          summary: 'Success',
-          detail: successMessage,
-          life: 3000,
-        });
-      }
+      // ✅ success toast
+      if (successMessage)
+        toast.add({ severity: "success", summary: "Success", detail: successMessage, life: 3000 });
 
-      // Call original handler if provided
-      const successCallback = unwrapCallback(onSuccess);
-      if (successCallback) {
-        await successCallback(data, variables, context as TContext);
-      }
+      const cb = unwrapCallback(onSuccess);
+      if (cb) await cb(data, variables, context as TContext);
     },
-
     async onError(error, variables, context) {
-      // Toast error
-      if (errorMessage) {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: errorMessage,
-          life: 4000,
-        });
-      }
+      if (errorMessage)
+        toast.add({ severity: "error", summary: "Error", detail: errorMessage, life: 4000 });
 
-      // Call original handler if provided
-      const errorCallback = unwrapCallback(onError);
-      if (errorCallback) {
-        await errorCallback(error, variables, context as TContext | undefined);
-      }
+      const cb = unwrapCallback(onError);
+      if (cb) await cb(error, variables, context as TContext | undefined);
     },
   });
 }

@@ -6,6 +6,9 @@ namespace NabdCare.Application.Interfaces.Roles;
 /// <summary>
 /// Service for managing roles in the multi-tenant system.
 /// Handles system roles, template roles, and clinic-specific roles.
+/// 
+/// Author: Rabee-Qabaha
+/// Updated: 2025-11-10 19:41:57 UTC
 /// </summary>
 public interface IRoleService
 {
@@ -14,14 +17,16 @@ public interface IRoleService
     // ============================================
 
     /// <summary>
-    /// Get all roles accessible to current user.
+    /// Get all roles accessible to current user with optional filtering.
     /// </summary>
-    Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync();
+    /// <param name="includeDeleted">Include soft-deleted roles (default: false)</param>
+    /// <param name="clinicId">Filter by specific clinic (optional)</param>
+    Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null);
 
     /// <summary>
     /// Get all roles accessible to current user (paginated).
     /// </summary>
-    Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination);
+    Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination, bool includeDeleted = false);
 
     /// <summary>
     /// Get system roles (SuperAdmin only).
@@ -41,7 +46,7 @@ public interface IRoleService
     /// <summary>
     /// Get roles for a specific clinic (paginated).
     /// </summary>
-    Task<PaginatedResult<RoleResponseDto>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination);
+    Task<PaginatedResult<RoleResponseDto>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination, bool includeDeleted = false);
 
     /// <summary>
     /// Get role by ID.
@@ -60,7 +65,16 @@ public interface IRoleService
     Task<RoleResponseDto> CreateRoleAsync(CreateRoleRequestDto dto);
     Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, Guid? targetClinicId, string? newRoleName);
     Task<RoleResponseDto?> UpdateRoleAsync(Guid id, UpdateRoleRequestDto dto);
-    Task<bool> DeleteRoleAsync(Guid id);
+    
+    /// <summary>
+    /// Soft delete a role. Cannot delete system roles or roles with assigned users.
+    /// </summary>
+    Task<RoleResponseDto?> DeleteRoleAsync(Guid id);
+
+    /// <summary>
+    /// Restore a soft-deleted role.
+    /// </summary>
+    Task<RoleResponseDto?> RestoreRoleAsync(Guid id);
 
     // ============================================
     // PERMISSION MANAGEMENT

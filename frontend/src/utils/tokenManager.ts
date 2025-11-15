@@ -15,6 +15,7 @@ class TokenManager {
   private refreshTimeoutId: number | null = null;
   private refreshPromise: Promise<string | null> | null = null;
   private readonly BACKUP_KEY = '_at_backup';
+  private readonly REFRESH_PATH = "/auth/refresh";
 
   /**
    * ✅ Store token in memory and optional session backup
@@ -86,14 +87,15 @@ class TokenManager {
     }
   }
 
-  private async _performRefresh(): Promise<string | null> {
-    const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
+private async _performRefresh(): Promise<string | null> {
+    const baseURL = import.meta.env.VITE_API_BASE_URL || "/api";
 
     try {
-      const response = await fetch(`${baseURL}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include', // ✅ Send HttpOnly cookie
-        headers: { 'Content-Type': 'application/json' },
+      // ✅ use the constant here instead of hardcoding
+      const response = await fetch(`${baseURL}${this.REFRESH_PATH}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) throw new Error(`Token refresh failed (${response.status})`);
@@ -102,15 +104,15 @@ class TokenManager {
 
       if (data?.accessToken) {
         this.setAccessToken(data.accessToken, true);
-        console.log('🔁 Access token refreshed successfully');
+        console.log("🔁 Access token refreshed successfully");
         return data.accessToken;
       }
 
-      console.warn('⚠️ No token received during refresh');
+      console.warn("⚠️ No token received during refresh");
       this.clearTokens();
       return null;
     } catch (error) {
-      console.error('❌ Token refresh error:', error);
+      console.error("❌ Token refresh error:", error);
       this.clearTokens();
       return null;
     }

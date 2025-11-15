@@ -1,213 +1,129 @@
-import { userApi } from '@/api/modules/users';
-import type {
-  CreateUserRequestDto,
-  PaginatedResult,
-  UpdateUserRequestDto,
-  UserResponseDto,
-} from '@/types/backend';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
+// src/composables/query/users/useUsers.ts
+import { usersApi, type UsersPagedParams } from '@/api/modules/users';
+import { useQueryWithToasts } from '@/composables/query/helpers/useQueryWithToasts';
+import type { PaginatedResult, UserResponseDto } from '@/types/backend';
+import { useInfiniteQuery } from '@tanstack/vue-query';
+
+/**
+ * Helper to normalize params to UsersPagedParams
+ */
+function buildUsersParams(params?: Record<string, any>): UsersPagedParams {
+  return {
+    limit: params?.limit ?? 20,
+    descending: params?.descending ?? true,
+    includeDeleted: params?.includeDeleted ?? false,
+    search: params?.search ?? undefined,
+    cursor: params?.cursor ?? null,
+    clinicId: params?.clinicId ?? undefined,
+  };
+}
+
+// -------------------------------------------------
+// GET PAGED USERS (single page)
+// -------------------------------------------------
+export function useUsersPaged(params?: Record<string, any>) {
+  const normalized = buildUsersParams(params);
+
+  return useQueryWithToasts<PaginatedResult<UserResponseDto>, Error>({
+    queryKey: ['users', 'paged', normalized],
+    queryFn: async () => {
+      const { data } = await usersApi.getPaged(normalized);
+      return data;
+    },
+    errorMessage: 'Failed to load users.',
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+// -------------------------------------------------
+// INFINITE SCROLL USERS (cursor pagination)
+// -------------------------------------------------
 import { isRef } from 'vue';
 
-/**
- * User Query Composables
- * Location: src/composables/query/users/useUsers.ts
- *
- * Purpose:
- * - Queries for fetching user data (read operations)
- * - Mutations for creating and updating users
- * - Infinite scroll pagination support
- *
- * Note:
- * - User action mutations (activate, deactivate, delete, password)
- *   are in useUserActions.ts
- *
- * Author: Rabee Qabaha
- * Updated: 2025-11-02
- */
+export function useInfiniteUsersPaged(params?: { search?: any; includeDeleted?: any }) {
+  return useInfiniteQuery<
+    PaginatedResult<UserResponseDto>,
+    Error,
+    PaginatedResult<UserResponseDto>,
+    any[],
+    string | null
+  >({
+    queryKey: ['users', 'infinite', params?.search, params?.includeDeleted],
 
-// ========================================
-// QUERIES
-// ========================================
+    initialPageParam: null as string | null,
 
-/**
- * Fetch all users (paged) - Single page
- */
-export function useUsersPaged(params?: Record<string, any>) {
-  return useQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ['users', 'paged', params],
-    queryFn: async () => {
-      const { data } = await userApi.getPaged(params);
-      return data;
-    },
-    staleTime: 60_000, // 1 min cache
-    placeholderData: (prev) => prev,
-  });
-}
-
-/**
- * Infinite loading hook for Users (with cursor pagination)
- *
- * Features:
- * - Cursor-based pagination
- * - Client-side filtering
- * - Automatic cache management
- *
- * Usage:
- * ```typescript
- * const { data, fetchNextPage, hasNextPage } = useInfiniteUsersPaged();
- * ```
- */
-export function useInfiniteUsersPaged(params?: Record<string, any>) {
-  // Pull primitives out of params so the key changes when toggled
-  const searchKey =
-    params && 'search' in params
-      ? isRef(params.search)
-        ? params.search.value
-        : params.search
-      : '';
-  const includeDeletedKey =
-    params && 'includeDeleted' in params
-      ? isRef(params.includeDeleted)
-        ? params.includeDeleted.value
-        : params.includeDeleted
-      : false;
-
-  return useInfiniteQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ['users', 'infinite', searchKey, includeDeletedKey],
     queryFn: async ({ pageParam }) => {
-      const includeDeleted =
-        params && 'includeDeleted' in params
-          ? isRef(params.includeDeleted)
-            ? params.includeDeleted.value
-            : params.includeDeleted
-          : undefined;
+      const search = isRef(params?.search) ? params.search.value : params?.search;
 
-      const search =
-        params && 'search' in params
-          ? isRef(params.search)
-            ? params.search.value
-            : params.search
-          : undefined;
+      const includeDeleted = isRef(params?.includeDeleted)
+        ? params.includeDeleted.value
+        : params?.includeDeleted;
 
-      const queryParams: Record<string, any> = {
-        ...(search ? { search } : {}),
-        ...(includeDeleted !== undefined ? { includeDeleted } : {}),
-        ...(pageParam ? { cursor: pageParam } : {}),
+      const queryParams: UsersPagedParams = {
+        limit: 20,
+        descending: true,
+        search: search || undefined,
+        includeDeleted: includeDeleted ?? false,
+        cursor: pageParam ?? null,
       };
 
-      console.log('📍 Fetching users with params:', queryParams);
-
-      const { data } = await userApi.getPaged(queryParams);
-
-      console.log('✅ Users fetched:', {
-        count: data.items?.length,
-        hasMore: data.hasMore,
-        nextCursor: data.nextCursor,
-      });
-
+      const { data } = await usersApi.getPaged(queryParams);
       return data;
     },
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
-    initialPageParam: undefined,
+
+    getNextPageParam: (lastPage) => (lastPage?.hasMore ? lastPage.nextCursor : null),
+
     staleTime: 1000 * 60 * 5,
-    placeholderData: (prev) => prev,
   });
 }
 
-/**
- * Fetch single user by ID
- */
+// -------------------------------------------------
+// GET USER BY ID
+// -------------------------------------------------
 export function useUser(id: string) {
-  return useQuery<UserResponseDto, Error>({
+  return useQueryWithToasts<UserResponseDto, Error>({
     queryKey: ['user', id],
     queryFn: async () => {
-      const { data } = await userApi.getById(id);
+      const { data } = await usersApi.getById(id);
       return data;
     },
     enabled: !!id,
-    staleTime: 1000 * 60 * 5, // 5 min cache
+    staleTime: 1000 * 60 * 5,
+    errorMessage: 'Failed to load user.',
   });
 }
 
-/**
- * Get users by clinic (SuperAdmin only)
- */
+// -------------------------------------------------
+// GET USERS BY CLINIC (infinite scroll)
+// -------------------------------------------------
 export function useClinicUsers(clinicId: string, params?: Record<string, any>) {
-  return useInfiniteQuery<PaginatedResult<UserResponseDto>, Error>({
-    queryKey: ['users', 'clinic', clinicId, params],
+  const searchValue = params?.search;
+
+  return useInfiniteQuery<
+    PaginatedResult<UserResponseDto>,
+    Error,
+    PaginatedResult<UserResponseDto>,
+    readonly unknown[],
+    string | null
+  >({
+    queryKey: ['users', 'clinic', clinicId, searchValue],
+
     queryFn: async ({ pageParam }) => {
-      const queryParams = {
-        ...(params?.search ? { search: params.search } : {}),
-        ...(pageParam ? { cursor: pageParam } : {}),
+      const queryParams: UsersPagedParams = {
+        limit: 20,
+        descending: true,
+        search: searchValue || undefined,
+        cursor: pageParam ?? null,
       };
 
-      const { data } = await userApi.getByClinicPaged(clinicId, queryParams);
+      const { data } = await usersApi.getByClinicPaged(clinicId, queryParams);
       return data;
     },
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
-    initialPageParam: undefined,
+
+    getNextPageParam: (lastPage) => (lastPage?.hasMore ? (lastPage.nextCursor ?? null) : null),
+
+    initialPageParam: null,
     staleTime: 1000 * 60 * 5,
     placeholderData: (prev) => prev,
-  });
-}
-
-// ========================================
-// MUTATIONS
-// ========================================
-
-/**
- * Create user
- */
-export function useCreateUser() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ['user', 'create'],
-    mutationFn: (data: CreateUserRequestDto) => userApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    },
-    onError: (error: any) => {
-      console.error('❌ Failed to create user:', error);
-    },
-  });
-}
-
-/**
- * Update user (profile, role, clinic assignment)
- */
-export function useUpdateUser() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ['user', 'update'],
-    mutationFn: (payload: { id: string; data: UpdateUserRequestDto }) =>
-      userApi.update(payload.id, payload.data),
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['user', id] });
-    },
-    onError: (error: any) => {
-      console.error('❌ Failed to update user:', error);
-    },
-  });
-}
-
-/**
- * Restore user (soft deleted → active)
- */
-export function useRestoreUser() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ['user', 'restore'],
-    mutationFn: (id: string) => userApi.restoreUser(id),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['user', id] });
-    },
-    onError: (error: any) => {
-      console.error('❌ Failed to restore user:', error);
-    },
   });
 }

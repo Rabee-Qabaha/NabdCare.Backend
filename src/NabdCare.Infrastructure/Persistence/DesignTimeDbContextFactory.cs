@@ -61,6 +61,11 @@ public class DesignTimeUserContext : IUserContext
         return null; // No role ID during design-time/migrations
     }
 
+    public string? GetCurrentUserFullName()
+    {
+        return null;
+    }
+
     public string? GetCurrentUserEmail()
     {
         return null;

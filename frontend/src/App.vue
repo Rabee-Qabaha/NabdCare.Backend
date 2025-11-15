@@ -5,7 +5,6 @@
   import { VueQueryDevtools } from '@tanstack/vue-query-devtools';
   import Toast from 'primevue/toast';
   import { useToast } from 'primevue/usetoast';
-  import { setToastInstance } from './service/toastService';
 
   const authStore = useAuthStore();
 
@@ -22,7 +21,6 @@
   });
 
   const toast = useToast();
-  setToastInstance(toast);
 </script>
 
 <template>

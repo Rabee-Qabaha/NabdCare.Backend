@@ -1,26 +1,7 @@
 import { computed, reactive } from 'vue';
 
-/**
- * Composable for shared password validation logic
- * Location: src/composables/usePasswordValidation.ts
- *
- * Purpose:
- * - Centralized password security validation
- * - Reusable across multiple components
- * - Consistent validation rules
- *
- * Features:
- * ✅ Individual requirement checking
- * ✅ Overall security validation
- * ✅ Field error detection
- * ✅ Touch tracking for fields
- * ✅ Error messages
- *
- * Author: Rabee Qabaha
- * Updated: 2025-11-04 20:06:34 UTC
- */
-
 export interface PasswordValidationState {
+  currentPassword?: string;
   newPassword: string;
   confirmPassword: string;
 }
@@ -34,40 +15,36 @@ export interface PasswordSecurityChecks {
 }
 
 export interface FieldTouched {
+  currentPassword?: boolean; 
   newPassword: boolean;
   confirmPassword: boolean;
 }
 
-/**
- * Composable hook for password validation
- * Provides reactive password state and validation helpers
- */
-export function usePasswordValidation() {
+export function usePasswordValidation(includeCurrent = false) {
   // ========================================
   // STATE
   // ========================================
 
   const passwords = reactive<PasswordValidationState>({
+    currentPassword: includeCurrent ? '' : undefined,
     newPassword: '',
     confirmPassword: '',
   });
 
   const fieldTouched = reactive<FieldTouched>({
+    currentPassword: includeCurrent ? false : undefined,
     newPassword: false,
     confirmPassword: false,
   });
 
   // ========================================
-  // COMPUTED - SECURITY CHECKS
+  // COMPUTED
   // ========================================
 
-  /**
-   * Check individual password security requirements
-   */
   const isPasswordSecure = computed<PasswordSecurityChecks>(() => {
     const password = passwords.newPassword;
     return {
-      minLength: password.length >= 12,
+      minLength: password.length >= 9,
       uppercase: /[A-Z]/.test(password),
       lowercase: /[a-z]/.test(password),
       digit: /\d/.test(password),
@@ -75,105 +52,79 @@ export function usePasswordValidation() {
     };
   });
 
-  /**
-   * Check if password meets all security requirements
-   */
   const isNewPasswordSecure = computed<boolean>(() => {
-    const security = isPasswordSecure.value;
-    return (
-      security.minLength &&
-      security.uppercase &&
-      security.lowercase &&
-      security.digit &&
-      security.specialChar
-    );
+    const s = isPasswordSecure.value;
+    return s.minLength && s.uppercase && s.lowercase && s.digit && s.specialChar;
   });
 
-  /**
-   * Check if passwords match
-   */
-  const doPasswordsMatch = computed<boolean>(
-    () => passwords.newPassword === passwords.confirmPassword && passwords.confirmPassword !== '',
+  const doPasswordsMatch = computed<boolean>(() =>
+    passwords.newPassword === passwords.confirmPassword &&
+    passwords.confirmPassword !== ''
   );
 
   // ========================================
-  // HELPER FUNCTIONS
+  // ERROR METHODS
   // ========================================
 
-  /**
-   * Get validation error for a specific field
-   * @param key - Field name (newPassword or confirmPassword)
-   * @returns true if field has validation error
-   */
   function getFieldError(key: keyof FieldTouched): boolean {
     if (!fieldTouched[key]) return false;
 
+    if (key === 'currentPassword') {
+      return includeCurrent && !passwords.currentPassword;
+    }
     if (key === 'newPassword') {
       return !passwords.newPassword || !isNewPasswordSecure.value;
     }
-
     if (key === 'confirmPassword') {
       return !passwords.confirmPassword || !doPasswordsMatch.value;
     }
-
     return false;
   }
 
-  /**
-   * Mark field as touched
-   * @param key - Field name
-   */
-  function markFieldTouched(key: keyof FieldTouched): void {
+  function getFieldErrorMessage(key: keyof FieldTouched) {
+    if (!fieldTouched[key]) return '';
+
+    if (key === 'currentPassword') return 'Current password is required.';
+    if (key === 'newPassword') {
+      if (!passwords.newPassword) return 'New password is required.';
+      if (!isNewPasswordSecure.value) return 'Password does not meet security requirements.';
+    }
+    if (key === 'confirmPassword') {
+      if (!passwords.confirmPassword) return 'Please confirm the new password.';
+      if (!doPasswordsMatch.value) return 'Passwords do not match.';
+    }
+    return '';
+  }
+
+  // ========================================
+  // HELPERS
+  // ========================================
+
+  function markFieldTouched(key: keyof FieldTouched) {
     fieldTouched[key] = true;
   }
 
-  /**
-   * Reset password fields to initial state
-   */
-  function resetPasswords(): void {
+  function resetPasswords() {
+    if (includeCurrent) passwords.currentPassword = '';
     passwords.newPassword = '';
     passwords.confirmPassword = '';
+
+    if (includeCurrent) fieldTouched.currentPassword = false;
     fieldTouched.newPassword = false;
     fieldTouched.confirmPassword = false;
   }
 
-  /**
-   * Get error message for a password field
-   * @param key - Field name
-   * @returns Error message string
-   */
-  function getFieldErrorMessage(key: keyof FieldTouched): string {
-    if (!fieldTouched[key]) return '';
-
-    if (key === 'newPassword') {
-      if (!passwords.newPassword) return 'New password is required.';
-      if (!isNewPasswordSecure.value) return 'Password does not meet all security requirements.';
-      return '';
-    }
-
-    if (key === 'confirmPassword') {
-      if (!passwords.confirmPassword) return 'Password confirmation is required.';
-      if (!doPasswordsMatch.value) return 'Passwords do not match.';
-      return '';
-    }
-
-    return '';
-  }
-
   return {
-    // State
     passwords,
     fieldTouched,
 
-    // Computed - Security checks only
     isPasswordSecure,
     isNewPasswordSecure,
     doPasswordsMatch,
 
-    // Methods - Password related only
     getFieldError,
+    getFieldErrorMessage,
     markFieldTouched,
     resetPasswords,
-    getFieldErrorMessage,
   };
 }

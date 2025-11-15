@@ -1,27 +1,33 @@
-// src/components/User/UserDialog.vue
+<!-- src/components/User/UserDialog.vue -->
 <script setup lang="ts">
-  import { ref, watch, computed } from 'vue';
-  import { useAuthStore } from '@/stores/authStore';
-  import { useClinics, useGroupedRoles } from '@/composables/query/useDropdownData';
-  import type { UserResponseDto } from '@/types/backend';
-  import { usePasswordValidation } from '@/composables/validation/usePasswordValidation';
   import Dialog from 'primevue/dialog';
-  import TabView from 'primevue/tabview';
-  import TabPanel from 'primevue/tabpanel';
-  import InputText from 'primevue/inputtext';
-  import Password from 'primevue/password';
-  import RoleSelect from '@/components/Dropdowns/RoleSelect.vue';
-  import ClinicSelect from '@/components/Dropdowns/ClinicSelect.vue';
-  import ToggleSwitch from 'primevue/toggleswitch';
+  import Step from 'primevue/step';
+  import StepList from 'primevue/steplist';
+  import StepPanel from 'primevue/steppanel';
+  import StepPanels from 'primevue/steppanels';
+  import Stepper from 'primevue/stepper';
+  import { computed, ref, watch } from 'vue';
+
   import Button from 'primevue/button';
-  import { userApi } from '@/api/modules/users';
+  import FloatLabel from 'primevue/floatlabel';
+  import InputText from 'primevue/inputtext';
+  import ToggleSwitch from 'primevue/toggleswitch';
+
+  import ClinicSelect from '@/components/Dropdowns/ClinicSelect.vue';
+  import RoleSelect from '@/components/Dropdowns/RoleSelect.vue';
+  import UserPasswordFields from '@/components/Forms/UserPasswordFields.vue';
+
+  import { usersApi } from '@/api/modules/users';
+  import { useClinics, useGroupedRoles } from '@/composables/query/useDropdownData';
   import { useRestoreUser } from '@/composables/query/users/useUserActions';
+  import { useUserForm } from '@/composables/user/useUserForm';
   import { useToastService } from '@/composables/useToastService';
+  import { usePasswordValidation } from '@/composables/validation/usePasswordValidation';
+  import { useAuthStore } from '@/stores/authStore';
 
-  const toast = useToastService();
-  const activeTabIndex = ref(0);
-  const authStore = useAuthStore();
+  import type { UserResponseDto } from '@/types/backend';
 
+  // Props
   const props = withDefaults(
     defineProps<{
       visible: boolean;
@@ -31,550 +37,345 @@
   );
 
   const emit = defineEmits<{
-    'update:visible': [value: boolean];
-    save: [value: any];
-    cancel: [];
+    'update:visible': [boolean];
+    save: [any];
   }>();
 
-  const { mutateAsync: restoreUser } = useRestoreUser();
+  const visible = computed({
+    get: () => props.visible,
+    set: (v) => emit('update:visible', v),
+  });
 
-  // Local form state
-  const localUser = ref<any>({});
+  // Stores & services
+  const toast = useToastService();
+  const authStore = useAuthStore();
+
+  // Stepper state
+  const activeStep = ref('1');
   const submitted = ref(false);
   const saving = ref(false);
-  const isSuperAdmin = computed(() => authStore.isSuperAdmin);
 
-  // ✅ Email conflict states
+  // Email validation state
   const emailExistsError = ref(false);
   const softDeletedUser = ref<{ userId: string } | null>(null);
-
-  // ✅ Restore modal
   const showRestoreDialog = ref(false);
 
-  async function restoreAccount() {
-    if (!softDeletedUser.value) return;
+  const isSuperAdmin = computed(() => authStore.isSuperAdmin);
 
-    await restoreUser(softDeletedUser.value.userId); // mutation
-
-    // ✅ Reset UI state
-    softDeletedUser.value = null;
-    emailExistsError.value = false;
-    showRestoreDialog.value = false;
-
-    // ✅ Close the Create User dialog
-    emit('update:visible', false);
-
-    toast.success('The user account was successfully restored.');
-  }
-
-  // Password composable
-  const {
-    passwords,
-    fieldTouched,
-    isPasswordSecure,
-    isNewPasswordSecure,
-    doPasswordsMatch,
-    getFieldError,
-    markFieldTouched,
-    resetPasswords,
-    getFieldErrorMessage,
-  } = usePasswordValidation();
-
-  // Load dropdowns
-  const { data: groupedRoles } = useGroupedRoles();
+  // Queries
   useClinics();
+  const { data: groupedRoles } = useGroupedRoles();
+  const { mutateAsync: restoreUser } = useRestoreUser();
 
-  // Computed roles
+  // Roles
   const allRoles = computed(() => {
     if (!groupedRoles.value) return [];
-    const { systemRoles = [], clinicRoles = [] } = groupedRoles.value;
-    return [...systemRoles, ...clinicRoles];
+    return [...(groupedRoles.value.systemRoles || []), ...(groupedRoles.value.clinicRoles || [])];
   });
 
-  const selectedRole = computed(() => allRoles.value.find((r) => r.id === localUser.value.roleId));
+  // User model
+  const localUser = ref<Partial<UserResponseDto>>({});
 
-  const shouldDisableClinicDropdown = computed(() => selectedRole.value?.isSystemRole ?? false);
+  // Form composable
+  const {
+    fullName,
+    email,
+    roleId,
+    clinicId,
+    isActive,
+    isFullNameValid,
+    isEmailValid,
+    isRoleSelected,
+    isClinicSelected,
+  } = useUserForm(localUser);
+
+  // Password composable (only stores the password values)
+  const { passwords, resetPasswords } = usePasswordValidation();
+
+  // Use ref to validate like ResetPasswordDialog
+  const passwordRef = ref<InstanceType<typeof UserPasswordFields> | null>(null);
+
+  // Role rules
+  const selectedRole = computed(() => allRoles.value.find((r) => r.id === roleId.value));
+  const shouldDisableClinic = computed(() => selectedRole.value?.isSystemRole ?? false);
   const isClinicRequired = computed(() => !selectedRole.value?.isSystemRole);
 
-  // Validation
-  function isEmailValid(email: string) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
+  // Final validation
+  const isFormValid = computed(() => {
+    const step1Valid = isFullNameValid.value && isEmailValid.value && !emailExistsError.value;
+    const step2Valid =
+      isRoleSelected.value && (shouldDisableClinic.value || isClinicSelected.value);
 
-  const isBasicDetailsValid = computed(() => {
-    return (
-      !!localUser.value.fullName?.trim() &&
-      !!localUser.value.email &&
-      isEmailValid(localUser.value.email)
-    );
+    const step3Valid = localUser.value.id ? true : passwordRef.value?.isValid;
+
+    return step1Valid && step2Valid && step3Valid;
   });
 
-  const isRoleDetailsValid = computed(() => !!localUser.value.roleId);
-
-  // Password validation (new users only)
-  const isPasswordValid = computed(() => {
-    if (localUser.value.id) return true;
-    return (
-      passwords.newPassword &&
-      passwords.confirmPassword &&
-      isNewPasswordSecure.value &&
-      doPasswordsMatch.value
-    );
-  });
-
-  const isFormValid = computed(
-    () =>
-      isBasicDetailsValid.value &&
-      isRoleDetailsValid.value &&
-      (shouldDisableClinicDropdown.value || !!localUser.value.clinicId) &&
-      isPasswordValid.value,
-  );
-
-  // Watch dialog open
+  // Reset dialog on open
   watch(
     () => props.visible,
     (open) => {
-      if (open) {
-        submitted.value = false;
-        activeTabIndex.value = 0;
-        emailExistsError.value = false;
-        softDeletedUser.value = null;
+      if (!open) return;
 
-        localUser.value = {
-          fullName: props.user?.fullName || '',
-          email: props.user?.email || '',
-          roleId: props.user?.roleId || null,
-          clinicId: props.user?.clinicId || null,
-          isActive: props.user?.isActive ?? true,
-          id: props.user?.id || null,
-        };
+      submitted.value = false;
+      activeStep.value = '1';
+      emailExistsError.value = false;
+      softDeletedUser.value = null;
 
-        resetPasswords();
-      }
+      localUser.value = {
+        id: props.user?.id,
+        fullName: props.user?.fullName || '',
+        email: props.user?.email || '',
+        roleId: props.user?.roleId,
+        clinicId: props.user?.clinicId,
+        isActive: props.user?.isActive ?? true,
+      };
+
+      passwordRef.value?.resetPasswords();
     },
   );
 
-  // Actions
-  function onPrevious() {
-    if (activeTabIndex.value > 0) activeTabIndex.value--;
-  }
-
-  async function onNext() {
+  // Step 1 handler
+  async function handleStep1Next(activateCallback: (step: string) => void) {
     submitted.value = true;
 
-    // TAB 1: Check email existence
-    if (activeTabIndex.value === 0) {
-      if (!isBasicDetailsValid.value) return;
+    if (!isFullNameValid.value || !isEmailValid.value) return;
 
-      if (!localUser.value.id || localUser.value.email !== props.user?.email) {
-        try {
-          const { data } = await userApi.CheckEmailExistsDetailed(localUser.value.email);
+    if (!localUser.value.id || localUser.value.email !== props.user?.email) {
+      const { data } = await usersApi.checkEmailExists(localUser.value.email!);
 
-          emailExistsError.value = data.exists && !data.isDeleted;
-          softDeletedUser.value =
-            data.exists && data.isDeleted && data.userId ? { userId: data.userId } : null;
+      emailExistsError.value = data.exists && !data.isDeleted;
 
-          if (emailExistsError.value || softDeletedUser.value) return;
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      softDeletedUser.value =
+        data.exists && data.isDeleted && typeof data.userId === 'string'
+          ? { userId: data.userId }
+          : null;
+
+      if (emailExistsError.value || softDeletedUser.value) return;
     }
 
-    activeTabIndex.value++;
+    activateCallback('2');
   }
 
+  // Save user
   async function onSave() {
     submitted.value = true;
+
     if (!isFormValid.value) return;
 
     saving.value = true;
 
     const dto: any = {
-      fullName: localUser.value.fullName.trim(),
-      email: localUser.value.email.trim(),
-      roleId: localUser.value.roleId,
-      clinicId: localUser.value.clinicId || undefined,
-      isActive: localUser.value.isActive,
+      fullName: fullName.value.trim(),
+      email: email.value.trim(),
+      roleId: roleId.value,
+      clinicId: clinicId.value || undefined,
+      isActive: isActive.value,
     };
 
-    if (!localUser.value.id) dto.password = passwords.newPassword;
+    if (!localUser.value.id) {
+      dto.password = passwords.newPassword;
+    }
 
     emit('save', { ...dto, id: localUser.value.id });
     saving.value = false;
   }
 
-  function onCancel() {
-    emit('cancel');
-    emit('update:visible', false);
+  // Restore soft deleted user
+  async function restoreAccount() {
+    if (!softDeletedUser.value) return;
+    await restoreUser(softDeletedUser.value.userId);
+
+    toast.success('User restored successfully.');
+
+    softDeletedUser.value = null;
+    emailExistsError.value = false;
+    showRestoreDialog.value = false;
+    visible.value = false;
   }
 </script>
 
 <template>
   <Dialog
-    :visible="visible"
-    @update:visible="emit('update:visible', $event)"
+    v-model:visible="visible"
     :style="{ width: '550px' }"
-    :header="localUser.id ? 'Edit User Details' : 'Create New User'"
+    :header="localUser.id ? 'Edit User' : 'Create User'"
     modal
-    class="rounded-xl bg-surface-0 p-4 shadow-2xl dark:bg-surface-900"
+    class="rounded-xl p-4"
   >
-    <TabView :activeIndex="activeTabIndex" @update:activeIndex="activeTabIndex = $event">
-      <!-- TAB 1: BASIC DETAILS -->
-      <TabPanel>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-user text-lg"></i>
-            <span class="font-semibold">Basic Details</span>
-          </div>
-        </template>
+    <Stepper v-model:value="activeStep">
+      <StepList>
+        <Step value="1"><span class="text-xs font-medium">Basic Details</span></Step>
+        <Step value="2"><span class="text-xs font-medium">Role & Clinic</span></Step>
+        <Step value="3"><span class="text-xs font-medium">Security & Status</span></Step>
+      </StepList>
 
-        <div class="flex flex-col gap-5 p-2">
-          <div>
-            <label class="mb-2 block font-medium">
-              Full Name
-              <span class="text-red-500">*</span>
-            </label>
-            <InputText
-              v-model.trim="localUser.fullName"
-              placeholder="Enter full name"
-              :invalid="submitted && !localUser.fullName"
-              class="w-full"
-            />
-            <small v-if="submitted && !localUser.fullName" class="text-red-500">
-              Full name is required.
-            </small>
-          </div>
+      <StepPanels>
+        <!-- STEP 1 -->
+        <StepPanel value="1" v-slot="{ activateCallback }">
+          <div class="flex flex-col gap-6 p-3">
+            <FloatLabel variant="on">
+              <InputText
+                v-model="fullName"
+                id="fullName"
+                class="w-full"
+                :invalid="submitted && !isFullNameValid"
+              />
+              <label for="fullName">Full Name *</label>
+            </FloatLabel>
 
-          <div>
-            <label class="mb-2 block font-medium">
-              Email
-              <span class="text-red-500">*</span>
-            </label>
+            <FloatLabel variant="on">
+              <InputText
+                v-model="email"
+                id="email"
+                type="email"
+                class="w-full"
+                :invalid="submitted && (!isEmailValid || emailExistsError)"
+              />
+              <label for="email">Email *</label>
+            </FloatLabel>
 
-            <InputText
-              v-model.trim="localUser.email"
-              placeholder="user@example.com"
-              type="email"
-              :invalid="
-                submitted &&
-                (!localUser.email || !isEmailValid(localUser.email) || emailExistsError)
-              "
-              class="w-full"
-            />
+            <small v-if="emailExistsError" class="text-red-500">This email already exists.</small>
 
-            <small v-if="submitted && !localUser.email" class="text-red-500">
-              Email is required.
-            </small>
-            <small
-              v-else-if="submitted && localUser.email && !isEmailValid(localUser.email)"
-              class="text-red-500"
-            >
-              Please enter a valid email address.
-            </small>
-
-            <!-- Normal duplicate -->
-            <small v-if="emailExistsError" class="text-red-500">
-              This email is already registered. Please use another one.
-            </small>
-
-            <!-- Soft-deleted user restore link -->
-            <small v-if="softDeletedUser" class="flex items-center gap-2 text-yellow-600">
-              This user existed before and was deleted.
-              <button
-                class="font-semibold text-primary underline"
-                @click="showRestoreDialog = true"
-              >
-                Restore account?
+            <small v-if="softDeletedUser" class="text-yellow-600">
+              This email belongs to a deleted user.
+              <button class="text-primary underline" @click="showRestoreDialog = true">
+                Restore?
               </button>
             </small>
           </div>
-        </div>
-      </TabPanel>
 
-      <!-- TAB 2: ROLE & CLINIC -->
-      <TabPanel>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-briefcase text-lg"></i>
-            <span class="font-semibold">Role & Clinic</span>
-          </div>
-        </template>
-
-        <div class="flex flex-col gap-5 p-2">
-          <div>
-            <!-- Role Selection -->
-            <RoleSelect
-              v-model="localUser.roleId"
-              showLabel
-              label="Role"
-              :invalid="submitted && activeTabIndex === 1 && !localUser.roleId"
-              required="true"
+          <div class="flex justify-between pt-6">
+            <Button
+              label="Cancel"
+              outlined
+              severity="secondary"
+              icon="pi pi-times"
+              @click="visible = false"
             />
-            <!-- Validation messages -->
-            <small
-              v-if="submitted && activeTabIndex === 1 && !localUser.roleId"
-              class="block text-red-500"
-            >
-              Role is required.
-            </small>
+            <Button
+              label="Next"
+              icon="pi pi-arrow-right"
+              @click="handleStep1Next(activateCallback)"
+            />
           </div>
+        </StepPanel>
 
-          <div>
-            <!-- Clinic Selection -->
+        <!-- STEP 2 -->
+        <StepPanel value="2" v-slot="{ activateCallback }">
+          <div class="flex flex-col gap-6 p-3">
+            <RoleSelect
+              v-model="roleId"
+              label="Select a Role"
+              showLabel
+              required
+              :showClear="true"
+              :invalid="submitted && !isRoleSelected"
+            />
+
             <ClinicSelect
               v-if="isSuperAdmin"
-              v-model="localUser.clinicId"
+              v-model="clinicId"
+              label="Select a Clinic"
               showLabel
-              label="Clinic"
-              :disabled="shouldDisableClinicDropdown"
-              :invalid="
-                submitted && activeTabIndex === 1 && isClinicRequired && !localUser.clinicId
-              "
-              required="true"
+              required
+              :showClear="true"
+              :disabled="shouldDisableClinic"
+              :invalid="submitted && isClinicRequired && !isClinicSelected"
             />
-            <small
-              v-if="submitted && activeTabIndex === 1 && isClinicRequired && !localUser.clinicId"
-              class="block text-red-500"
+          </div>
+
+          <div class="flex justify-between pt-6">
+            <Button
+              label="Cancel"
+              outlined
+              severity="secondary"
+              icon="pi pi-times"
+              @click="visible = false"
+            />
+
+            <div class="flex gap-2">
+              <Button
+                label="Previous"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                @click="activateCallback('1')"
+              />
+              <Button label="Next" icon="pi pi-arrow-right" @click="activateCallback('3')" />
+            </div>
+          </div>
+        </StepPanel>
+
+        <!-- STEP 3 -->
+        <StepPanel value="3" v-slot="{ activateCallback }">
+          <div class="flex flex-col gap-6 p-3">
+            <!-- MATCH ResetPasswordDialog -->
+            <UserPasswordFields
+              ref="passwordRef"
+              mode="create"
+              :submitted="submitted"
+              :loading="saving"
+              @update:passwords="Object.assign(passwords, $event)"
+            />
+
+            <div
+              class="p-4 rounded-lg ring-1"
+              :class="isActive ? 'bg-green-50 ring-green-300' : 'bg-red-50 ring-red-300'"
             >
-              Clinic is required for this role.
-            </small>
-          </div>
-        </div>
-      </TabPanel>
+              <div class="flex justify-between items-center">
+                <div>
+                  <label class="font-bold flex items-center gap-2">
+                    <i :class="isActive ? 'pi pi-check-circle' : 'pi pi-ban'"></i>
+                    Status
+                  </label>
+                  <p class="text-sm">
+                    {{ isActive ? 'User is active.' : 'User is inactive.' }}
+                  </p>
+                </div>
 
-      <!-- TAB 3: SECURITY -->
-      <TabPanel>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-lock text-lg"></i>
-            <span class="font-semibold">Security & Status</span>
-          </div>
-        </template>
-
-        <!-- Password Fields -->
-        <div class="flex flex-col gap-4">
-          <!-- ✅ Only show password fields for new users -->
-          <div v-if="!localUser.id" class="rounded-lg bg-surface-50 p-4 dark:bg-surface-800">
-            <h4 class="text-900 mb-3 flex items-center gap-2 text-lg font-bold dark:text-white">
-              <i class="pi pi-lock"></i>
-              Set New Password
-            </h4>
-            <p class="text-600 dark:text-400 mb-3 text-sm">
-              Password must meet the following security requirements:
-            </p>
-
-            <!-- Password Requirements Checklist -->
-            <ul
-              class="text-700 dark:text-300 m-0 mb-4 grid list-none grid-cols-1 gap-1 p-0 text-sm sm:grid-cols-2"
-            >
-              <li class="flex items-center gap-2">
-                <i
-                  class="pi pi-check-circle"
-                  :class="{
-                    'text-green-500': isPasswordSecure.minLength,
-                    'text-red-500': !isPasswordSecure.minLength,
-                  }"
-                ></i>
-                Minimum
-                <span class="font-bold">12 characters</span>
-              </li>
-              <li class="flex items-center gap-2">
-                <i
-                  class="pi pi-check-circle"
-                  :class="{
-                    'text-green-500': isPasswordSecure.uppercase,
-                    'text-red-500': !isPasswordSecure.uppercase,
-                  }"
-                ></i>
-                At least one
-                <span class="font-bold">uppercase</span>
-                letter
-              </li>
-              <li class="flex items-center gap-2">
-                <i
-                  class="pi pi-check-circle"
-                  :class="{
-                    'text-green-500': isPasswordSecure.lowercase,
-                    'text-red-500': !isPasswordSecure.lowercase,
-                  }"
-                ></i>
-                At least one
-                <span class="font-bold">lowercase</span>
-                letter
-              </li>
-              <li class="flex items-center gap-2">
-                <i
-                  class="pi pi-check-circle"
-                  :class="{
-                    'text-green-500': isPasswordSecure.digit,
-                    'text-red-500': !isPasswordSecure.digit,
-                  }"
-                ></i>
-                At least one
-                <span class="font-bold">digit</span>
-                (0-9)
-              </li>
-              <li class="flex items-center gap-2">
-                <i
-                  class="pi pi-check-circle"
-                  :class="{
-                    'text-green-500': isPasswordSecure.specialChar,
-                    'text-red-500': !isPasswordSecure.specialChar,
-                  }"
-                ></i>
-                At least one
-                <span class="font-bold">special character</span>
-              </li>
-            </ul>
-
-            <div class="grid gap-4">
-              <!-- New Password Input -->
-              <div>
-                <label for="newPassword" class="mb-2 block font-semibold dark:text-white">
-                  New Password
-                  <span class="text-red-500">*</span>
-                </label>
-                <Password
-                  id="newPassword"
-                  v-model="passwords.newPassword"
-                  toggleMask
-                  :feedback="true"
-                  class="w-full"
-                  inputClass="w-full"
-                  placeholder="Enter new password"
-                  @input="markFieldTouched('newPassword')"
-                  :invalid="submitted && getFieldError('newPassword')"
-                  :disabled="saving"
-                />
-                <small v-if="submitted && getFieldError('newPassword')" class="text-red-500">
-                  {{ getFieldErrorMessage('newPassword') }}
-                </small>
-              </div>
-
-              <!-- Confirm Password Input -->
-              <div>
-                <label for="confirmPassword" class="mb-2 block font-semibold dark:text-white">
-                  Confirm New Password
-                  <span class="text-red-500">*</span>
-                </label>
-                <Password
-                  id="confirmPassword"
-                  v-model="passwords.confirmPassword"
-                  toggleMask
-                  :feedback="false"
-                  class="w-full"
-                  inputClass="w-full"
-                  placeholder="Re-enter new password"
-                  @input="markFieldTouched('confirmPassword')"
-                  :invalid="submitted && getFieldError('confirmPassword')"
-                  :disabled="saving"
-                />
-                <small v-if="submitted && getFieldError('confirmPassword')" class="text-red-500">
-                  {{ getFieldErrorMessage('confirmPassword') }}
-                </small>
+                <ToggleSwitch v-model="isActive" />
               </div>
             </div>
           </div>
 
-          <!-- ✅ Message for existing users -->
-          <div v-else class="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-            <div class="flex items-start gap-3">
-              <i class="pi pi-info-circle mt-0.5 text-lg text-blue-600 dark:text-blue-400"></i>
-              <div>
-                <p class="m-0 text-sm font-semibold text-blue-900 dark:text-blue-100">
-                  Password Management
-                </p>
-                <p class="m-0 mt-1 text-sm text-blue-800 dark:text-blue-200">
-                  Use the dedicated password reset feature to change this user's password.
-                </p>
-              </div>
+          <div class="flex justify-between pt-6">
+            <Button
+              label="Cancel"
+              outlined
+              severity="secondary"
+              icon="pi pi-times"
+              @click="visible = false"
+            />
+
+            <div class="flex gap-2">
+              <Button
+                label="Previous"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                @click="activateCallback('2')"
+              />
+
+              <Button
+                :label="localUser.id ? 'Update User' : 'Create User'"
+                icon="pi pi-check"
+                :disabled="!isFormValid || saving"
+                :loading="saving"
+                @click="onSave"
+              />
             </div>
           </div>
-        </div>
-
-        <!-- Active Status Toggle -->
-        <div class="mt-4 flex flex-col gap-5 p-2">
-          <div
-            class="flex items-center justify-between rounded-lg p-4 ring-1 transition-all duration-300"
-            :class="{
-              'bg-green-50 ring-green-300 dark:bg-green-900 dark:ring-green-600':
-                localUser.isActive,
-              'bg-red-50 ring-red-300 dark:bg-red-900 dark:ring-red-600': !localUser.isActive,
-            }"
-          >
-            <div>
-              <label class="flex items-center gap-2 text-lg font-bold">
-                <i
-                  :class="{
-                    'pi pi-check-circle text-xl': localUser.isActive,
-                    'pi pi-ban text-xl': !localUser.isActive,
-                  }"
-                ></i>
-                Active Status
-              </label>
-              <p class="m-0 text-sm">
-                {{
-                  localUser.isActive
-                    ? 'User account is enabled and ready for login.'
-                    : 'User account is disabled and login is blocked.'
-                }}
-              </p>
-            </div>
-            <div class="flex-shrink-0">
-              <ToggleSwitch v-model="localUser.isActive" />
-            </div>
-          </div>
-        </div>
-      </TabPanel>
-    </TabView>
-
-    <template #footer>
-      <div class="flex justify-between gap-2 p-2">
-        <Button
-          label="Cancel"
-          icon="pi pi-times"
-          severity="secondary"
-          outlined
-          @click="onCancel"
-          :disabled="saving"
-        />
-        <div class="flex gap-2">
-          <Button
-            v-if="activeTabIndex > 0"
-            label="Previous"
-            icon="pi pi-arrow-left"
-            severity="secondary"
-            @click="onPrevious"
-            :disabled="saving"
-          />
-          <Button
-            v-if="activeTabIndex < 2"
-            label="Next"
-            icon="pi pi-arrow-right"
-            iconPos="right"
-            @click="onNext"
-            :disabled="saving"
-          />
-          <Button
-            v-else
-            :label="localUser.id ? 'Update User' : 'Create User'"
-            icon="pi pi-check"
-            :loading="saving"
-            :disabled="!isFormValid || saving"
-            @click="onSave"
-          />
-        </div>
-      </div>
-    </template>
+        </StepPanel>
+      </StepPanels>
+    </Stepper>
   </Dialog>
 
-  <Dialog v-model:visible="showRestoreDialog" header="Restore User Account" modal>
-    <p class="mb-4">This user account was previously deleted. Do you want to restore it?</p>
+  <!-- Restore Dialog -->
+  <Dialog v-model:visible="showRestoreDialog" header="Restore Account" modal>
+    <p>This user was deleted. Restore now?</p>
 
-    <div class="flex justify-end gap-2">
+    <template #footer>
       <Button label="Cancel" severity="secondary" @click="showRestoreDialog = false" />
       <Button label="Restore" icon="pi pi-undo" severity="success" @click="restoreAccount" />
-    </div>
+    </template>
   </Dialog>
 </template>

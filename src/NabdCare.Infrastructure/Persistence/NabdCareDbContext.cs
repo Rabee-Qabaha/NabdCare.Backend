@@ -169,18 +169,21 @@ public class NabdCareDbContext : DbContext
     {
         var now = DateTime.UtcNow;
         var userId = _userContext.GetCurrentUserId();
+        var userFullName = _userContext.GetCurrentUserFullName();
 
         foreach (var entry in ChangeTracker.Entries<IAuditable>())
         {
+            var userIdentifier = $"{userId}|{userFullName}";
+        
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.CreatedAt = now;
-                entry.Entity.CreatedBy = userId;
+                entry.Entity.CreatedBy = userIdentifier;
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAt = now;
-                entry.Entity.UpdatedBy = userId;
+                entry.Entity.UpdatedBy = userIdentifier;
             }
         }
     }
@@ -192,13 +195,15 @@ public class NabdCareDbContext : DbContext
     {
         var now = DateTime.UtcNow;
         var userId = _userContext.GetCurrentUserId();
+        var userFullName = _userContext.GetCurrentUserFullName();
+        var userIdentifier = $"{userId}|{userFullName}";
 
         foreach (var entry in ChangeTracker.Entries<ISoftDeletable>())
         {
             if (entry.State == EntityState.Modified && entry.Entity.IsDeleted)
             {
                 entry.Entity.DeletedAt = now;
-                entry.Entity.DeletedBy = userId;
+                entry.Entity.DeletedBy = userIdentifier;
             }
         }
     }

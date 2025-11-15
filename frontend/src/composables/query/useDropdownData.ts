@@ -1,82 +1,104 @@
-import { DropdownDataService } from '@/service/api/DropdownDataService';
-import type { ClinicResponseDto, RoleResponseDto } from '@/types/backend';
-import { useQuery } from '@tanstack/vue-query';
+// src/composables/useDropdownData.ts
+import { useQuery } from "@tanstack/vue-query";
+import { rolesApi } from "@/api/modules/roles";
+import { clinicsApi } from "@/api/modules/clinics";
+import type { ClinicResponseDto, RoleResponseDto } from "@/types/backend";
 
 /**
- * Composable: useDropdownData
- * ----------------------------------------------------------
- * Centralized access layer for dropdown data (roles, clinics)
- *
- * Features:
- * - Built on Vue Query for caching and refetch control
- * - Uses the new DropdownDataService (central API logic)
- * - Returns grouped role data ready for complex selects
- *
- * Updated: 2025-11-02
- */
-
-/**
- * Fetch and group roles (system + clinic)
- *
- * Returns an object:
- * {
- *   systemRoles: RoleResponseDto[],
- *   clinicRoles: RoleResponseDto[],
- * }
+ * Fetch grouped roles (system / clinic / template)
+ * Uses rolesApi.getGrouped() which aggregates client-side.
  */
 export function useGroupedRoles() {
   return useQuery({
-    queryKey: ['dropdown', 'roles', 'grouped'],
-    queryFn: async () => await DropdownDataService.fetchGroupedRoles(),
-    staleTime: 1000 * 60 * 5, // cache 5 min
+    queryKey: ["dropdown", "roles", "grouped"],
+    queryFn: () => rolesApi.getGrouped(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
 }
 
 /**
- * Fetch all roles (flat)
+ * Fetch all roles (flat list)
  */
 export function useRoles() {
-  return useQuery({
-    queryKey: ['dropdown', 'roles', 'all'],
-    queryFn: async () => await DropdownDataService.fetchRoles(),
+  return useQuery<RoleResponseDto[]>({
+    queryKey: ["dropdown", "roles", "all"],
+    queryFn: async () => {
+      const response = await rolesApi.getAll();
+      return response.data;
+    },
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
 }
 
 /**
- * Fetch all clinics
+ * Fetch clinics for dropdowns
+ * NOTE: clinicsApi.getAll returns PaginatedResult<ClinicResponseDto>
+ * We normalize to simple array here.
  */
 export function useClinics() {
   return useQuery<ClinicResponseDto[]>({
-    queryKey: ['dropdown', 'clinics'],
-    queryFn: async () => await DropdownDataService.fetchClinics(),
+    queryKey: ["dropdown", "clinics"],
+    queryFn: async () => {
+      const result = await clinicsApi.getAll({
+        limit: 200,
+        descending: false,
+        cursor: null as any,
+        sortBy: "",
+        filter: "",
+      });
+
+      return result.items ?? [];
+    },
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
 }
 
 /**
- * Search clinics dynamically by query
+ * Search clinics dynamically
  */
 export function useSearchClinics(query: string) {
   return useQuery<ClinicResponseDto[]>({
-    queryKey: ['dropdown', 'clinics', query],
-    queryFn: async () => await DropdownDataService.searchClinics(query),
+    queryKey: ["dropdown", "clinics", query],
     enabled: !!query,
+    queryFn: async () => {
+      const result = await clinicsApi.search(query, {
+        limit: 50,
+        descending: false,
+        cursor: null as any,
+        sortBy: "",
+        filter: "",
+      });
+
+      return result.items ?? [];
+    },
     staleTime: 1000 * 60 * 2,
   });
 }
 
 /**
- * Search roles dynamically by query
+ * Search roles dynamically
+ * No dedicated backend endpoint => filter client-side
  */
 export function useSearchRoles(query: string) {
   return useQuery<RoleResponseDto[]>({
-    queryKey: ['dropdown', 'roles', query],
-    queryFn: async () => await DropdownDataService.searchRoles(query),
+    queryKey: ["dropdown", "roles", "search", query],
     enabled: !!query,
+    queryFn: async () => {
+      const response = await rolesApi.getAll();
+      const roles = response.data;
+      const q = query.trim().toLowerCase();
+
+      if (!q) return roles;
+
+      return roles.filter((r) => {
+        const name = r.name?.toLowerCase() ?? "";
+        const desc = r.description?.toLowerCase() ?? "";
+        return name.includes(q) || desc.includes(q);
+      });
+    },
     staleTime: 1000 * 60 * 2,
   });
 }

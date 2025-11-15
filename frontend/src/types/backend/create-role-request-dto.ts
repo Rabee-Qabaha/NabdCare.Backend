@@ -3,12 +3,12 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-export class CreateRoleRequestDto {
-  name: string = "";
+export interface CreateRoleRequestDto {
+  name: string;
   description: string;
   clinicId: string;
   isTemplate: boolean;
-  displayOrder: number = 100;
+  displayOrder: number;
   colorCode: string;
   iconClass: string;
   templateRoleId: string;

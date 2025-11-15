@@ -1,15 +1,21 @@
 // src/stores/authStore.ts
+import { authApi } from '@/api/modules/auth';
 import { permissionsApi } from '@/api/modules/permissions';
 import { PermissionRegistry } from '@/config/permissionsRegistry';
-import { AuthService } from '@/service/AuthService';
-import type { LoginRequestDto } from '@/types/backend';
-import { getUserFromToken, isTokenExpired, type UserInfo } from '@/utils/jwtUtils';
+import { usersApi } from "@/api/modules/users";
+
+import type { LoginRequestDto, UserResponseDto } from '@/types/backend';
 import { defineStore } from 'pinia';
-import { computed, nextTick, ref, watch } from 'vue';
+import { ref, computed, nextTick } from 'vue';
+
+import { tokenManager } from '@/utils/tokenManager';
+import { isTokenExpired } from '@/utils/jwtUtils';
 
 export const useAuthStore = defineStore('auth', () => {
-  // 🔹 Reactive state
-  const currentUser = ref<UserInfo | null>(null);
+  // ===========================
+  // STATE
+  // ===========================
+  const currentUser = ref<UserResponseDto | null>(null);
   const permissions = ref<string[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -17,34 +23,16 @@ export const useAuthStore = defineStore('auth', () => {
   const isPermissionsLoaded = ref(false);
 
   // ===========================
-  // 🧠 COMPUTED PROPERTIES (PURE - NO SIDE EFFECTS)
+  // COMPUTED
   // ===========================
-
-  /**
-   * ✅ Pure: Check if user is logged in
-   * No side effects - just reads state
-   */
   const isLoggedIn = computed(() => !!currentUser.value);
 
-  /**
-   * ✅ Check user role from JWT (primary source of truth)
-   * Falls back to permission-based check
-   */
-  const userRole = computed(() => currentUser.value?.role || null);
+  const userRole = computed(() => currentUser.value?.roleName ?? null);
 
-  /**
-   * ✅ Determine if user is SuperAdmin
-   * PRIMARY: Check JWT role field
-   * FALLBACK: Check system permissions
-   */
   const isSuperAdmin = computed(() => {
-    // 1️⃣ Primary: Check JWT role (most reliable)
-    if (currentUser.value?.role === 'SuperAdmin') return true;
-
-    // 2️⃣ Fallback: Check if permissions are loaded
+    if (currentUser.value?.roleName === 'SuperAdmin') return true;
     if (!isPermissionsLoaded.value) return false;
 
-    // 3️⃣ Check multiple system permissions as secondary validation
     return permissions.value.some((p) =>
       [
         PermissionRegistry.System.manageSettings,
@@ -54,197 +42,75 @@ export const useAuthStore = defineStore('auth', () => {
     );
   });
 
-  /**
-   * ✅ Check if user has clinic context
-   * Used to determine if user is clinic-based vs system admin
-   */
   const hasClinicContext = computed(() => {
-    if (!currentUser.value?.clinicId) return false;
-    // Avoid "undefined" or null clinic IDs
-    return currentUser.value.clinicId !== '00000000-0000-0000-0000-000000000000';
+    const cid = currentUser.value?.clinicId;
+    return !!cid && cid !== '00000000-0000-0000-0000-000000000000';
   });
 
-  const currentClinicId = computed(() => currentUser.value?.clinicId);
+  const currentClinicId = computed(() => currentUser.value?.clinicId ?? null);
 
-  const fullName = computed(() => currentUser.value?.name || currentUser.value?.email || 'User');
-
-  // ===========================
-  // 🧹 WATCHERS (HANDLE SIDE EFFECTS)
-  // ===========================
-
-  /**
-   * ✅ Watch token validity
-   * If token expires, clear auth state
-   */
-  watch(
-    () => AuthService.getAccessToken(),
-    (token) => {
-      if (!token || isTokenExpired(token)) {
-        console.warn('⚠️ Token expired - clearing state');
-        currentUser.value = null;
-        permissions.value = [];
-        isPermissionsLoaded.value = false;
-      }
-    },
-    { immediate: true },
+  const fullName = computed(
+    () => currentUser.value?.fullName || currentUser.value?.email || 'User',
   );
 
-  /**
-   * ✅ Watch logout state
-   * Clear session data when user logs out
-   */
-  watch(isLoggedIn, (newValue, oldValue) => {
-    if (oldValue && !newValue) {
-      console.log('🔒 Session ended - clearing auth state');
+  // ===========================
+  // LOAD USER FROM BACKEND
+  // ===========================
+  const loadCurrentUser = async () => {
+    try {
+      const response = await usersApi.getMe()
+      currentUser.value = response.data;
+    } catch (err) {
+      console.error('❌ Failed to fetch /users/me:', err);
       currentUser.value = null;
-      permissions.value = [];
-      isPermissionsLoaded.value = false;
-      AuthService.clearTokens();
+      tokenManager.clearTokens();
     }
-  });
+  };
 
   // ===========================
-  // 🔑 LOAD PERMISSIONS
+  // LOAD PERMISSIONS
   // ===========================
-
-  /**
-   * ✅ Load user permissions with retry logic
-   * Resilient to temporary API failures
-   */
-  const loadPermissions = async (retries = 3): Promise<void> => {
+  const loadPermissions = async () => {
     if (!currentUser.value) {
       permissions.value = [];
       isPermissionsLoaded.value = true;
       return;
     }
 
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        const data = await permissionsApi.getMine();
-        console.log('🔍 Permissions API response:', data);
-
-        permissions.value = data.permissions || [];
-        console.log(`✅ Loaded ${permissions.value.length} permissions on attempt ${attempt + 1}`);
-        isPermissionsLoaded.value = true;
-        return;
-      } catch (err) {
-        console.error(`❌ Failed to load permissions (attempt ${attempt + 1}/${retries}):`, err);
-
-        // Don't retry on 401/403 (auth errors)
-        if ((err as any)?.response?.status === 401 || (err as any)?.response?.status === 403) {
-          isPermissionsLoaded.value = true;
-          permissions.value = [];
-          throw err;
-        }
-
-        // Retry with exponential backoff
-        if (attempt < retries - 1) {
-          const delayMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
-          console.log(`⏳ Retrying in ${delayMs}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-      }
+    try {
+      const result = await permissionsApi.getMine();
+      permissions.value = result.permissions || [];
+    } catch (err) {
+      console.error('❌ Failed to load permissions:', err);
+      permissions.value = [];
     }
 
-    // ❌ All retries failed
-    console.error('❌ Failed to load permissions after all retries');
-    permissions.value = [];
-    isPermissionsLoaded.value = true; // Mark as loaded even on failure
+    isPermissionsLoaded.value = true;
   };
 
   // ===========================
-  // 🕒 WAIT FOR PERMISSIONS
+  // INIT AUTH (APP STARTUP)
   // ===========================
-
-  /**
-   * ✅ Wait for permissions to load with timeout
-   * Prevents infinite waiting if API fails
-   */
-  const waitForPermissions = async (timeoutMs = 10000): Promise<void> => {
-    if (isPermissionsLoaded.value) return;
-
-    return new Promise<void>((resolve) => {
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      let resolved = false;
-
-      const cleanup = () => {
-        if (timeoutId !== undefined) clearTimeout(timeoutId);
-        if (!resolved) {
-          resolved = true;
-          resolve();
-        }
-      };
-
-      const stop = watch(isPermissionsLoaded, (loaded) => {
-        if (loaded && !resolved) {
-          resolved = true;
-          stop();
-          cleanup();
-        }
-      });
-
-      // Timeout after specified duration
-      timeoutId = setTimeout(() => {
-        console.warn(`⚠️ Permission loading timeout after ${timeoutMs}ms - continuing anyway`);
-        stop();
-        cleanup();
-      }, timeoutMs);
-    });
-  };
-
-  // ===========================
-  // 🔐 CHECK PERMISSION
-  // ===========================
-
-  /**
-   * ✅ Check if user has specific permission
-   * Returns false if permissions not loaded (safe)
-   */
-  const hasPermission = (permissionName: string): boolean => {
-    if (!isPermissionsLoaded.value) return false;
-    if (isSuperAdmin.value) return true;
-    return permissions.value.includes(permissionName);
-  };
-
-  // ===========================
-  // 🚀 INIT AUTH
-  // ===========================
-
-  /**
-   * ✅ Initialize authentication on app startup
-   * Restores user session from token if available
-   */
-  const initAuth = async (): Promise<void> => {
+  const initAuth = async () => {
     console.log('🔄 Initializing auth...');
+
     isInitialized.value = false;
     isPermissionsLoaded.value = false;
 
-    const token = AuthService.getAccessToken();
+    const token = tokenManager.getAccessToken();
 
     if (!token) {
+      console.log('ℹ️ No access token — guest mode');
       currentUser.value = null;
       permissions.value = [];
       isPermissionsLoaded.value = true;
       isInitialized.value = true;
-      console.log('ℹ️ No token found - user is guest');
       return;
     }
 
     if (isTokenExpired(token)) {
-      AuthService.clearTokens();
-      currentUser.value = null;
-      permissions.value = [];
-      isPermissionsLoaded.value = true;
-      isInitialized.value = true;
-      console.log('⚠️ Token expired - cleared');
-      return;
-    }
-
-    // ✅ Restore user info from token
-    const user = getUserFromToken(token);
-    if (!user || !user.email) {
-      console.error('❌ Invalid token payload');
-      AuthService.clearTokens();
+      console.log('⚠️ Token expired — clearing');
+      tokenManager.clearTokens();
       currentUser.value = null;
       permissions.value = [];
       isPermissionsLoaded.value = true;
@@ -252,93 +118,94 @@ export const useAuthStore = defineStore('auth', () => {
       return;
     }
 
-    currentUser.value = user;
-    console.log('✅ User restored:', currentUser.value.email);
+    // ✅ Fetch user from backend
+    await loadCurrentUser();
 
-    // ✅ Load permissions asynchronously (don't block init)
-    try {
-      await loadPermissions();
-    } catch (err) {
-      console.error('⚠️ Permission loading failed during init:', err);
-      // Continue anyway - user is still logged in
+    // If user failed to load
+    if (!currentUser.value) {
+      isInitialized.value = true;
+      isPermissionsLoaded.value = true;
+      return;
     }
 
-    console.log('✅ Auth initialized:', currentUser.value.email, '| Role:', currentUser.value.role);
+    // Load permissions
+    await loadPermissions();
+
     isInitialized.value = true;
+    console.log('✅ Auth initialized:', currentUser.value.email);
   };
 
   // ===========================
-  // 🔓 LOGIN
+  // LOGIN
   // ===========================
-
-  /**
-   * ✅ Login user and load permissions
-   */
-  const login = async (email: string, password: string, _rememberMe = false): Promise<UserInfo> => {
+  const login = async (email: string, password: string) => {
     loading.value = true;
     error.value = null;
 
     try {
-      // ✅ AuthService returns { accessToken, user }
-      const { accessToken, user } = await AuthService.login({
+      const response = await authApi.login({
         email,
         password,
       } as LoginRequestDto);
 
-      if (!accessToken || !user) throw new Error('Invalid login response');
+      const accessToken = response.accessToken;
+      if (!accessToken) throw new Error('Missing accessToken');
 
-      // ✅ Save decoded user info
-      currentUser.value = user;
+      // Save token
+      tokenManager.setAccessToken(accessToken, true);
 
-      // ✅ Load permissions
+      // Fetch user profile
+      await loadCurrentUser();
+
+      if (!currentUser.value) throw new Error('Failed to load user info');
+
       await loadPermissions();
-
-      // ✅ Wait one tick so reactivity settles before router push
       await nextTick();
 
-      console.log('✅ Login successful:', currentUser.value.email);
       return currentUser.value;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error?.message || err.message || 'Login failed';
-      error.value = errorMessage;
-      console.error('❌ Login failed:', errorMessage);
+      const message =
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        'Login failed';
+
+      error.value = message;
       currentUser.value = null;
-      throw new Error(errorMessage);
+      tokenManager.clearTokens();
+
+      throw new Error(message);
     } finally {
       loading.value = false;
     }
   };
 
   // ===========================
-  // 🚪 LOGOUT
+  // LOGOUT
   // ===========================
-
-  /**
-   * ✅ Logout user and clear all state
-   */
   const logout = async () => {
     loading.value = true;
+
     try {
-      await AuthService.logout();
-    } finally {
-      currentUser.value = null;
-      permissions.value = [];
-      isPermissionsLoaded.value = false;
-      AuthService.clearTokens();
-      loading.value = false;
+      await authApi.logout();
+    } catch {
+      console.warn('⚠️ logout failed but ignoring');
     }
+
+    currentUser.value = null;
+    permissions.value = [];
+    tokenManager.clearTokens();
+    isPermissionsLoaded.value = true;
+    loading.value = false;
   };
 
-  // ===========================
-  // 🧹 MISC
-  // ===========================
+  const hasPermission = (permission: string) =>
+    isSuperAdmin.value || permissions.value.includes(permission);
 
   const clearError = () => (error.value = null);
 
   // ===========================
-  // 📤 EXPORT STORE
+  // EXPORT
   // ===========================
-
   return {
     // State
     currentUser,
@@ -346,20 +213,22 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isInitialized,
+    isPermissionsLoaded,
+
+    // Computed
     isLoggedIn,
     isSuperAdmin,
     userRole,
-    hasClinicContext,
-    currentClinicId,
     fullName,
-    isPermissionsLoaded,
+    currentClinicId,
+    hasClinicContext,
 
     // Actions
     initAuth,
     login,
     logout,
+    loadCurrentUser,
     loadPermissions,
-    waitForPermissions,
     hasPermission,
     clearError,
   };

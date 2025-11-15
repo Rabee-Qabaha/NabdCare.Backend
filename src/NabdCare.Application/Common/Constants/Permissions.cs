@@ -144,6 +144,7 @@ public static class Permissions
         public const string Clone = "Roles.Clone";
         public const string Edit = "Roles.Edit";
         public const string Delete = "Roles.Delete";
+        public const string Restore = "Roles.Restore";
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {

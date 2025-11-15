@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
-using NabdCare.Application.Common;
 
+namespace NabdCare.Application.Common;
 public class UserContext : IUserContext
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -24,6 +24,12 @@ public class UserContext : IUserContext
         return claims?.FirstOrDefault(c => 
             string.Equals(c.Type, "roleId", StringComparison.OrdinalIgnoreCase)
         )?.Value;
+    }
+
+    public string? GetCurrentUserFullName()
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .FindFirst("name")?.Value;
     }
 
     public string? GetCurrentUserEmail()

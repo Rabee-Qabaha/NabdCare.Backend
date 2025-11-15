@@ -3,10 +3,10 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-export class UpdateRoleRequestDto {
-  name: string = "";
+export interface UpdateRoleRequestDto {
+  name: string;
   description: string;
-  displayOrder: number = 100;
+  displayOrder: number;
   colorCode: string;
   iconClass: string;
   isTemplate: boolean;

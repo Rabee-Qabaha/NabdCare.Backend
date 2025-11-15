@@ -2,7 +2,8 @@ using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Roles;
 
-[ExportTsClass]
+// [ExportTsClass]
+[ExportTsInterface]
 public class RoleResponseDto
 {
     public Guid Id { get; set; }
@@ -59,12 +60,18 @@ public class RoleResponseDto
     /// Number of permissions assigned to this role.
     /// </summary>
     public int PermissionCount { get; set; }
-    
-    /// <summary>
-    /// Audit fields
-    /// </summary>
+
+    // ✅ Audit fields from BaseEntity
     public DateTime CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+
+    // ✅ Display names for audit trail (NEW)
+    public string? CreatedByUserName { get; set; }
+    public string? UpdatedByUserName { get; set; }
+    public string? DeletedByUserName { get; set; }
 }

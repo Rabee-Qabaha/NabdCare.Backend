@@ -10,13 +10,16 @@ public interface IRoleRepository
     // ============================================
     Task<PaginatedResult<Role>> GetAllPagedAsync(
         PaginationRequestDto pagination,
+        bool includeDeleted = false,
         Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null);
 
     Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(
         Guid clinicId,
         PaginationRequestDto pagination,
+        bool includeDeleted = false,
         Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null);
 
+    Task<IEnumerable<Role>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null);
     Task<IEnumerable<Role>> GetSystemRolesAsync();
     Task<IEnumerable<Role>> GetTemplateRolesAsync();
 
@@ -33,7 +36,8 @@ public interface IRoleRepository
     // ============================================
     Task<Role> CreateRoleAsync(Role role);
     Task<Role?> UpdateRoleAsync(Role role);
-    Task<bool> DeleteRoleAsync(Guid id);
+    Task<Role?> DeleteRoleAsync(Guid id);
+    Task<Role?> RestoreRoleAsync(Guid id);
 
     // ============================================
     // PERMISSION MANAGEMENT

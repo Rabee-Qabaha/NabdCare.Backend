@@ -5,7 +5,7 @@
   import { useRouter } from 'vue-router';
   import { useAuthStore } from '@/stores/authStore';
   import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
-  import { useToastService } from '@/service/toastService';
+  import { useToastService } from "@/composables/useToastService";
 
   const router = useRouter();
   const authStore = useAuthStore();
@@ -30,7 +30,10 @@
     },
     {
       label: 'Management',
-      items: [{ label: 'Users', icon: 'pi pi-fw pi-users', to: '/superadmin/users' }],
+      items: [
+        { label: 'Users', icon: 'pi pi-fw pi-users', to: '/superadmin/users' },
+        { label: 'Roles', icon: 'pi pi-fw pi-shield', to: '/superadmin/roles' },
+      ]
     },
   ];
 

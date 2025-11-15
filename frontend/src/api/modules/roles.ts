@@ -1,82 +1,117 @@
 // src/api/modules/roles.ts
-import { api } from '@/api/apiClient';
+import { api } from "@/api/apiClient";
 import type {
-  CloneRoleRequestDto,
-  CreateRoleRequestDto,
   RoleResponseDto,
+  CreateRoleRequestDto,
   UpdateRoleRequestDto,
-} from '@/types/backend/index';
+  CloneRoleRequestDto,
+} from "@/types/backend";
+import type { AxiosResponse } from "axios";
 
+export interface RolesQuery {
+  includeDeleted?: boolean;
+  clinicId?: string | null;
+}
+
+/**
+ * Roles API
+ * -----------------------------------------
+ * Fully refactored with:
+ * - Consistent camelCase → API PascalCase mapping where needed
+ * - Client-side grouped role formatting
+ * - All existing features preserved
+ */
 export const rolesApi = {
-  /** 📋 Get all roles (filtered by tenant context) */
-  async getAll() {
-    const { data } = await api.get<RoleResponseDto[]>('/roles');
-    return data;
+  /** Get all roles (system + clinic) */
+  getAll(params?: RolesQuery): Promise<AxiosResponse<RoleResponseDto[]>> {
+    return api.get("/roles", { params });
   },
 
-  /** 📋 Get system roles (SuperAdmin only) */
-  async getSystem() {
-    const { data } = await api.get<RoleResponseDto[]>('/roles/system');
-    return data;
+  /** Get system roles only */
+  getSystem(): Promise<AxiosResponse<RoleResponseDto[]>> {
+    return api.get("/roles/system");
   },
 
-  /** 📋 Get template roles */
-  async getTemplates() {
-    const { data } = await api.get<RoleResponseDto[]>('/roles/templates');
-    return data;
+  /** Get template roles only */
+  getTemplates(): Promise<AxiosResponse<RoleResponseDto[]>> {
+    return api.get("/roles/templates");
   },
 
-  /** 📋 Get roles for a specific clinic */
-  async getClinicRoles(clinicId: string) {
-    const { data } = await api.get<RoleResponseDto[]>(`/roles/clinic/${clinicId}`);
-    return data;
+  /** Get roles for a specific clinic */
+  getClinicRoles(clinicId: string): Promise<AxiosResponse<RoleResponseDto[]>> {
+    return api.get(`/roles/clinic/${clinicId}`);
   },
 
-  /** 🔍 Get role by ID */
-  async getById(id: string) {
-    const { data } = await api.get<RoleResponseDto>(`/roles/${id}`);
-    return data;
+  /** Get role details */
+  getById(id: string): Promise<AxiosResponse<RoleResponseDto>> {
+    return api.get(`/roles/${id}`);
   },
 
-  /** ➕ Create custom role */
-  async create(payload: CreateRoleRequestDto) {
-    const { data } = await api.post<RoleResponseDto>('/roles', payload);
-    return data;
+  /** Create a role */
+  create(payload: CreateRoleRequestDto): Promise<AxiosResponse<RoleResponseDto>> {
+    return api.post("/roles", payload);
   },
 
-  /** 🔄 Clone template role for a clinic */
-  async clone(templateRoleId: string, payload: CloneRoleRequestDto) {
-    const { data } = await api.post<RoleResponseDto>(`/roles/clone/${templateRoleId}`, payload);
-    return data;
+  /** Clone a role */
+  clone(templateRoleId: string, payload: CloneRoleRequestDto) {
+    return api.post(`/roles/${templateRoleId}/clone`, payload);
   },
 
-  /** ✏️ Update an existing role */
-  async update(id: string, payload: UpdateRoleRequestDto) {
-    const { data } = await api.put<RoleResponseDto>(`/roles/${id}`, payload);
-    return data;
+  /** Update a role */
+  update(id: string, payload: UpdateRoleRequestDto) {
+    return api.put(`/roles/${id}`, payload);
   },
 
-  /** 🗑️ Delete a role */
-  async delete(id: string) {
-    const { data } = await api.delete(`/roles/${id}`);
-    return data;
+  /** Soft delete a role */
+  delete(id: string) {
+    return api.delete(`/roles/${id}`);
   },
 
-  /** 🔐 Get role permissions */
-  async getPermissions(roleId: string) {
-    const { data } = await api.get<string[]>(`/roles/${roleId}/permissions`);
-    return data;
+  /** Restore a deleted role */
+  restore(id: string) {
+    return api.post(`/roles/${id}/restore`);
   },
 
-  /** ➕ Assign a permission to a role */
-  async assignPermission(roleId: string, permissionId: string) {
-    const { data } = await api.post(`/roles/${roleId}/permissions/${permissionId}`);
-    return data;
+  /** Get permissions for a role */
+  getPermissions(id: string) {
+    return api.get(`/roles/${id}/permissions`);
   },
 
-  /** ➖ Remove a permission from a role */
-  async removePermission(roleId: string, permissionId: string) {
-    const { data } = await api.delete(`/roles/${roleId}/permissions/${permissionId}`);
-    return data;
+  /** Assign a permission */
+  assignPermission(roleId: string, permissionId: string) {
+    return api.post(`/roles/${roleId}/permissions/${permissionId}`);
+  },
+
+  /** Remove a permission */
+  removePermission(roleId: string, permissionId: string) {
+    return api.delete(`/roles/${roleId}/permissions/${permissionId}`);
+  },
+
+  // ============================================================
+  // ⭐ NEW — getGrouped() (client-side aggregation)
+  // ============================================================
+  async getGrouped(): Promise<{
+    systemRoles: RoleResponseDto[];
+    clinicRoles: RoleResponseDto[];
+    templateRoles: RoleResponseDto[];
+  }> {
+    const [system, templates, all] = await Promise.all([
+      this.getSystem().then(r => r.data),
+      this.getTemplates().then(r => r.data),
+      this.getAll().then(r => r.data),
+    ]);
+
+    // Filter out system + template to get only clinic roles
+    const clinicRoles = all.filter(
+      role =>
+        !system.some(s => s.id === role.id) &&
+        !templates.some(t => t.id === role.id)
+    );
+
+    return {
+      systemRoles: system,
+      templateRoles: templates,
+      clinicRoles,
+    };
   },
 };

@@ -1,283 +1,105 @@
-import { api } from '@/api/apiClient';
+import { type AxiosResponse } from "axios";
+import { api } from "@/api/apiClient";
 import type {
-  ChangePasswordRequestDto,
-  CreateUserRequestDto,
   PaginatedResult,
-  ResetPasswordRequestDto,
-  UpdateUserRequestDto,
   UserResponseDto,
-} from '@/types/backend';
+  CreateUserRequestDto,
+  UpdateUserRequestDto,
+  ChangePasswordRequestDto,
+  ResetPasswordRequestDto,
+} from "@/types/backend";
 
-/**
- * User API Module
- * Location: src/api/modules/users.ts
- *
- * Handles all user-related API calls
- *
- * Author: Rabee Qabaha
- * Updated: 2025-11-02
- */
+export interface UsersPagedParams {
+  cursor?: string | null;
+  limit?: number;
+  descending?: boolean;
+  includeDeleted?: boolean;
+  search?: string;
+  clinicId?: string;
+}
 
-export const userApi = {
-  /**
-   * Get users (paged with cursor pagination)
-   *
-   * Query params:
-   * - cursor?: string - Cursor for pagination
-   * - limit?: number - Number of items per page (default: 20)
-   * - search?: string - Search by email or name
-   * - Descending?: boolean - Sort descending (required by backend)
-   *
-   */
-  async getPaged(params?: Record<string, any>) {
-    try {
-      const queryParams = {
-        Limit: 20,
-        Descending: true,
-        includeDeleted: params?.includeDeleted ?? false,
-        ...params,
-      };
+const defaultPaging = { limit: 20, descending: true };
 
-      console.log('📍 Fetching users with params:', queryParams);
+export const usersApi = {
+  getPaged(params?: UsersPagedParams): Promise<AxiosResponse<PaginatedResult<UserResponseDto>>> {
+    const query = {
+      Limit: params?.limit ?? defaultPaging.limit,
+      Descending: params?.descending ?? defaultPaging.descending,
+      Cursor: params?.cursor ?? null,
+      IncludeDeleted: params?.includeDeleted ?? false,
+      Search: params?.search,
+      ClinicId: params?.clinicId,
+    };
 
-      const response = await api.get<PaginatedResult<UserResponseDto>>('/users/paged', {
-        params: queryParams,
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Error fetching users:', error);
-      throw error;
-    }
+    return api.get("/users/paged", { params: query });
   },
 
-  /**
-   * Get users in specific clinic (SuperAdmin only)
-   *
-   * @param clinicId - Clinic ID
-   * @param params - Query parameters (cursor, limit, search, etc.)
-   *
-   * ✅ FIXED: Added default Descending parameter
-   */
-  async getByClinicPaged(clinicId: string, params?: Record<string, any>) {
-    try {
-      const queryParams = {
-        Limit: 20,
-        Descending: true,
-        ...params,
-      };
+  getByClinicPaged(
+    clinicId: string,
+    params?: UsersPagedParams
+  ): Promise<AxiosResponse<PaginatedResult<UserResponseDto>>> {
+    const query = {
+      Limit: params?.limit ?? defaultPaging.limit,
+      Descending: params?.descending ?? defaultPaging.descending,
+      Cursor: params?.cursor ?? null,
+      IncludeDeleted: params?.includeDeleted ?? false,
+      Search: params?.search
+    };
 
-      const response = await api.get<PaginatedResult<UserResponseDto>>(
-        `/users/clinic/${clinicId}/paged`,
-        { params: queryParams },
-      );
-
-      return response;
-    } catch (error) {
-      console.error(`❌ Error fetching users for clinic ${clinicId}:`, error);
-      throw error;
-    }
+    return api.get(`/users/clinic/${clinicId}/paged`, { params: query });
   },
 
-  /**
-   * Get user by ID
-   *
-   * @param id - User ID (GUID)
-   */
-  async getById(id: string) {
-    try {
-      const response = await api.get<UserResponseDto>(`/users/${id}`);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error fetching user ${id}:`, error);
-      throw error;
-    }
+  getById(id: string): Promise<AxiosResponse<UserResponseDto>> {
+    return api.get(`/users/${id}`);
   },
 
-  /**
-   * Get current user (profile)
-   */
-  async getMe() {
-    try {
-      const response = await api.get<UserResponseDto>('/users/me');
-      return response;
-    } catch (error) {
-      console.error('❌ Error fetching current user:', error);
-      throw error;
-    }
+  getMe(): Promise<AxiosResponse<UserResponseDto>> {
+    return api.get("/users/me");
   },
 
-  /**
-   * Check email status (exists + soft-delete flag)
-   */
-  async CheckEmailExistsDetailed(email: string) {
-    try {
-      const response = await api.get<{
-        exists: boolean;
-        isDeleted: boolean;
-        userId: string | null;
-      }>('/users/check-email', {
-        params: { email },
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Error checking email status:', error);
-      throw error;
-    }
+  checkEmailExists(email: string): Promise<
+    AxiosResponse<{ exists: boolean; isDeleted: boolean; userId: string | null }>
+  > {
+    return api.get("/users/check-email", { params: { email } });
   },
 
-  /**
-   * Restore soft-deleted user
-   */
-  async restoreUser(id: string) {
-    try {
-      const response = await api.put<UserResponseDto>(`/users/${id}/restore`);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error restoring user ${id}:`, error);
-      throw error;
-    }
+  restore(id: string): Promise<AxiosResponse<UserResponseDto>> {
+    return api.put(`/users/${id}/restore`);
   },
 
-  /**
-   * Create user
-   *
-   * @param data - User creation data
-   */
-  async create(data: CreateUserRequestDto) {
-    try {
-      const response = await api.post<UserResponseDto>('/users', data);
-      return response;
-    } catch (error) {
-      console.error('❌ Error creating user:', error);
-      throw error;
-    }
+  create(payload: CreateUserRequestDto): Promise<AxiosResponse<UserResponseDto>> {
+    return api.post("/users", payload);
   },
 
-  /**
-   * Update user
-   *
-   * @param id - User ID
-   * @param data - Update data
-   */
-  async update(id: string, data: UpdateUserRequestDto) {
-    try {
-      const response = await api.put<UserResponseDto>(`/users/${id}`, data);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error updating user ${id}:`, error);
-      throw error;
-    }
+  update(id: string, payload: UpdateUserRequestDto): Promise<AxiosResponse<UserResponseDto>> {
+    return api.put(`/users/${id}`, payload);
   },
 
-  /**
-   * Update user role
-   *
-   * @param id - User ID
-   * @param roleId - New role ID
-   */
-  async updateRole(id: string, roleId: string) {
-    try {
-      const response = await api.put<UserResponseDto>(`/users/${id}/role`, {
-        roleId,
-      });
-      return response;
-    } catch (error) {
-      console.error(`❌ Error updating user ${id} role to ${roleId}:`, error);
-      throw error;
-    }
+  updateRole(id: string, roleId: string): Promise<AxiosResponse<UserResponseDto>> {
+    return api.put(`/users/${id}/role`, { roleId });
   },
 
-  /**
-   * Activate user
-   *
-   * @param id - User ID
-   */
-  async activate(id: string) {
-    try {
-      const response = await api.put<UserResponseDto>(`/users/${id}/activate`, {});
-      return response;
-    } catch (error) {
-      console.error(`❌ Error activating user ${id}:`, error);
-      throw error;
-    }
+  activate(id: string): Promise<AxiosResponse<UserResponseDto>> {
+    return api.put(`/users/${id}/activate`);
   },
 
-  /**
-   * Deactivate user
-   *
-   * @param id - User ID
-   */
-  async deactivate(id: string) {
-    try {
-      const response = await api.put<UserResponseDto>(`/users/${id}/deactivate`, {});
-      return response;
-    } catch (error) {
-      console.error(`❌ Error deactivating user ${id}:`, error);
-      throw error;
-    }
+  deactivate(id: string): Promise<AxiosResponse<UserResponseDto>> {
+    return api.put(`/users/${id}/deactivate`);
   },
 
-  /**
-   * Delete user (soft delete)
-   *
-   * @param id - User ID
-   */
-  async delete(id: string) {
-    try {
-      const response = await api.delete(`/users/${id}`);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error deleting user ${id}:`, error);
-      throw error;
-    }
+  delete(id: string): Promise<AxiosResponse<void>> {
+    return api.delete(`/users/${id}`);
   },
 
-  /**
-   * Hard delete user (permanent)
-   *
-   * @param id - User ID
-   */
-  async hardDelete(id: string) {
-    try {
-      const response = await api.delete(`/users/${id}/permanent`);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error hard deleting user ${id}:`, error);
-      throw error;
-    }
+  hardDelete(id: string): Promise<AxiosResponse<void>> {
+    return api.delete(`/users/${id}/permanent`);
   },
 
-  /**
-   * Change password (self-service)
-   *
-   * @param id - User ID
-   * @param data - Password change data
-   */
-  async changePassword(id: string, data: ChangePasswordRequestDto) {
-    try {
-      const response = await api.post(`/users/${id}/change-password`, data);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error changing password for user ${id}:`, error);
-      throw error;
-    }
+  changePassword(id: string, payload: ChangePasswordRequestDto): Promise<AxiosResponse<void>> {
+    return api.post(`/users/${id}/change-password`, payload);
   },
 
-  /**
-   * Reset password (admin action)
-   *
-   * @param id - User ID
-   * @param data - Password reset data
-   */
-  async resetPassword(id: string, data: ResetPasswordRequestDto) {
-    try {
-      const response = await api.post(`/users/${id}/reset-password`, data);
-      return response;
-    } catch (error) {
-      console.error(`❌ Error resetting password for user ${id}:`, error);
-      throw error;
-    }
+  resetPassword(id: string, payload: ResetPasswordRequestDto): Promise<AxiosResponse<void>> {
+    return api.post(`/users/${id}/reset-password`, payload);
   },
 };

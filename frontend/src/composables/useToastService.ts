@@ -26,5 +26,12 @@ export function useToastService() {
         detail: msg,
         life: 3000,
       }),
+      warn: (msg: string) =>
+      toast.add({
+        severity: 'warn',
+        summary: 'Warning',
+        detail: msg,
+        life: 3000,
+      }),
   };
 }

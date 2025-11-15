@@ -33,7 +33,7 @@ export const superadminRoutes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'superadmin-dashboard',
-        component: () => import('@/views/pages/admin/Dashboard.vue'),
+        component: () => import('@/views/admin/Dashboard.vue'),
         meta: {
           title: 'Dashboard',
           permission: PermissionRegistry.Reports.viewDashboard,
@@ -41,14 +41,23 @@ export const superadminRoutes: RouteRecordRaw[] = [
           abacResource: null,
         },
       },
-
       {
         path: 'users',
         name: 'superadmin-users',
-        component: () => import('@/views/pages/admin/Users.vue'),
+        component: () => import('@/views/admin/users/UsersManagement.vue'),
         meta: {
-          title: 'Manage Users',
+          title: 'Users Management',
           permission: PermissionRegistry.Users.view,
+          abacResource: null,
+        },
+      },
+      {
+        path: 'roles',
+        name: 'superadmin-roles,',
+        component: () => import('@/views/admin/roles/RolesManagement.vue'),
+        meta: {
+          title: 'Manage Roles',
+          permission: PermissionRegistry.Roles.viewAll,
           // ✅ List view: ABAC happens at component level for action buttons
           abacResource: null,
         },

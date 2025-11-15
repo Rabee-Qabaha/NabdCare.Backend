@@ -10,7 +10,20 @@
   "typeNaming": "PascalCase",
   "enumStringInitializers": true,
   "tabLength": 2,
-  "typeBlacklist": ["NabdCare.Domain.Entities.BaseEntity", "NabdCare.Domain.Interfaces.IAuditable","NabdCare.Domain.Interfaces.ISoftDeletable"],
+  "typeBlacklist": [
+    "NabdCare.Domain.Entities.BaseEntity",
+    "NabdCare.Domain.Interfaces.IAuditable",
+    "NabdCare.Domain.Interfaces.ISoftDeletable"
+  ],
   "exportFields": true,
-  "flattenHierarchy": true
+  "flattenHierarchy": true,
+  
+  "convertToClass": false,             
+  "classToInterfaceMode": true,        
+  "useNamespaces": false,              
+  "nullableReference": "question-mark",
+  "nullable": "question-mark",         
+  "propertyInitializers": false,       
+  "customImportPath": "",
+  "stripComments": false               
 }

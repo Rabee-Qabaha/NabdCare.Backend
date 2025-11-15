@@ -1,4 +1,5 @@
 using AutoMapper;
+using FluentValidation;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
@@ -18,6 +19,9 @@ public class RoleService : IRoleService
     private readonly IMapper _mapper;
     private readonly ILogger<RoleService> _logger;
     private readonly IPermissionEvaluator _permissionEvaluator;
+    private readonly IValidator<CreateRoleRequestDto> _createRoleValidator;
+    private readonly IValidator<UpdateRoleRequestDto> _updateRoleValidator;
+    private readonly IValidator<CloneRoleRequestDto> _cloneRoleValidator;
 
     public RoleService(
         IRoleRepository roleRepository,
@@ -25,7 +29,10 @@ public class RoleService : IRoleService
         IUserContext userContext,
         IMapper mapper,
         ILogger<RoleService> logger,
-        IPermissionEvaluator permissionEvaluator)
+        IPermissionEvaluator permissionEvaluator,
+        IValidator<CreateRoleRequestDto> createRoleValidator,
+        IValidator<UpdateRoleRequestDto> updateRoleValidator,
+        IValidator<CloneRoleRequestDto> cloneRoleValidator)
     {
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
         _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
@@ -33,15 +40,41 @@ public class RoleService : IRoleService
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
+        _createRoleValidator = createRoleValidator ?? throw new ArgumentNullException(nameof(createRoleValidator));
+        _updateRoleValidator = updateRoleValidator ?? throw new ArgumentNullException(nameof(updateRoleValidator));
+        _cloneRoleValidator = cloneRoleValidator ?? throw new ArgumentNullException(nameof(cloneRoleValidator));
     }
 
-    public async Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination)
+    // ============================================
+    // QUERY METHODS
+    // ============================================
+
+    /// <summary>
+    /// Get all roles with optional filtering by deletion status and clinic.
+    /// </summary>
+    public async Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null)
+    {
+        var userId = _userContext.GetCurrentUserId();
+        _logger.LogInformation("User {UserId} getting all roles (includeDeleted={IncludeDeleted}, clinicId={ClinicId})", 
+            userId, includeDeleted, clinicId ?? Guid.Empty);
+
+        var roles = await _roleRepository.GetAllRolesAsync(includeDeleted, clinicId);
+        var roleList = roles.ToList();
+        
+        _logger.LogInformation("User {UserId} retrieved {Count} roles", userId, roleList.Count);
+        return await MapRolesToDtos(roleList);
+    }
+
+    public async Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(
+        PaginationRequestDto pagination, 
+        bool includeDeleted = false)
     {
         if (pagination == null)
             throw new ArgumentNullException(nameof(pagination));
 
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} requested paginated roles (Limit={Limit})", userId, pagination.Limit);
+        _logger.LogInformation("User {UserId} requested paginated roles (includeDeleted={IncludeDeleted}, Limit={Limit})", 
+            userId, includeDeleted, pagination.Limit);
 
         if (!_tenantContext.IsSuperAdmin)
         {
@@ -50,7 +83,7 @@ public class RoleService : IRoleService
             throw new UnauthorizedAccessException($"Only SuperAdmin can view all roles. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
-        var result = await _roleRepository.GetAllPagedAsync(pagination, query =>
+        var result = await _roleRepository.GetAllPagedAsync(pagination, includeDeleted, query =>
             _permissionEvaluator.FilterRoles(query, "Roles.View", _userContext));
 
         var items = await MapRolesToDtos(result.Items);
@@ -67,7 +100,10 @@ public class RoleService : IRoleService
         };
     }
 
-    public async Task<PaginatedResult<RoleResponseDto>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination)
+    public async Task<PaginatedResult<RoleResponseDto>> GetClinicRolesPagedAsync(
+        Guid clinicId, 
+        PaginationRequestDto pagination, 
+        bool includeDeleted = false)
     {
         if (clinicId == Guid.Empty)
             throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(clinicId));
@@ -76,7 +112,8 @@ public class RoleService : IRoleService
             throw new ArgumentNullException(nameof(pagination));
 
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} requested paginated roles for clinic {ClinicId}", userId, clinicId);
+        _logger.LogInformation("User {UserId} requested paginated roles for clinic {ClinicId} (includeDeleted={IncludeDeleted})", 
+            userId, clinicId, includeDeleted);
 
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
         {
@@ -85,7 +122,7 @@ public class RoleService : IRoleService
             throw new UnauthorizedAccessException($"You can only view roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
-        var result = await _roleRepository.GetClinicRolesPagedAsync(clinicId, pagination, query =>
+        var result = await _roleRepository.GetClinicRolesPagedAsync(clinicId, pagination, includeDeleted, query =>
             _permissionEvaluator.FilterRoles(query, "Roles.View", _userContext));
 
         var items = await MapRolesToDtos(result.Items);
@@ -100,34 +137,6 @@ public class RoleService : IRoleService
             HasMore = result.HasMore,
             NextCursor = result.NextCursor
         };
-    }
-
-    public async Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync()
-    {
-        var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("Getting all roles for user {UserId}", userId);
-
-        IEnumerable<Role> roles;
-
-        if (_tenantContext.IsSuperAdmin)
-        {
-            roles = (await _roleRepository.GetAllPagedAsync(new PaginationRequestDto { Limit = 100 })).Items;
-            var list = roles.ToList();
-            _logger.LogInformation("SuperAdmin {UserId} retrieved {Count} roles", userId, list.Count);
-            return await MapRolesToDtos(list);
-        }
-
-        if (_tenantContext.ClinicId.HasValue)
-        {
-            var templates = await _roleRepository.GetTemplateRolesAsync();
-            var clinicRoles = (await _roleRepository.GetClinicRolesPagedAsync(_tenantContext.ClinicId.Value, new PaginationRequestDto { Limit = 100 })).Items;
-            roles = templates.Concat(clinicRoles).DistinctBy(r => r.Id);
-            var list = roles.ToList();
-            _logger.LogInformation("Clinic user {UserId} retrieved {Count} roles", userId, list.Count);
-            return await MapRolesToDtos(list);
-        }
-
-        return Enumerable.Empty<RoleResponseDto>();
     }
 
     public async Task<IEnumerable<RoleResponseDto>> GetSystemRolesAsync()
@@ -227,13 +236,23 @@ public class RoleService : IRoleService
         return enumerable.Select(p => p.ToString());
     }
 
+    // ============================================
+    // COMMAND METHODS
+    // ============================================
+
     public async Task<RoleResponseDto> CreateRoleAsync(CreateRoleRequestDto dto)
     {
         if (dto == null)
             throw new ArgumentNullException(nameof(dto));
 
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            throw new ArgumentException($"Role name is required. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.Name));
+        // Validate DTO
+        var validationResult = await _createRoleValidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            _logger.LogWarning("Role creation validation failed. Errors: {Errors}", 
+                string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
+            throw new ValidationException(validationResult.Errors);
+        }
 
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} creating role {RoleName}", userId, dto.Name);
@@ -269,6 +288,17 @@ public class RoleService : IRoleService
     {
         if (templateRoleId == Guid.Empty)
             throw new ArgumentException($"Template role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(templateRoleId));
+
+        var dto = new CloneRoleRequestDto { ClinicId = targetClinicId, NewRoleName = newRoleName };
+        
+        // Validate DTO
+        var validationResult = await _cloneRoleValidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            _logger.LogWarning("Role clone validation failed. Errors: {Errors}", 
+                string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
+            throw new ValidationException(validationResult.Errors);
+        }
 
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} cloning role {TemplateRoleId}", userId, templateRoleId);
@@ -327,6 +357,15 @@ public class RoleService : IRoleService
         if (dto == null)
             throw new ArgumentNullException(nameof(dto));
 
+        // Validate DTO
+        var validationResult = await _updateRoleValidator.ValidateAsync(dto);
+        if (!validationResult.IsValid)
+        {
+            _logger.LogWarning("Role update validation failed. Errors: {Errors}", 
+                string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
+            throw new ValidationException(validationResult.Errors);
+        }
+
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} updating role {RoleId}", userId, id);
 
@@ -371,7 +410,10 @@ public class RoleService : IRoleService
         return response;
     }
 
-    public async Task<bool> DeleteRoleAsync(Guid id)
+    /// <summary>
+    /// Soft delete a role (sets IsDeleted=true, cannot delete system roles or roles with users)
+    /// </summary>
+    public async Task<RoleResponseDto?> DeleteRoleAsync(Guid id)
     {
         if (id == Guid.Empty)
             throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
@@ -384,7 +426,7 @@ public class RoleService : IRoleService
         {
             _logger.LogWarning("Role {RoleId} not found for deletion. Error code: {ErrorCode}",
                 id, ErrorCodes.ROLE_NOT_FOUND);
-            return false;
+            return null;
         }
 
         if (role.IsSystemRole)
@@ -411,10 +453,67 @@ public class RoleService : IRoleService
 
         var deleted = await _roleRepository.DeleteRoleAsync(id);
 
-        if (deleted)
-            _logger.LogInformation("User {UserId} deleted role {RoleId}", userId, id);
+        if (deleted == null)
+        {
+            _logger.LogWarning("Failed to delete role {RoleId}. Error code: {ErrorCode}", id, ErrorCodes.INTERNAL_ERROR);
+            return null;
+        }
 
-        return deleted;
+        var response = _mapper.Map<RoleResponseDto>(deleted);
+        response.UserCount = await _roleRepository.GetRoleUserCountAsync(id);
+        response.PermissionCount = await _roleRepository.GetRolePermissionCountAsync(id);
+
+        _logger.LogInformation("User {UserId} soft deleted role {RoleId}", userId, id);
+        return response;
+    }
+
+    /// <summary>
+    /// Restore a soft-deleted role
+    /// </summary>
+    public async Task<RoleResponseDto?> RestoreRoleAsync(Guid id)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+
+        var userId = _userContext.GetCurrentUserId();
+        _logger.LogInformation("User {UserId} restoring role {RoleId}", userId, id);
+
+        var role = await _roleRepository.GetRoleByIdAsync(id);
+        if (role == null)
+        {
+            _logger.LogWarning("Role {RoleId} not found for restore. Error code: {ErrorCode}",
+                id, ErrorCodes.ROLE_NOT_FOUND);
+            return null;
+        }
+
+        if (!role.IsDeleted)
+        {
+            _logger.LogWarning("Role {RoleId} is not deleted. Error code: {ErrorCode}",
+                id, ErrorCodes.INVALID_OPERATION);
+            throw new InvalidOperationException($"Role is not deleted. Error code: {ErrorCodes.INVALID_OPERATION}");
+        }
+
+        if (!CanAccessRole(role))
+        {
+            _logger.LogWarning("User {UserId} attempted to restore role {RoleId} without permission. Error code: {ErrorCode}",
+                userId, id, ErrorCodes.FORBIDDEN);
+            throw new UnauthorizedAccessException($"You don't have permission to restore this role. Error code: {ErrorCodes.FORBIDDEN}");
+        }
+
+        var restored = await _roleRepository.RestoreRoleAsync(id);
+
+        if (restored == null)
+        {
+            _logger.LogWarning("Failed to restore role {RoleId}. Error code: {ErrorCode}", id, ErrorCodes.INTERNAL_ERROR);
+            return null;
+        }
+
+        var response = _mapper.Map<RoleResponseDto>(restored);
+        response.UserCount = await _roleRepository.GetRoleUserCountAsync(id);
+        response.PermissionCount = await _roleRepository.GetRolePermissionCountAsync(id);
+
+        _logger.LogInformation("User {UserId} restored role {RoleId}", userId, id);
+        return response;
     }
 
     public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
@@ -478,6 +577,10 @@ public class RoleService : IRoleService
 
         return await _roleRepository.SyncRolePermissionsAsync(roleId, enumerable);
     }
+
+    // ============================================
+    // HELPER METHODS
+    // ============================================
 
     private async Task<IEnumerable<RoleResponseDto>> MapRolesToDtos(IEnumerable<Role> roles)
     {

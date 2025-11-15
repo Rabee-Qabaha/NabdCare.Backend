@@ -1,18 +1,19 @@
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import FloatLabel from 'primevue/floatlabel';
   import Select from 'primevue/select';
   import Tag from 'primevue/tag';
+  import { computed } from 'vue';
+
   import { useGroupedRoles } from '@/composables/query/useDropdownData';
   import type { RoleResponseDto } from '@/types/backend';
 
   const props = defineProps<{
     modelValue: string | null;
     label?: string;
-    placeholder?: string;
-    showLabel?: boolean;
     invalid?: boolean;
     required?: boolean;
     valueKey?: 'id' | 'name';
+    showClear?: boolean;
   }>();
 
   const emit = defineEmits<{
@@ -24,8 +25,7 @@
   const roles = computed<RoleResponseDto[]>(() => {
     const grouped = groupedRolesData.value;
     if (!grouped) return [];
-    const { systemRoles = [], clinicRoles = [] } = grouped;
-    return [...systemRoles, ...clinicRoles];
+    return [...(grouped.systemRoles || []), ...(grouped.clinicRoles || [])];
   });
 
   const selectedRole = computed(() => {
@@ -35,25 +35,21 @@
 </script>
 
 <template>
-  <div class="flex flex-col">
-    <label v-if="showLabel" class="mb-2 block font-medium">
-      {{ label || 'Role' }}
-      <span v-if="props.required" class="text-red-500">*</span>
-    </label>
-
+  <FloatLabel variant="on" class="w-full">
     <Select
+      size="medium"
+      class="w-full"
       :modelValue="modelValue"
-      @update:modelValue="$emit('update:modelValue', $event)"
+      @update:modelValue="emit('update:modelValue', $event)"
       :options="roles"
       optionLabel="name"
       :optionValue="props.valueKey ?? 'id'"
-      :placeholder="placeholder || 'Select a role'"
       :loading="isLoading"
-      class="w-full"
       filter
       filterPlaceholder="Search roles..."
-      :invalid="invalid"
+      :invalid="props.invalid"
       :disabled="!!error"
+      :showClear="props.showClear ?? false"
     >
       <!-- Selected Value -->
       <template #value="{ value }">
@@ -67,9 +63,6 @@
             {{ selectedRole?.name }}
           </span>
         </div>
-        <span v-else class="flex items-center gap-1 text-surface-600 dark:text-surface-400">
-          Select a role
-        </span>
       </template>
 
       <!-- Option Template -->
@@ -85,10 +78,12 @@
               >
                 <i :class="option.iconClass || 'pi pi-shield'"></i>
               </div>
+
               <span class="truncate text-sm font-semibold">
                 {{ option.name }}
               </span>
             </div>
+
             <Tag
               :value="option.isSystemRole ? 'System' : 'User'"
               :severity="option.isSystemRole ? 'danger' : 'success'"
@@ -100,7 +95,6 @@
             v-if="option.description"
             class="truncate text-xs text-surface-500 dark:text-surface-400"
             v-tooltip.top="option.description"
-            style="max-width: 100%"
           >
             {{ option.description }}
           </div>
@@ -114,6 +108,7 @@
               <i class="pi pi-users text-xs"></i>
               {{ option.userCount }}
             </span>
+
             <span
               v-if="option.permissionCount"
               class="flex items-center gap-1"
@@ -126,5 +121,10 @@
         </div>
       </template>
     </Select>
-  </div>
+
+    <label>
+      {{ label || 'Select a Role' }}
+      <span v-if="props.required" class="text-red-500">*</span>
+    </label>
+  </FloatLabel>
 </template>

@@ -24,10 +24,10 @@
   // 🧠 COMPUTED
   // ======================
   const currentUser = computed(() => authStore.currentUser);
-  const userName = computed(() => currentUser.value?.name || currentUser.value?.email || 'User');
+  const userName = computed(() => currentUser.value?.fullName || currentUser.value?.email || 'User');
 
   const userRoleDisplay = computed(() => {
-    const role = currentUser.value?.role || 'User';
+    const role = currentUser.value?.roleName || 'User';
     return role.replace(/([a-z])([A-Z])/g, '$1 $2'); // e.g. "SuperAdmin" → "Super Admin"
   });
 
@@ -86,7 +86,7 @@
       return;
     }
 
-    const userId = currentUser.value?.sub;
+    const userId = currentUser.value?.id;
     if (!userId) {
       toast.add({
         severity: 'error',
@@ -149,11 +149,10 @@
   </div>
 
   <!-- 🔒 Change Password Dialog -->
-  <ChangePasswordDialog
-    v-model:visible="changePasswordDialog"
-    :user="currentUser"
-    @save="() => toast.add({ severity: 'success', summary: 'Password updated' })"
-  />
+<ChangePasswordDialog
+  v-model:visible="changePasswordDialog"
+  :userId="currentUser?.id!"
+/>
 </template>
 
 <style scoped>

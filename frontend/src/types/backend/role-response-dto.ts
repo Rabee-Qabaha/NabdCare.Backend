@@ -3,9 +3,9 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-export class RoleResponseDto {
+export interface RoleResponseDto {
   id: string;
-  name: string = "";
+  name: string;
   description: string;
   isSystemRole: boolean;
   isTemplate: boolean;
@@ -21,4 +21,10 @@ export class RoleResponseDto {
   createdBy: string;
   updatedAt: Date;
   updatedBy: string;
+  isDeleted: boolean;
+  deletedAt: Date;
+  deletedBy: string;
+  createdByUserName: string;
+  updatedByUserName: string;
+  deletedByUserName: string;
 }

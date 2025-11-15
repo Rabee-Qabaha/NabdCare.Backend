@@ -1,119 +1,79 @@
-// src/api/apiClient.ts
-
-import { AuthService } from '@/service/AuthService';
-import { showToast } from '@/service/toastService';
-import { useAuthStore } from '@/stores/authStore';
-import { tokenManager } from '@/utils/tokenManager';
-import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
-import { setupErrorInterceptor } from '@/api/errorInterceptor'; // ✅ ADD THIS
+import axios, {
+  type AxiosInstance,
+  AxiosError,
+  type InternalAxiosRequestConfig,
+  type AxiosResponse,
+} from "axios";
+import { tokenManager } from "@/utils/tokenManager";
+import type { ErrorResponseDto } from "@/types/backend/error-response-dto";
+import { handleError } from "@/utils/errorHandler";
 
 let isRefreshing = false;
-let failedQueue: {
-  resolve: (token: string) => void;
-  reject: (error: unknown) => void;
-}[] = [];
+let queue: Array<{ resolve: (t: string) => void; reject: (e: unknown) => void }> = [];
 
 function processQueue(error: unknown, token: string | null) {
-  failedQueue.forEach((p) => {
-    if (error) p.reject(error);
-    else if (token) p.resolve(token);
-  });
-  failedQueue = [];
+  queue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)));
+  queue = [];
 }
 
-function redirectToLogin() {
-  if (!window.location.pathname.includes('/auth/login')) {
-    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-    const currentUrl = new URL(window.location.href);
-    if (!currentUrl.searchParams.has('redirect')) {
-      window.location.href = `/auth/login?redirect=${redirect}`;
-    }
-  }
-}
-
-const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5175/api',
-  headers: { 'Content-Type': 'application/json' },
+export const api: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5175/api",
+  headers: { "Content-Type": "application/json" },
   withCredentials: true,
+  timeout: 20000,
 });
 
-// ✅ Request Interceptor
+// 🔹 request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = AuthService.getAccessToken();
-    if (token && config.headers) {
+    const token = tokenManager.getAccessToken();
+    if (token && config.headers)
       config.headers.Authorization = `Bearer ${token}`;
-    }
     return config;
   },
-  (error) => Promise.reject(error),
+  (err) => Promise.reject(err),
 );
 
-// ✅ Response Interceptor (token refresh)
+// 🔹 response interceptor (refresh + unified error)
 api.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError<any>) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
+  (response: AxiosResponse) => response,
+  async (error: AxiosError<ErrorResponseDto>) => {
+    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const status = error.response?.status;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !original?._retry) {
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
+        return new Promise((resolve, reject) => queue.push({ resolve, reject }))
           .then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            return api(originalRequest);
+            if (original.headers) original.headers.Authorization = `Bearer ${token}`;
+            return api(original);
           })
           .catch((err) => Promise.reject(err));
       }
 
-      originalRequest._retry = true;
+      original._retry = true;
       isRefreshing = true;
 
       try {
         const newToken = await tokenManager.refreshAccessToken();
-        if (!newToken) throw new Error('Token refresh failed');
+        if (!newToken) throw new Error("Token refresh failed");
 
-        AuthService.storeAccessToken(newToken);
         processQueue(null, newToken);
+        if (original.headers)
+          original.headers.Authorization = `Bearer ${newToken}`;
 
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        }
-
-        return api(originalRequest);
+        return api(original);
       } catch (err) {
         processQueue(err, null);
-        AuthService.clearTokens();
-
-        const authStore = useAuthStore();
-        await authStore.logout();
-
-        showToast?.({
-          severity: 'warn',
-          summary: 'Session Expired',
-          detail: 'Your session has expired. Please log in again.',
-          life: 4000,
-        });
-
-        redirectToLogin();
+        tokenManager.clearTokens();
         return Promise.reject(err);
       } finally {
         isRefreshing = false;
       }
     }
 
-    // ✅ REMOVED: Old global error handler
-    // Now using setupErrorInterceptor instead
-    return Promise.reject(error);
+    // normalize + reject typed error
+    const uiError = handleError(error);
+    return Promise.reject(uiError);
   },
 );
-
-// ✅ ADD ERROR INTERCEPTOR
-setupErrorInterceptor(api);
-
-export { api };

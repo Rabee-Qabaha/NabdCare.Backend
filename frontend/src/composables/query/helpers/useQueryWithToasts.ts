@@ -1,39 +1,36 @@
-import type { QueryFunction } from '@tanstack/vue-query';
-import { useQuery, useQueryClient } from '@tanstack/vue-query';
-import { useToast } from 'primevue/usetoast';
-import { isRef, unref, watch, type Ref } from 'vue';
+import type { QueryFunction } from "@tanstack/vue-query";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { useToast } from "primevue/usetoast";
+import { isRef, unref, watch, type Ref } from "vue";
 
 /**
- * ✅ Vue Query v5-compatible helper for Vue
+ * ✅ Vue Query v5-compatible helper
  * Adds:
- *  - Toast messages on error/success
- *  - Optional cache invalidation on success
- *  - Supports ref() or plain options
+ *  • Toasts on success / error
+ *  • Optional cache invalidation
+ *  • Works with refs or plain values
  */
 export function useQueryWithToasts<
   TQueryFnData = unknown,
   TError = unknown,
   TData = TQueryFnData,
 >(options: {
-  // Core Vue Query options
   queryKey: readonly unknown[];
   queryFn: QueryFunction<TQueryFnData>;
   enabled?: boolean;
   retry?: number | boolean | ((failureCount: number, error: TError) => boolean);
   retryDelay?: number | ((attemptIndex: number, error: TError) => number);
-  networkMode?: 'always' | 'online' | 'offlineFirst';
+  networkMode?: "always" | "online" | "offlineFirst";
   staleTime?: number;
-  gcTime?: number; // deprecated but kept for backward compatibility
-  cacheTime?: number; // ✅ TanStack 5 uses cacheTime
+  gcTime?: number;
+  cacheTime?: number;
   select?: (data: TQueryFnData) => TData;
   meta?: Record<string, unknown>;
 
-  // Toast + invalidate options
   successMessage?: string;
   errorMessage?: string;
   invalidateKeys?: unknown[][];
 
-  // Callbacks (custom)
   onSuccess?: (data: TData) => void | Promise<void>;
   onError?: (error: TError) => void | Promise<void>;
 }) {
@@ -52,71 +49,45 @@ export function useQueryWithToasts<
     ...rest
   } = opts;
 
-  // ✅ Safe unwrap for ref-based handlers
   const unwrapCallback = <T extends (...args: any[]) => any>(
     cb: T | Ref<T | undefined> | undefined,
   ): T | undefined => (isRef(cb) ? cb.value : cb);
 
-  // ✅ Build the query with inferred types
   const query = useQuery<TQueryFnData, TError, TData>({
     queryKey,
     queryFn: queryFn as QueryFunction<TQueryFnData, readonly unknown[]>,
     ...rest,
   });
 
-  // ✅ Watch for successful data fetch (first or refetch)
+  // 🔍 watch for success
   watch(
     () => query.data.value,
     async (data, prev) => {
-      if (
-        data !== undefined &&
-        data !== prev && // avoid duplicate triggers
-        !query.isLoading.value &&
-        !query.isError.value
-      ) {
-        // 🔁 Cache invalidation
+      if (data !== undefined && data !== prev && !query.isLoading.value && !query.isError.value) {
         for (const key of invalidateKeys) {
           await queryClient.invalidateQueries({ queryKey: key });
         }
-
-        // ✅ Toast success
-        if (successMessage) {
-          toast.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: successMessage,
-            life: 3000,
-          });
-        }
-
-        // 🔁 Forward user callback
+        if (successMessage)
+          toast.add({ severity: "success", summary: "Success", detail: successMessage, life: 3000 });
         const cb = unwrapCallback(onSuccess);
         if (cb) await cb(data as TData);
       }
     },
-    { flush: 'post' },
+    { flush: "post" },
   );
 
-  // ✅ Watch for error state
+  // ❌ watch for error
   watch(
     () => query.error.value,
     async (error, prev) => {
       if (error !== null && error !== prev && query.isError.value) {
-        // ❌ Toast error
-        if (errorMessage) {
-          toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: errorMessage,
-            life: 4000,
-          });
-        }
-
+        if (errorMessage)
+          toast.add({ severity: "error", summary: "Error", detail: errorMessage, life: 4000 });
         const cb = unwrapCallback(onError);
         if (cb) await cb(error as TError);
       }
     },
-    { flush: 'post' },
+    { flush: "post" },
   );
 
   return query;

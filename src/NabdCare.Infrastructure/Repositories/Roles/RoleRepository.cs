@@ -36,28 +36,70 @@ public class RoleRepository : IRoleRepository
     // QUERY METHODS
     // ============================================
 
+    /// <summary>
+    /// Get all roles with optional deletion and clinic filtering
+    /// </summary>
+    public async Task<IEnumerable<Role>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null)
+    {
+        var query = _dbContext.Roles
+            .Include(r => r.Clinic)
+            .AsQueryable();
+
+        // Filter by deletion status
+        if (!includeDeleted)
+        {
+            query = query.Where(r => !r.IsDeleted);
+        }
+
+        // Filter by clinic if specified
+        if (clinicId.HasValue)
+        {
+            query = query.Where(r => r.ClinicId == clinicId);
+        }
+
+        // Filter by tenant context (if not SuperAdmin)
+        if (!IsSuperAdmin() && CurrentClinicId.HasValue)
+        {
+            query = query.Where(r => 
+                r.IsSystemRole || 
+                r.IsTemplate ||
+                r.ClinicId == CurrentClinicId
+            );
+        }
+
+        return await query
+            .OrderBy(r => r.DisplayOrder)
+            .ThenBy(r => r.Name)
+            .ToListAsync();
+    }
+
     public async Task<PaginatedResult<Role>> GetAllPagedAsync(
         PaginationRequestDto pagination,
+        bool includeDeleted = false,
         Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
     {
         var query = _dbContext.Roles
             .Include(r => r.Clinic)
-            .OrderBy(r => r.DisplayOrder)
-            .ThenBy(r => r.Name)
             .AsQueryable();
 
-        // apply ABAC filter if provided
+        // Filter by deletion status
+        if (!includeDeleted)
+        {
+            query = query.Where(r => !r.IsDeleted);
+        }
+
+        // Apply ABAC filter if provided
         if (abacFilter is not null)
             query = abacFilter(query);
 
-        // optional text filter
+        // Optional text filter
         if (!string.IsNullOrWhiteSpace(pagination.Filter))
         {
             var filter = pagination.Filter.ToLower();
             query = query.Where(r => r.Name.ToLower().Contains(filter));
         }
 
-        // sorting
+        // Sorting
         if (!string.IsNullOrEmpty(pagination.SortBy))
         {
             query = pagination.SortBy.ToLower() switch
@@ -68,8 +110,12 @@ public class RoleRepository : IRoleRepository
                 "displayorder" => pagination.Descending
                     ? query.OrderByDescending(r => r.DisplayOrder)
                     : query.OrderBy(r => r.DisplayOrder),
-                _ => query
+                _ => query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name)
             };
+        }
+        else
+        {
+            query = query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name);
         }
 
         var total = await query.CountAsync();
@@ -87,14 +133,19 @@ public class RoleRepository : IRoleRepository
     public async Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(
         Guid clinicId,
         PaginationRequestDto pagination,
+        bool includeDeleted = false,
         Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
     {
         var query = _dbContext.Roles
             .Where(r => r.ClinicId == clinicId)
             .Include(r => r.Clinic)
-            .OrderBy(r => r.DisplayOrder)
-            .ThenBy(r => r.Name)
             .AsQueryable();
+
+        // Filter by deletion status
+        if (!includeDeleted)
+        {
+            query = query.Where(r => !r.IsDeleted);
+        }
 
         if (abacFilter is not null)
             query = abacFilter(query);
@@ -115,8 +166,12 @@ public class RoleRepository : IRoleRepository
                 "displayorder" => pagination.Descending
                     ? query.OrderByDescending(r => r.DisplayOrder)
                     : query.OrderBy(r => r.DisplayOrder),
-                _ => query
+                _ => query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name)
             };
+        }
+        else
+        {
+            query = query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name);
         }
 
         var total = await query.CountAsync();
@@ -135,7 +190,7 @@ public class RoleRepository : IRoleRepository
     {
         return await _dbContext.Roles
             .IgnoreQueryFilters()
-            .Where(r => r.IsSystemRole)
+            .Where(r => r.IsSystemRole && !r.IsDeleted)
             .OrderBy(r => r.DisplayOrder)
             .ToListAsync();
     }
@@ -144,7 +199,7 @@ public class RoleRepository : IRoleRepository
     {
         return await _dbContext.Roles
             .IgnoreQueryFilters()
-            .Where(r => r.IsTemplate)
+            .Where(r => r.IsTemplate && !r.IsDeleted)
             .OrderBy(r => r.DisplayOrder)
             .ToListAsync();
     }
@@ -152,6 +207,7 @@ public class RoleRepository : IRoleRepository
     public async Task<Role?> GetRoleByIdAsync(Guid id)
     {
         return await _dbContext.Roles
+            .IgnoreQueryFilters()
             .Include(r => r.Clinic)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
@@ -184,7 +240,7 @@ public class RoleRepository : IRoleRepository
     public async Task<bool> RoleNameExistsAsync(string name, Guid? clinicId, Guid? excludeRoleId = null)
     {
         var query = _dbContext.Roles
-            .Where(r => r.Name == name && r.ClinicId == clinicId);
+            .Where(r => r.Name == name && r.ClinicId == clinicId && !r.IsDeleted);
 
         if (excludeRoleId.HasValue)
             query = query.Where(r => r.Id != excludeRoleId.Value);
@@ -200,6 +256,7 @@ public class RoleRepository : IRoleRepository
     {
         await _dbContext.Roles.AddAsync(role);
         await _dbContext.SaveChangesAsync();
+        _logger.LogInformation("Created role {RoleId} with name {RoleName}", role.Id, role.Name);
         return role;
     }
 
@@ -223,17 +280,21 @@ public class RoleRepository : IRoleRepository
         existing.UpdatedBy = CurrentUserId;
 
         await _dbContext.SaveChangesAsync();
+        _logger.LogInformation("Updated role {RoleId}", role.Id);
         return existing;
     }
 
-    public async Task<bool> DeleteRoleAsync(Guid id)
+    /// <summary>
+    /// Soft delete a role
+    /// </summary>
+    public async Task<Role?> DeleteRoleAsync(Guid id)
     {
         var role = await _dbContext.Roles
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (role == null)
-            return false;
+            return null;
 
         if (role.IsSystemRole && !IsSuperAdmin())
             throw new UnauthorizedAccessException("System roles cannot be deleted");
@@ -247,7 +308,38 @@ public class RoleRepository : IRoleRepository
 
         _dbContext.Roles.Update(role);
         await _dbContext.SaveChangesAsync();
-        return true;
+        _logger.LogInformation("Soft deleted role {RoleId}", id);
+        return role;
+    }
+
+    /// <summary>
+    /// Restore a soft-deleted role
+    /// </summary>
+    public async Task<Role?> RestoreRoleAsync(Guid id)
+    {
+        var role = await _dbContext.Roles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+        if (role == null)
+            return null;
+
+        if (!role.IsDeleted)
+            throw new InvalidOperationException("Role is not deleted");
+
+        if (!IsSuperAdmin() && role.ClinicId != CurrentClinicId)
+            throw new UnauthorizedAccessException("You can restore only roles belonging to your clinic");
+
+        role.IsDeleted = false;
+        role.DeletedAt = null;
+        role.DeletedBy = null;
+        role.UpdatedAt = DateTime.UtcNow;
+        role.UpdatedBy = CurrentUserId;
+
+        _dbContext.Roles.Update(role);
+        await _dbContext.SaveChangesAsync();
+        _logger.LogInformation("Restored role {RoleId}", id);
+        return role;
     }
 
     // ============================================
@@ -257,7 +349,7 @@ public class RoleRepository : IRoleRepository
     public async Task<IEnumerable<Guid>> GetRolePermissionIdsAsync(Guid roleId)
     {
         return await _dbContext.RolePermissions
-            .Where(rp => rp.RoleId == roleId)
+            .Where(rp => rp.RoleId == roleId && !rp.IsDeleted)
             .Select(rp => rp.PermissionId)
             .ToListAsync();
     }
@@ -297,6 +389,7 @@ public class RoleRepository : IRoleRepository
         await _dbContext.SaveChangesAsync();
 
         await _cacheInvalidator.InvalidateRoleAsync(roleId);
+        _logger.LogInformation("Assigned permission {PermissionId} to role {RoleId}", permissionId, roleId);
         return true;
     }
 
@@ -317,6 +410,7 @@ public class RoleRepository : IRoleRepository
         await _dbContext.SaveChangesAsync();
 
         await _cacheInvalidator.InvalidateRoleAsync(roleId);
+        _logger.LogInformation("Removed permission {PermissionId} from role {RoleId}", permissionId, roleId);
         return true;
     }
 
@@ -345,6 +439,7 @@ public class RoleRepository : IRoleRepository
 
         await _dbContext.SaveChangesAsync();
         await _cacheInvalidator.InvalidateRoleAsync(roleId);
+        _logger.LogInformation("Bulk assigned {Count} permissions to role {RoleId}", newPermissionIds.Count, roleId);
         return newPermissionIds.Count;
     }
 
@@ -389,6 +484,7 @@ public class RoleRepository : IRoleRepository
 
         await _dbContext.SaveChangesAsync();
         await _cacheInvalidator.InvalidateRoleAsync(roleId);
+        _logger.LogInformation("Synced {Count} permissions for role {RoleId}", permissionIds.Count(), roleId);
         return true;
     }
 }

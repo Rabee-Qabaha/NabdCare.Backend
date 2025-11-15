@@ -3,7 +3,8 @@ using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Roles;
 
-[ExportTsClass]
+// [ExportTsClass]
+[ExportTsInterface]
 public class CreateRoleRequestDto
 {
     [Required]
