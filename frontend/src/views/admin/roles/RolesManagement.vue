@@ -1,3 +1,4 @@
+// src/views/admin/roles/RolesManagement.vue
 <template>
   <div class="space-y-4 p-4 md:p-6">
     <div>
@@ -7,38 +8,28 @@
 
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <div class="flex flex-wrap gap-2">
-        <Button 
-          v-if="canCreateRole" 
-          label="Create Role" 
-          icon="pi pi-plus" 
-          @click="openCreateDialog" 
+        <Button
+          v-if="canCreateRole"
+          label="Create Role"
+          icon="pi pi-plus"
+          @click="openCreateDialog"
         />
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <Button 
-          icon="pi pi-sliders-h" 
-          label="Filters" 
-          outlined 
-          @click="openFilters" 
-        />
+        <Button icon="pi pi-sliders-h" label="Filters" outlined @click="openFilters" />
         <Button
           :label="includeDeleted ? 'Show Active' : 'Show Deleted'"
           :icon="includeDeleted ? 'pi pi-users' : 'pi pi-trash'"
           outlined
           @click="toggleIncludeDeleted"
         />
-        <Button 
-          icon="pi pi-filter-slash" 
-          label="Clear Filters" 
-          outlined 
-          @click="resetFilters" 
-        />
+        <Button icon="pi pi-filter-slash" label="Clear Filters" outlined @click="resetFilters" />
         <Button
           icon="pi pi-refresh"
           label="Refresh"
           outlined
-          @click="refetch"
+          @click="refetch()"
           :loading="isLoading"
         />
       </div>
@@ -62,13 +53,10 @@
       <p class="text-red-800 dark:text-red-200">
         ❌ {{ error instanceof Error ? error.message : 'Failed to load roles' }}
       </p>
-      <Button label="Retry" icon="pi pi-refresh" text @click="refetch" class="mt-2" />
+      <Button label="Retry" icon="pi pi-refresh" text @click="refetch()" class="mt-2" />
     </div>
 
-    <div
-      v-if="isLoading"
-      class="grid gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-4"
-    >
+    <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-4">
       <Card v-for="n in 8" :key="n">
         <template #header>
           <Skeleton height="100px" animation="wave" />
@@ -108,7 +96,8 @@
       >
         <div>
           <div
-            class="h-16 flex items-center justify-center text-4xl text-white" :style="{ backgroundColor: role.colorCode || '#3B82F6' }"
+            class="h-16 flex items-center justify-center text-4xl text-white"
+            :style="{ backgroundColor: role.colorCode || '#3B82F6' }"
           >
             <i v-if="role.iconClass" :class="role.iconClass" />
             <i v-else class="pi pi-shield" />
@@ -133,7 +122,7 @@
               {{ role.description || 'No description' }}
             </p>
           </div>
-          
+
           <div
             class="border-t px-4 py-3 text-sm"
             :class="
@@ -308,11 +297,7 @@
       <div class="grid gap-4">
         <div>
           <label class="mb-2 block text-sm font-medium">Role Name</label>
-          <InputText
-            v-model="searchQuery"
-            placeholder="Search by role name..."
-            class="w-full"
-          />
+          <InputText v-model="searchQuery" placeholder="Search by role name..." class="w-full" />
         </div>
 
         <div>
@@ -378,15 +363,12 @@
       :role="selectedRole"
       @updated="onPermissionsUpdated"
     />
-    <RoleDetailsDialog
-      v-model:visible="dialogs.details"
-      :role="selectedRole"
-    />
+    <RoleDetailsDialog v-model:visible="dialogs.details" :role="selectedRole" />
     <DeleteConfirmDialog
       v-model:visible="dialogs.deleteConfirm"
       :title="`Delete ${selectedRole?.name}?`"
       :message="`Are you sure you want to delete this role?${
-        selectedRole?.userCount ?? 0 > 0
+        (selectedRole?.userCount ?? 0 > 0)
           ? ' It has ' + selectedRole?.userCount + ' assigned users.'
           : ''
       }`"
@@ -397,151 +379,151 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import type { RoleResponseDto } from '@/types/backend';
-import { useRoles } from '@/composables/query/roles/useRoles';
-import { useDeleteRole, useRestoreRole } from '@/composables/query/roles/useRoleActions';
-import { usePermission } from '@/composables/usePermission';
-import RoleCreateEditDialog from '@/components/Role/RoleCreateEditDialog.vue';
-import RolePermissionsDialog from '@/components/Role/RolePermissionsDialog.vue';
-import RoleDetailsDialog from '@/components/Role/RoleDetailsDialog.vue';
-import DeleteConfirmDialog from '@/components/Role/DeleteConfirmDialog.vue';
-import EmptyState from '@/components/EmptyState.vue';
+  import EmptyState from '@/components/EmptyState.vue';
+  import DeleteConfirmDialog from '@/components/Role/DeleteConfirmDialog.vue';
+  import RoleCreateEditDialog from '@/components/Role/RoleCreateEditDialog.vue';
+  import RoleDetailsDialog from '@/components/Role/RoleDetailsDialog.vue';
+  import RolePermissionsDialog from '@/components/Role/RolePermissionsDialog.vue';
+  import { useDeleteRole, useRestoreRole } from '@/composables/query/roles/useRoleActions';
+  import { useRoles } from '@/composables/query/roles/useRoles';
+  import { usePermission } from '@/composables/usePermission';
+  import type { RoleResponseDto } from '@/types/backend';
+  import { computed, onMounted, ref } from 'vue';
 
-// PrimeVue Components
-import Card from 'primevue/card';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
-import InputIcon from 'primevue/inputicon';
-import IconField from 'primevue/iconfield';
-import Select from 'primevue/select';
-import Tag from 'primevue/tag';
-import Dialog from 'primevue/dialog';
-import Skeleton from 'primevue/skeleton';
-import ConfirmDialog from 'primevue/confirmdialog';
+  // PrimeVue Components
+  import Button from 'primevue/button';
+  import Card from 'primevue/card';
+  import ConfirmDialog from 'primevue/confirmdialog';
+  import Dialog from 'primevue/dialog';
+  import IconField from 'primevue/iconfield';
+  import InputIcon from 'primevue/inputicon';
+  import InputText from 'primevue/inputtext';
+  import Select from 'primevue/select';
+  import Skeleton from 'primevue/skeleton';
+  import Tag from 'primevue/tag';
 
-const { can: canPermission } = usePermission();
-const { roles, filteredRoles, isLoading, error, refetch, includeDeleted } = useRoles();
-const { mutate: deleteRoleMutation } = useDeleteRole();
-const { mutate: restoreRoleMutation } = useRestoreRole();
+  const { can: canPermission } = usePermission();
+  const { roles, filteredRoles, isLoading, error, refetch, includeDeleted } = useRoles();
+  const { mutate: deleteRoleMutation } = useDeleteRole();
+  const { mutate: restoreRoleMutation } = useRestoreRole();
 
-// State
-const searchQuery = ref('');
-const typeFilter = ref<boolean | null>(null);
-const statusFilterValue = ref<boolean | null>(null);
-const filtersDialogVisible = ref(false);
-const selectedRole = ref<RoleResponseDto | null>(null);
+  // State
+  const searchQuery = ref('');
+  const typeFilter = ref<boolean | null>(null);
+  const statusFilterValue = ref<boolean | null>(null);
+  const filtersDialogVisible = ref(false);
+  const selectedRole = ref<RoleResponseDto | null>(null);
 
-const dialogs = ref({
-  createEdit: false,
-  permissions: false,
-  details: false,
-  deleteConfirm: false,
-  permanentDelete: false,
-});
-
-// Permissions
-const canCreateRole = computed(() => canPermission('Roles.Create'));
-const canEditRole = computed(() => canPermission('Roles.Edit'));
-const canDeleteRole = computed(() => canPermission('Roles.Delete'));
-const canRestoreRole = computed(() => canPermission('Roles.Restore'));
-const canViewPermissions = computed(() => canPermission('Roles.Permissions.View'));
-const canCloneRole = computed(() => canPermission('Roles.Clone'));
-const isSuperAdmin = computed(() => canPermission('SuperAdmin'));
-
-// Methods
-const openFilters = () => {
-  filtersDialogVisible.value = true;
-};
-
-const resetFilters = () => {
-  searchQuery.value = '';
-  typeFilter.value = null;
-  statusFilterValue.value = null;
-};
-
-const toggleIncludeDeleted = () => {
-  includeDeleted.value = !includeDeleted.value;
-};
-
-const openCreateDialog = () => {
-  selectedRole.value = null;
-  dialogs.value.createEdit = true;
-};
-
-const openEditDialog = (role: RoleResponseDto) => {
-  selectedRole.value = role;
-  dialogs.value.createEdit = true;
-};
-
-const openPermissionsDialog = (role: RoleResponseDto) => {
-  selectedRole.value = role;
-  dialogs.value.permissions = true;
-};
-
-const openDetailsDialog = (role: RoleResponseDto) => {
-  selectedRole.value = role;
-  dialogs.value.details = true;
-};
-
-const openDeleteDialog = (role: RoleResponseDto) => {
-  selectedRole.value = role;
-  dialogs.value.deleteConfirm = true;
-};
-
-const openCloneDialog = (role: RoleResponseDto) => {
-  selectedRole.value = role;
-  // TODO: Implement clone dialog
-};
-
-const openPermanentDeleteDialog = (role: RoleResponseDto) => {
-  selectedRole.value = role;
-  dialogs.value.permanentDelete = true;
-};
-
-const deleteRole = () => {
-  if (!selectedRole.value) return;
-
-  deleteRoleMutation(selectedRole.value.id, {
-    onSuccess: () => {
-      dialogs.value.deleteConfirm = false;
-      refetch();
-    },
+  const dialogs = ref({
+    createEdit: false,
+    permissions: false,
+    details: false,
+    deleteConfirm: false,
+    permanentDelete: false,
   });
-};
 
-const restoreRole = (role: RoleResponseDto) => {
-  restoreRoleMutation(role.id, {
-    onSuccess: () => {
-      refetch();
-    },
+  // Permissions
+  const canCreateRole = computed(() => canPermission('Roles.Create'));
+  const canEditRole = computed(() => canPermission('Roles.Edit'));
+  const canDeleteRole = computed(() => canPermission('Roles.Delete'));
+  const canRestoreRole = computed(() => canPermission('Roles.Restore'));
+  const canViewPermissions = computed(() => canPermission('Roles.Permissions.View'));
+  const canCloneRole = computed(() => canPermission('Roles.Clone'));
+  const isSuperAdmin = computed(() => canPermission('SuperAdmin'));
+
+  // Methods
+  const openFilters = () => {
+    filtersDialogVisible.value = true;
+  };
+
+  const resetFilters = () => {
+    searchQuery.value = '';
+    typeFilter.value = null;
+    statusFilterValue.value = null;
+  };
+
+  const toggleIncludeDeleted = () => {
+    includeDeleted.value = !includeDeleted.value;
+  };
+
+  const openCreateDialog = () => {
+    selectedRole.value = null;
+    dialogs.value.createEdit = true;
+  };
+
+  const openEditDialog = (role: RoleResponseDto) => {
+    selectedRole.value = role;
+    dialogs.value.createEdit = true;
+  };
+
+  const openPermissionsDialog = (role: RoleResponseDto) => {
+    selectedRole.value = role;
+    dialogs.value.permissions = true;
+  };
+
+  const openDetailsDialog = (role: RoleResponseDto) => {
+    selectedRole.value = role;
+    dialogs.value.details = true;
+  };
+
+  const openDeleteDialog = (role: RoleResponseDto) => {
+    selectedRole.value = role;
+    dialogs.value.deleteConfirm = true;
+  };
+
+  const openCloneDialog = (role: RoleResponseDto) => {
+    selectedRole.value = role;
+    // TODO: Implement clone dialog
+  };
+
+  const openPermanentDeleteDialog = (role: RoleResponseDto) => {
+    selectedRole.value = role;
+    dialogs.value.permanentDelete = true;
+  };
+
+  const deleteRole = () => {
+    if (!selectedRole.value) return;
+
+    deleteRoleMutation(selectedRole.value.id, {
+      onSuccess: () => {
+        dialogs.value.deleteConfirm = false;
+        refetch();
+      },
+    });
+  };
+
+  const restoreRole = (role: RoleResponseDto) => {
+    restoreRoleMutation(role.id, {
+      onSuccess: () => {
+        refetch();
+      },
+    });
+  };
+
+  const onRoleCreated = () => {
+    dialogs.value.createEdit = false;
+    refetch();
+  };
+
+  const onRoleUpdated = () => {
+    dialogs.value.createEdit = false;
+    refetch();
+  };
+
+  const onPermissionsUpdated = () => {
+    dialogs.value.permissions = false;
+    refetch();
+  };
+
+  const formatDate = (date: string | Date): string => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  onMounted(() => {
+    refetch();
   });
-};
-
-const onRoleCreated = () => {
-  dialogs.value.createEdit = false;
-  refetch();
-};
-
-const onRoleUpdated = () => {
-  dialogs.value.createEdit = false;
-  refetch();
-};
-
-const onPermissionsUpdated = () => {
-  dialogs.value.permissions = false;
-  refetch();
-};
-
-const formatDate = (date: string | Date): string => {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
-
-onMounted(() => {
-  refetch();
-});
 </script>

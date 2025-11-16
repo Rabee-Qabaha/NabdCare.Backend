@@ -1,8 +1,8 @@
 // src/composables/useDropdownData.ts
-import { useQuery } from "@tanstack/vue-query";
-import { rolesApi } from "@/api/modules/roles";
-import { clinicsApi } from "@/api/modules/clinics";
-import type { ClinicResponseDto, RoleResponseDto } from "@/types/backend";
+import { clinicsApi } from '@/api/modules/clinics';
+import { rolesApi } from '@/api/modules/roles';
+import type { ClinicResponseDto, RoleResponseDto } from '@/types/backend';
+import { useQuery } from '@tanstack/vue-query';
 
 /**
  * Fetch grouped roles (system / clinic / template)
@@ -10,7 +10,7 @@ import type { ClinicResponseDto, RoleResponseDto } from "@/types/backend";
  */
 export function useGroupedRoles() {
   return useQuery({
-    queryKey: ["dropdown", "roles", "grouped"],
+    queryKey: ['dropdown', 'roles', 'grouped'],
     queryFn: () => rolesApi.getGrouped(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
@@ -22,7 +22,7 @@ export function useGroupedRoles() {
  */
 export function useRoles() {
   return useQuery<RoleResponseDto[]>({
-    queryKey: ["dropdown", "roles", "all"],
+    queryKey: ['dropdown', 'roles', 'all'],
     queryFn: async () => {
       const response = await rolesApi.getAll();
       return response.data;
@@ -39,14 +39,14 @@ export function useRoles() {
  */
 export function useClinics() {
   return useQuery<ClinicResponseDto[]>({
-    queryKey: ["dropdown", "clinics"],
+    queryKey: ['dropdown', 'clinics'],
     queryFn: async () => {
       const result = await clinicsApi.getAll({
         limit: 200,
         descending: false,
         cursor: null as any,
-        sortBy: "",
-        filter: "",
+        sortBy: '',
+        filter: '',
       });
 
       return result.items ?? [];
@@ -61,15 +61,15 @@ export function useClinics() {
  */
 export function useSearchClinics(query: string) {
   return useQuery<ClinicResponseDto[]>({
-    queryKey: ["dropdown", "clinics", query],
+    queryKey: ['dropdown', 'clinics', query],
     enabled: !!query,
     queryFn: async () => {
       const result = await clinicsApi.search(query, {
         limit: 50,
         descending: false,
         cursor: null as any,
-        sortBy: "",
-        filter: "",
+        sortBy: '',
+        filter: '',
       });
 
       return result.items ?? [];
@@ -84,7 +84,7 @@ export function useSearchClinics(query: string) {
  */
 export function useSearchRoles(query: string) {
   return useQuery<RoleResponseDto[]>({
-    queryKey: ["dropdown", "roles", "search", query],
+    queryKey: ['dropdown', 'roles', 'search', query],
     enabled: !!query,
     queryFn: async () => {
       const response = await rolesApi.getAll();
@@ -94,11 +94,42 @@ export function useSearchRoles(query: string) {
       if (!q) return roles;
 
       return roles.filter((r) => {
-        const name = r.name?.toLowerCase() ?? "";
-        const desc = r.description?.toLowerCase() ?? "";
+        const name = r.name?.toLowerCase() ?? '';
+        const desc = r.description?.toLowerCase() ?? '';
         return name.includes(q) || desc.includes(q);
       });
     },
     staleTime: 1000 * 60 * 2,
+  });
+}
+
+/**
+ * RoleSelect Smart Query
+ * mode:
+ *   - "admin"  → system + templates + all clinic roles
+ *   - "clinic" → templates + roles of the given clinic
+ */
+export function useRoleSelectData(mode: 'admin' | 'clinic', clinicId?: string) {
+  return useQuery<RoleResponseDto[]>({
+    queryKey: ['dropdown', 'roles', 'select', mode, clinicId],
+    queryFn: async () => {
+      if (mode === 'admin') {
+        // Get ALL roles the user can view
+        const res = await rolesApi.getAll();
+        return res.data; // Already includes system + clinic + template
+      }
+
+      // mode === "clinic"
+      if (!clinicId) return [];
+
+      const [templates, clinicRoles] = await Promise.all([
+        rolesApi.getTemplates().then((r) => r.data),
+        rolesApi.getClinicRoles(clinicId).then((r) => r.data),
+      ]);
+
+      return [...templates, ...clinicRoles];
+    },
+    enabled: mode === 'admin' || (!!clinicId && mode === 'clinic'),
+    staleTime: 1000 * 60 * 5,
   });
 }
