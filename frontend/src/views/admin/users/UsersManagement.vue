@@ -11,12 +11,12 @@
     useSoftDeleteUser,
     useUpdateUser,
   } from '@/composables/query/users/useUserActions';
+
   import { useInfiniteUsersPaged } from '@/composables/query/users/useUsers';
   import { usePermission } from '@/composables/usePermission';
   import { useUserDialog, useUserFilters, useUserUIActions } from '@/composables/user';
   import PageHeader from '@/layout/PageHeader.vue';
   import type { PaginatedResult, UserResponseDto } from '@/types/backend';
-  import { formatDate } from '@/utils/uiHelpers';
   import { formatUserDisplay } from '@/utils/users/userDisplay';
   import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -155,6 +155,14 @@
     }
   });
 
+  const userPermissionsDialogVisible = ref(false);
+  const selectedUserForPermissions = ref<UserResponseDto | null>(null);
+
+  function openUserPermissionsDialog(user: UserResponseDto) {
+    selectedUserForPermissions.value = user;
+    userPermissionsDialogVisible.value = true;
+  }
+
   function toggleShowDeleted() {
     showDeleted.value = !showDeleted.value;
     visibleCount.value = BATCH_SIZE;
@@ -281,7 +289,7 @@
 
     observer = new IntersectionObserver(async (entries) => {
       const [entry] = entries;
-      if (!entry.isIntersecting) return;
+      if (!entry!.isIntersecting) return;
 
       if (hasNextPage.value && !isFetchingNextPage.value) {
         loadingMore.value = true;
@@ -359,7 +367,7 @@
             icon="pi pi-refresh"
             label="Refresh"
             outlined
-            @click="refetch"
+            @click="refetch()"
             :loading="isFetching"
           />
         </div>
@@ -383,7 +391,7 @@
         <p class="text-red-800 dark:text-red-200">
           ❌ {{ error?.message || 'Failed to load users' }}
         </p>
-        <Button label="Retry" icon="pi pi-refresh" text @click="refetch" class="mt-2" />
+        <Button label="Retry" icon="pi pi-refresh" text @click="refetch()" class="mt-2" />
       </div>
 
       <div
@@ -533,7 +541,8 @@
                   <i class="pi pi-calendar text-green-500"></i>
                   Created
                 </span>
-                <span>{{ formatDate(u.createdAt) }}</span>
+                <!-- <span>{{ formatDate(u.createdAt) }}</span> -->
+                <span>{{ u.createdAt }}</span>
               </div>
 
               <div class="flex items-center justify-between">
@@ -541,7 +550,7 @@
                   <i class="pi pi-refresh text-cyan-500"></i>
                   Updated
                 </span>
-                <span>{{ formatDate(u.updatedAt) }}</span>
+                <span>{{ u.updatedAt }}</span>
               </div>
             </div>
           </div>
@@ -594,6 +603,13 @@
                   severity="danger"
                   v-tooltip.top="'Delete'"
                   @click="confirmSoftDelete(u, () => softDeleteMutation.mutateAsync(u.id))"
+                />
+                <Button
+                  icon="pi pi-shield"
+                  text
+                  size="small"
+                  v-tooltip.top="'Manage Permissions'"
+                  @click="openUserPermissionsDialog(u)"
                 />
               </template>
 
@@ -777,6 +793,12 @@
         @success="() => toast.success('Password reset successfully')"
       />
 
+      <UserPermissionsDialog
+        v-model:visible="userPermissionsDialogVisible"
+        :userId="selectedUserForPermissions?.id || null"
+        :fullName="selectedUserForPermissions?.fullName"
+        :email="selectedUserForPermissions?.email"
+      />
       <ConfirmDialog />
     </div>
   </div>

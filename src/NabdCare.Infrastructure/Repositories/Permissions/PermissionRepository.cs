@@ -313,4 +313,23 @@ public class PermissionRepository : IPermissionRepository
 
         return true;
     }
+    
+    public async Task<bool> ClearUserPermissionsAsync(Guid userId)
+    {
+        // 1. Find all custom permissions for this user
+        var permissions = await _dbContext.UserPermissions
+            .Where(up => up.UserId == userId)
+            .ToListAsync();
+
+        if (!permissions.Any()) return false;
+
+        // 2. Bulk Delete
+        _dbContext.UserPermissions.RemoveRange(permissions);
+        await _dbContext.SaveChangesAsync();
+    
+        // 3. Invalidate Cache (using your existing helper)
+        await _cacheInvalidator.InvalidateUserAsync(userId);
+    
+        return true;
+    }
 }

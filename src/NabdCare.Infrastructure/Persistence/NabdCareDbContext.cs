@@ -59,7 +59,10 @@ public class NabdCareDbContext : DbContext
         // ✅ MULTI-TENANT QUERY FILTERS
         // ============================================================
 
-        // ✅ Subscription filter (NEW)
+        // ✅ AppPermission filter (Simple Soft Delete)
+        modelBuilder.Entity<AppPermission>().HasQueryFilter(ap => !ap.IsDeleted);
+
+        // ✅ Subscription filter
         modelBuilder.Entity<Subscription>().HasQueryFilter(s =>
             !s.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && s.ClinicId == TenantId))
@@ -109,27 +112,17 @@ public class NabdCareDbContext : DbContext
             )
         );
 
-        // ✅ UserPermission filter
+        // ✅ UserPermission filter (FIXED)
         modelBuilder.Entity<UserPermission>().HasQueryFilter(up =>
             !up.IsDeleted &&
             (
                 IsSuperAdminUser ||
                 (
                     TenantId.HasValue &&
-                    up.User.ClinicId == TenantId &&
-                    (
-                        up.AppPermission == null ||
-                        up.AppPermission.Name.StartsWith("Users.") ||
-                        up.AppPermission.Name.StartsWith("Patients.") ||
-                        up.AppPermission.Name.StartsWith("Clinic.") ||
-                        up.AppPermission.Name.StartsWith("Appointments.")
-                    )
+                    up.User.ClinicId == TenantId
                 )
             )
         );
-
-        // ✅ AuditLogs are excluded from tenant filtering
-        // Isolation is enforced in the repository, not via EF filter
 
         // ============================================================
         // ✅ Soft Delete + Decimal Precision Normalization
@@ -174,7 +167,7 @@ public class NabdCareDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries<IAuditable>())
         {
             var userIdentifier = $"{userId}|{userFullName}";
-        
+
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.CreatedAt = now;

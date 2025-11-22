@@ -1,6 +1,7 @@
-import { ref, computed, type Ref } from 'vue';
+// src/composables/role/useRoleFilters.ts
 import type { RoleResponseDto } from '@/types/backend';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
+import { computed, ref, type Ref } from 'vue';
 
 export function useRoleFilters(roles: Ref<RoleResponseDto[]>) {
   const filters = ref<Record<string, any>>({
@@ -42,9 +43,7 @@ export function useRoleFilters(roles: Ref<RoleResponseDto[]>) {
       // Global search across name and description
       const globalMatch = !global
         ? true
-        : [r.name, r.description].some(
-            (val) => val?.toLowerCase().includes(global.toLowerCase()),
-          );
+        : [r.name, r.description].some((val) => val?.toLowerCase().includes(global.toLowerCase()));
 
       // Name filter
       const nameMatch = !name ? true : r.name?.toLowerCase().includes(name.toLowerCase());
@@ -58,13 +57,13 @@ export function useRoleFilters(roles: Ref<RoleResponseDto[]>) {
       const categoryMatch =
         category === null || category === undefined
           ? true
-          : (category === 'system' ? r.isSystemRole : !r.isSystemRole);
+          : category === 'system'
+            ? r.isSystemRole
+            : !r.isSystemRole;
 
       // ✅ Deleted status filter
       const deletedMatch =
-        isDeleted === null || isDeleted === undefined
-          ? true
-          : r.isDeleted === isDeleted;
+        isDeleted === null || isDeleted === undefined ? true : r.isDeleted === isDeleted;
 
       // Created date filter
       const dateMatch = !createdDate
@@ -72,12 +71,7 @@ export function useRoleFilters(roles: Ref<RoleResponseDto[]>) {
         : new Date(r.createdAt).toDateString() === new Date(createdDate).toDateString();
 
       return (
-        globalMatch &&
-        nameMatch &&
-        descriptionMatch &&
-        categoryMatch &&
-        deletedMatch &&
-        dateMatch
+        globalMatch && nameMatch && descriptionMatch && categoryMatch && deletedMatch && dateMatch
       );
     });
   });

@@ -36,6 +36,7 @@ public interface IPermissionService
     Task<IEnumerable<PermissionResponseDto>> GetPermissionsByUserAsync(Guid userId);
     Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId);
     Task<bool> RemovePermissionFromUserAsync(Guid userId, Guid permissionId);
+    Task<bool> ClearUserPermissionsAsync(Guid userId);
 
     // ============================================
     // EFFECTIVE PERMISSIONS

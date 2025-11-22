@@ -1,6 +1,7 @@
-import { ref } from 'vue';
-import { useConfirm } from 'primevue/useconfirm';
+// src/composables/role/useRoleUIActions.ts
 import type { RoleResponseDto } from '@/types/backend';
+import { useConfirm } from 'primevue/useconfirm';
+import { ref } from 'vue';
 
 export function useRoleUIActions() {
   const confirm = useConfirm();

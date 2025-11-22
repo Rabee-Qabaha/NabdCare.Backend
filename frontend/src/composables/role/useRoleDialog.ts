@@ -1,5 +1,6 @@
-import { ref, computed } from 'vue';
+// src/composables/role/useRoleDialog.ts
 import type { RoleResponseDto } from '@/types/backend';
+import { computed, ref } from 'vue';
 
 export function useRoleDialog() {
   const visible = ref(false);

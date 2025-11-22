@@ -112,7 +112,7 @@ public static class Permissions
         public const string ResetPassword = "Users.ResetPassword";
         public const string ManagePermissions = "Users.ManagePermissions";
         public const string Restore = "Users.Restore";
-
+        
         public static readonly Dictionary<string, string> Descriptions = new()
         {
             [View] = "View users in own clinic",
@@ -125,7 +125,7 @@ public static class Permissions
             [Activate] = "Activate or deactivate users",
             [ChangeRole] = "Change user roles",
             [ResetPassword] = "Reset user passwords",
-            [ManagePermissions] = "Assign or revoke individual permissions"
+            [ManagePermissions] = "Assign or revoke individual permissions",
         };
     }
 

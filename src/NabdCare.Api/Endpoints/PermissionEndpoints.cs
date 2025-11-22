@@ -130,6 +130,35 @@ public static class PermissionEndpoints
         .WithSummary("Get user-specific permission overrides");
 
         // ============================================
+        // 🔥 GET EFFECTIVE PERMISSIONS FOR ANY USER
+        // ============================================
+        group.MapGet("/user/{userId:guid}/effective", async (
+                Guid userId,
+                [FromServices] IPermissionService service,
+                [FromServices] CachedPermissionService cachedService) =>
+            {
+                // جلب role للمستخدم
+                var userInfo = await service.GetUserForAuthorizationAsync(userId);
+                if (!userInfo.HasValue)
+                    return Results.NotFound(new { message = "User not found or has no role" });
+
+                var roleId = userInfo.Value.RoleId;
+
+                // effective = role perms + user override perms
+                var effective = await cachedService.GetUserEffectivePermissionsAsync(userId, roleId);
+
+                return Results.Ok(new
+                {
+                    userId,
+                    roleId,
+                    permissions = effective.OrderBy(p => p.Name).ToList()
+                });
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.AppPermissions.ViewUserPermissions)
+            .WithSummary("Get the effective permissions (role + overrides) for any user");
+        
+        // ============================================
         // 🎭 GET PERMISSIONS FOR ROLE
         // ============================================
         group.MapGet("/role/{roleId:guid}", async (
@@ -247,5 +276,21 @@ public static class PermissionEndpoints
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.Revoke)
         .WithSummary("Remove permission override from user");
+        
+        // ============================================
+        // 🧹 RESET USER PERMISSIONS
+        // ============================================
+        group.MapDelete("/user/{userId:guid}/reset", async (
+                Guid userId,
+                [FromServices] IPermissionService service) =>
+            {
+                // This will call CachedPermissionService.ClearUserPermissionsAsync
+                var cleared = await service.ClearUserPermissionsAsync(userId);
+    
+                return Results.Ok(new { message = "All custom permissions removed. User reverted to Role defaults." });
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.AppPermissions.Revoke)
+            .WithSummary("Remove all custom overrides for a user");
     }
 }

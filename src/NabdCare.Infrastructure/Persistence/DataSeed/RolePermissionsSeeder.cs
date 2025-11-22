@@ -106,6 +106,8 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Roles.ViewSystem,
                 Permissions.Roles.ViewTemplates,
                 Permissions.AppPermissions.View,
+                Permissions.AppPermissions.Assign, 
+                Permissions.AppPermissions.Revoke,
 
                 // Reports & Audit
                 Permissions.Reports.ViewDashboard,
@@ -227,7 +229,13 @@ public class RolePermissionsSeeder : ISingleSeeder
                 // Reports
                 Permissions.Reports.ViewDashboard,
                 Permissions.Reports.ViewPatientReports,
-                Permissions.Reports.Export
+                Permissions.Reports.Export,
+                
+                // Permission Management (For their staff)
+                Permissions.AppPermissions.View,                
+                Permissions.AppPermissions.ViewUserPermissions,
+                Permissions.AppPermissions.Assign,              
+                Permissions.AppPermissions.Revoke,
             });
         }
 

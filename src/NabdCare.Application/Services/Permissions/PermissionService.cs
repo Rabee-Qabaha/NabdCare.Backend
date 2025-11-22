@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Permissions;
@@ -16,6 +17,7 @@ public class PermissionService : IPermissionService
     private readonly IPermissionRepository _permissionRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ITenantContext _tenant;
     private readonly IMapper _mapper;
     private readonly ILogger<PermissionService> _logger;
 
@@ -23,12 +25,14 @@ public class PermissionService : IPermissionService
         IPermissionRepository permissionRepository,
         IRoleRepository roleRepository,
         IUserRepository userRepository,
+        ITenantContext tenant,
         IMapper mapper,
         ILogger<PermissionService> logger)
     {
         _permissionRepository = permissionRepository ?? throw new ArgumentNullException(nameof(permissionRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+        _tenant = tenant ?? throw new ArgumentNullException(nameof(tenant));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -59,10 +63,21 @@ public class PermissionService : IPermissionService
         _logger.LogInformation("Retrieving all permissions");
 
         var permissions = await _permissionRepository.GetAllPermissionsAsync();
+
+        // ---------------------------------------------------------
+        // SECURITY FILTER: Hide System permissions from Non-SuperAdmins
+        // ---------------------------------------------------------
+        if (!_tenant.IsSuperAdmin)
+        {
+            var restrictedCategories = new[] { "System", "Settings", "AuditLogs" };
+        
+            permissions = permissions.Where(p => 
+                    !restrictedCategories.Contains(p.Category) && 
+                    !p.Name.StartsWith("Clinics.")
+            );
+        }
+
         var mapped = _mapper.Map<IEnumerable<PermissionResponseDto>>(permissions);
-
-        _logger.LogInformation("Retrieved {Count} permissions", permissions.Count());
-
         return mapped;
     }
 
@@ -228,45 +243,62 @@ public class PermissionService : IPermissionService
 
     public async Task<bool> AssignPermissionToUserAsync(Guid userId, Guid permissionId)
     {
-        if (userId == Guid.Empty)
-            throw new ArgumentException($"User ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(userId));
-
-        if (permissionId == Guid.Empty)
-            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
-
-        _logger.LogInformation("Assigning permission {PermissionId} to user {UserId}", permissionId, userId);
-
-        try
+        if (userId == Guid.Empty) throw new ArgumentException("User ID is required", nameof(userId));
+        if (permissionId == Guid.Empty) throw new ArgumentException("Permission ID is required", nameof(permissionId));
+    
+        // ---------------------------------------------------------
+        // 1. VALIDATION: Ensure User and Permission Exist
+        // ---------------------------------------------------------
+        
+        // Check User exists (removes need for try-catch FK check)
+        var userExists = await _userRepository.ExistsAsync(userId); 
+        if (!userExists)
         {
-            var result = await _permissionRepository.AssignPermissionToUserAsync(userId, permissionId);
-
-            if (result)
-                _logger.LogInformation("Assigned permission {PermissionId} to user {UserId}", permissionId, userId);
-
-            return result;
+            _logger.LogWarning("Attempted to assign permission to non-existent user {UserId}", userId);
+            throw new KeyNotFoundException($"User with ID {userId} not found.");
         }
-        catch (DbUpdateException ex)
+    
+        // Check Permission exists
+        var permissionDef = await _permissionRepository.GetPermissionByIdAsync(permissionId);
+        if (permissionDef == null)
         {
-            var message = ex.InnerException?.Message ?? ex.Message;
-
-            if (message.Contains("Users", StringComparison.OrdinalIgnoreCase) && 
-                message.Contains("foreign key", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("User {UserId} not found. Error code: {ErrorCode}", userId, ErrorCodes.USER_NOT_FOUND);
-                throw new KeyNotFoundException($"User with ID {userId} does not exist. Error code: {ErrorCodes.USER_NOT_FOUND}");
-            }
-
-            if (message.Contains("Permissions", StringComparison.OrdinalIgnoreCase) && 
-                message.Contains("foreign key", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("Permission {PermissionId} not found. Error code: {ErrorCode}", permissionId, ErrorCodes.NOT_FOUND);
-                throw new KeyNotFoundException($"Permission with ID {permissionId} does not exist. Error code: {ErrorCodes.NOT_FOUND}");
-            }
-
-            _logger.LogError(ex, "Database error assigning permission {PermissionId} to user {UserId}. Error code: {ErrorCode}", 
-                permissionId, userId, ErrorCodes.DATABASE_ERROR);
-            throw new InvalidOperationException($"Failed to assign permission to user. Error code: {ErrorCodes.DATABASE_ERROR}", ex);
+            _logger.LogWarning("Permission {PermissionId} not found.", permissionId);
+            throw new KeyNotFoundException($"Permission with ID {permissionId} does not exist.");
         }
+    
+        // ---------------------------------------------------------
+        // 2. SECURITY CHECK
+        // ---------------------------------------------------------
+        if (!_tenant.IsSuperAdmin)
+        {
+            var restrictedPrefixes = new[] { "System", "Clinics", "Settings", "AuditLogs" };
+            if (restrictedPrefixes.Any(p => permissionDef.Name.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            {
+                _logger.LogWarning("Security Alert: User {CurrentUserId} tried to assign {PermissionName}", _tenant.UserId, permissionDef.Name);
+                throw new UnauthorizedAccessException("You are not authorized to assign System-level permissions.");
+            }
+        }
+    
+        // ---------------------------------------------------------
+        // 3. REDUNDANCY CHECK (Role Inheritance)
+        // ---------------------------------------------------------
+        var userInfo = await GetUserForAuthorizationAsync(userId);
+        if (userInfo.HasValue)
+        {
+            var rolePermissions = await _permissionRepository.GetPermissionsByRoleAsync(userInfo.Value.RoleId);
+            if (rolePermissions.Any(p => p.Id == permissionId))
+            {
+                return false; // Already inherited
+            }
+        }
+    
+        // ---------------------------------------------------------
+        // 4. EXECUTE
+        // ---------------------------------------------------------
+        _logger.LogInformation("Assigning permission {PermissionName} to user {UserId}", permissionDef.Name, userId);
+        
+        // No try-catch needed. If this fails, it's a real 500 Server Error.
+        return await _permissionRepository.AssignPermissionToUserAsync(userId, permissionId);
     }
 
     public async Task<bool> RemovePermissionFromUserAsync(Guid userId, Guid permissionId)
@@ -287,6 +319,15 @@ public class PermissionService : IPermissionService
         return result;
     }
 
+    public async Task<bool> ClearUserPermissionsAsync(Guid userId)
+    {
+        if (userId == Guid.Empty) throw new ArgumentException("Invalid User ID", nameof(userId));
+    
+        _logger.LogInformation("Clearing all custom permissions for user {UserId}", userId);
+    
+        return await _permissionRepository.ClearUserPermissionsAsync(userId);
+    }
+    
     public async Task<IEnumerable<PermissionResponseDto>> GetUserEffectivePermissionsAsync(Guid userId, Guid roleId)
     {
         if (userId == Guid.Empty)

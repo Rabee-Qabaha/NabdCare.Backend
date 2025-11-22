@@ -1,60 +1,128 @@
-// src/composables/query/roles/useRoleActions.ts
-import { rolesApi } from "@/api/modules/roles";
-import { useMutationWithInvalidate } from "@/composables/query/helpers/useMutationWithInvalidate";
-import type {
-  CreateRoleRequestDto,
-  UpdateRoleRequestDto,
-  CloneRoleRequestDto,
-} from "@/types/backend";
+import { rolesApi } from '@/api/modules/roles';
+import { usePermission } from '@/composables/usePermission';
+import { useToastService } from '@/composables/useToastService';
+import type { CreateRoleRequestDto, RoleResponseDto, UpdateRoleRequestDto } from '@/types/backend';
+import { useMutation, useQueryClient } from '@tanstack/vue-query';
 
-export function useCreateRole() {
-  return useMutationWithInvalidate({
-    mutationKey: ["roles", "create"],
+export function useRoleActions() {
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { can } = usePermission();
+
+  const ROLES_KEY = ['roles'];
+
+  // CREATE ROLE
+  const createMutation = useMutation({
     mutationFn: (data: CreateRoleRequestDto) => rolesApi.create(data),
-    invalidateKeys: [["roles"]],
-    successMessage: "Role created successfully",
-    errorMessage: "Failed to create role",
-  });
-}
 
-export function useUpdateRole() {
-  return useMutationWithInvalidate({
-    mutationKey: ["roles", "update"],
-    mutationFn: ({ id, data }: { id: string; data: UpdateRoleRequestDto }) =>
-      rolesApi.update(id, data),
-    invalidateKeys: [["roles"]],
-    successMessage: "Role updated successfully",
-    errorMessage: "Failed to update role",
-  });
-}
+    onSuccess: () => {
+      toast.success('Role created successfully');
+      queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+    },
 
-export function useDeleteRole() {
-  return useMutationWithInvalidate({
-    mutationKey: ["roles", "delete"],
-    mutationFn: (id: string) => rolesApi.delete(id),
-    invalidateKeys: [["roles"]],
-    successMessage: "Role deleted",
-    errorMessage: "Failed to delete role",
+    onError: () => toast.error('Failed to create role'),
   });
-}
 
-export function useRestoreRole() {
-  return useMutationWithInvalidate({
-    mutationKey: ["roles", "restore"],
-    mutationFn: (id: string) => rolesApi.restore(id),
-    invalidateKeys: [["roles"]],
-    successMessage: "Role restored successfully",
-    errorMessage: "Failed to restore role",
-  });
-}
+  // UPDATE ROLE
+  const updateMutation = useMutation({
+    mutationFn: (payload: { roleId: string; data: UpdateRoleRequestDto }) =>
+      rolesApi.update(payload.roleId, payload.data),
 
-export function useCloneRole() {
-  return useMutationWithInvalidate({
-    mutationKey: ["roles", "clone"],
-    mutationFn: (payload: CloneRoleRequestDto & { templateRoleId: string }) =>
-      rolesApi.clone(payload.templateRoleId, payload),
-    invalidateKeys: [["roles"]],
-    successMessage: "Role cloned successfully",
-    errorMessage: "Failed to clone role",
+    onSuccess: () => {
+      toast.success('Role updated successfully');
+      queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+    },
+
+    onError: () => toast.error('Failed to update role'),
   });
+
+  // DELETE ROLE (optimistic)
+  const deleteMutation = useMutation({
+    mutationFn: (roleId: string) => rolesApi.softDelete(roleId),
+
+    onMutate: async (roleId: string) => {
+      await queryClient.cancelQueries({ queryKey: ROLES_KEY });
+
+      const prev = queryClient.getQueryData<RoleResponseDto[]>(ROLES_KEY);
+
+      if (prev) {
+        queryClient.setQueryData<RoleResponseDto[]>(
+          ROLES_KEY,
+          prev.map((r) => (r.id === roleId ? { ...r, isDeleted: true } : r)),
+        );
+      }
+
+      return { prev };
+    },
+
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(ROLES_KEY, ctx.prev);
+      toast.error('Failed to delete role');
+    },
+
+    onSuccess: () => {
+      toast.success('Role deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+    },
+  });
+
+  // RESTORE
+  const restoreMutation = useMutation({
+    mutationFn: (roleId: string) => rolesApi.restore(roleId),
+
+    onSuccess: () => {
+      toast.success('Role restored successfully');
+      queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+    },
+
+    onError: () => toast.error('Failed to restore role'),
+  });
+
+  // CLONE ROLE
+  const cloneMutation = useMutation({
+    mutationFn: (payload: {
+      roleId: string;
+      clinicId?: string | null;
+      newRoleName?: string | null;
+      description?: string | null;
+      copyPermissions?: boolean;
+    }) =>
+      rolesApi.clone(payload.roleId, {
+        clinicId: payload.clinicId ?? null,
+        newRoleName: payload.newRoleName ?? null,
+        description: payload.description ?? null,
+        copyPermissions: payload.copyPermissions ?? true,
+      }),
+
+    onSuccess: () => {
+      toast.success('Role cloned successfully');
+      queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+    },
+
+    onError: () => toast.error('Failed to clone role'),
+  });
+
+  return {
+    // actions
+    createRole: createMutation.mutate,
+    updateRole: (roleId: string, data: UpdateRoleRequestDto) =>
+      updateMutation.mutate({ roleId, data }),
+    deleteRole: deleteMutation.mutate,
+    restoreRole: restoreMutation.mutate,
+    cloneRole: cloneMutation.mutate,
+
+    // expose mutations
+    createMutation,
+    updateMutation,
+    deleteMutation,
+    restoreMutation,
+    cloneMutation,
+
+    // permissions
+    canEditRole: can('Roles.Edit'),
+    canDeleteRole: can('Roles.Delete'),
+    canCloneRole: can('Roles.Clone'),
+    canCreateRole: can('Roles.Create'),
+    canRestoreRole: can('Roles.Restore'),
+  };
 }

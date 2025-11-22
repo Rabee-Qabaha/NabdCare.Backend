@@ -1,3 +1,4 @@
+// src/utils/roles/roleDisplay.ts
 import type { RoleResponseDto } from '@/types/backend';
 import type { RoleDisplayConfig } from '@/types/domain/roles';
 

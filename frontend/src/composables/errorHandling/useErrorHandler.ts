@@ -1,3 +1,4 @@
+// src/composables/errorHandling/useErrorHandler.ts
 /**
  * Full Error Handler Composable
  * Location: src/composables/errorHandling/useErrorHandler.ts
@@ -9,11 +10,11 @@
  * - Auth redirect logic
  */
 
-import { handleError as processError, getFieldErrors } from "@/utils/errorHandler";
-import { useRouter } from "vue-router";
-import { useAuthStore } from "@/stores/authStore";
-import type { UIError } from "@/types/errors";
-import { useToastService } from "@/composables/useToastService";
+import { useToastService } from '@/composables/useToastService';
+import { useAuthStore } from '@/stores/authStore';
+import type { UIError } from '@/types/errors';
+import { getFieldErrors, handleError as processError } from '@/utils/errorHandler';
+import { useRouter } from 'vue-router';
 
 export function useErrorHandler() {
   const router = useRouter();
@@ -29,31 +30,28 @@ export function useErrorHandler() {
     console.warn(`[${uiError.code}] ${uiError.message}`);
 
     // 🔐 TOKEN / SECURITY VIOLATIONS
-    if (
-      uiError.code === "SECURITY_VIOLATION" ||
-      uiError.code === "TOKEN_REUSE_DETECTED"
-    ) {
+    if (uiError.code === 'SECURITY_VIOLATION' || uiError.code === 'TOKEN_REUSE_DETECTED') {
       await authStore.logout();
-      router.push("/auth/login");
-      toast.error("Security violation detected. Please log in again.");
+      router.push('/auth/login');
+      toast.error('Security violation detected. Please log in again.');
       return uiError;
     }
 
     // 🔓 AUTH ERRORS
     if (uiError.isAuthError) {
       await authStore.logout();
-      router.push("/auth/login");
+      router.push('/auth/login');
       toast.error(uiError.message);
       return uiError;
     }
 
     // 🚫 AUTHORIZATION ERRORS
     if (
-      uiError.code === "FORBIDDEN" ||
-      uiError.code === "ACCESS_DENIED" ||
-      uiError.code === "INSUFFICIENT_PERMISSIONS"
+      uiError.code === 'FORBIDDEN' ||
+      uiError.code === 'ACCESS_DENIED' ||
+      uiError.code === 'INSUFFICIENT_PERMISSIONS'
     ) {
-      router.push("/auth/access");
+      router.push('/auth/access');
       toast.error(uiError.message);
       return uiError;
     }

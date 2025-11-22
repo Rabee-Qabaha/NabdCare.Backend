@@ -1,4 +1,5 @@
 /** AUTO-GENERATED FILE — DO NOT EDIT MANUALLY */
+import { ErrorCodes } from '@/types/backend';
 import { AppPermissions } from '@/types/backend/constants/app-permissions';
 import { Appointments } from '@/types/backend/constants/appointments';
 import { AuditLogs } from '@/types/backend/constants/audit-logs';
@@ -17,18 +18,20 @@ import { Users } from '@/types/backend/constants/users';
 
 export const PermissionRegistry = {
   AppPermissions,
-  Appointments,
-  AuditLogs,
-  Clinic,
   Clinics,
-  Invoices,
-  MedicalRecords,
-  Patients,
-  Payments,
-  Reports,
-  Roles,
-  Settings,
+  Clinic,
   Subscriptions,
-  System,
   Users,
+  Roles,
+  Patients,
+  Appointments,
+  MedicalRecords,
+  Payments,
+  Invoices,
+  Reports,
+  Settings,
+  AuditLogs,
+  System,
 } as const;
+
+export { ErrorCodes };

@@ -1,15 +1,15 @@
 // src/stores/authStore.ts
 import { authApi } from '@/api/modules/auth';
 import { permissionsApi } from '@/api/modules/permissions';
+import { usersApi } from '@/api/modules/users';
 import { PermissionRegistry } from '@/config/permissionsRegistry';
-import { usersApi } from "@/api/modules/users";
 
 import type { LoginRequestDto, UserResponseDto } from '@/types/backend';
 import { defineStore } from 'pinia';
-import { ref, computed, nextTick } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
-import { tokenManager } from '@/utils/tokenManager';
 import { isTokenExpired } from '@/utils/jwtUtils';
+import { tokenManager } from '@/utils/tokenManager';
 
 export const useAuthStore = defineStore('auth', () => {
   // ===========================
@@ -21,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
   const isPermissionsLoaded = ref(false);
+  const permissionsVersion = ref<string | null>(null);
 
   // ===========================
   // COMPUTED
@@ -58,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
   // ===========================
   const loadCurrentUser = async () => {
     try {
-      const response = await usersApi.getMe()
+      const response = await usersApi.getMe();
       currentUser.value = response.data;
     } catch (err) {
       console.error('❌ Failed to fetch /users/me:', err);
@@ -73,6 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loadPermissions = async () => {
     if (!currentUser.value) {
       permissions.value = [];
+      permissionsVersion.value = null;
       isPermissionsLoaded.value = true;
       return;
     }
@@ -80,9 +82,11 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const result = await permissionsApi.getMine();
       permissions.value = result.permissions || [];
+      permissionsVersion.value = result.permissionsVersion || null;
     } catch (err) {
       console.error('❌ Failed to load permissions:', err);
       permissions.value = [];
+      permissionsVersion.value = null;
     }
 
     isPermissionsLoaded.value = true;
@@ -164,10 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return currentUser.value;
     } catch (err: any) {
-      const message =
-        err?.response?.data?.error?.message ||
-        err?.message ||
-        'Login failed';
+      const message = err?.response?.data?.error?.message || err?.message || 'Login failed';
 
       error.value = message;
       currentUser.value = null;
@@ -198,8 +199,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = false;
   };
 
-  const hasPermission = (permission: string) =>
-    isSuperAdmin.value || permissions.value.includes(permission);
+  // const hasPermission = (permission: string) =>
+  //   isSuperAdmin.value || permissions.value.includes(permission);
 
   const clearError = () => (error.value = null);
 
@@ -210,6 +211,7 @@ export const useAuthStore = defineStore('auth', () => {
     // State
     currentUser,
     permissions,
+    permissionsVersion,
     loading,
     error,
     isInitialized,
@@ -229,7 +231,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     loadCurrentUser,
     loadPermissions,
-    hasPermission,
+    // hasPermission,
     clearError,
   };
 });

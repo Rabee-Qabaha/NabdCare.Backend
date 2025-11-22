@@ -47,6 +47,15 @@ export const permissionsApi = {
     return data;
   },
 
+  async getUserEffective(userId: string) {
+    const { data } = await api.get<{
+      userId: string;
+      roleId: string;
+      permissions: PermissionResponseDto[];
+    }>(`/permissions/user/${userId}/effective`);
+    return data;
+  },
+
   async getByRole(roleId: string) {
     const { data } = await api.get<PermissionResponseDto[]>(`/permissions/role/${roleId}`);
     return data;
@@ -80,5 +89,9 @@ export const permissionsApi = {
   async removeFromUser(userId: string, permissionId: string) {
     const { data } = await api.delete(`/permissions/user/${userId}/permission/${permissionId}`);
     return data;
+  },
+
+  resetUserPermissions(userId: string) {
+    return api.delete(`/permissions/user/${userId}/reset`);
   },
 };

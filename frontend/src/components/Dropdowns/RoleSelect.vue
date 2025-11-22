@@ -4,8 +4,8 @@
   import Tag from 'primevue/tag';
   import { computed } from 'vue';
 
-  import { useGroupedRoles } from '@/composables/query/useDropdownData';
-  import type { RoleResponseDto } from '@/types/backend';
+  import { rolesApi } from '@/api/modules/roles';
+  import { useQuery } from '@tanstack/vue-query';
 
   const props = defineProps<{
     modelValue: string | null;
@@ -14,19 +14,40 @@
     required?: boolean;
     valueKey?: 'id' | 'name';
     showClear?: boolean;
+    clinicId?: string | null;
   }>();
 
   const emit = defineEmits<{
     (e: 'update:modelValue', value: string | null): void;
   }>();
 
-  const { data: groupedRolesData, isLoading, error } = useGroupedRoles();
+  /* -----------------------------------------------------------
+   LOAD ROLES SMARTLY
+   If clinicId → fetch template + clinic roles
+   Else → fetch ALL roles (system + clinic + template)
+----------------------------------------------------------- */
 
-  const roles = computed<RoleResponseDto[]>(() => {
-    const grouped = groupedRolesData.value;
-    if (!grouped) return [];
-    return [...(grouped.systemRoles || []), ...(grouped.clinicRoles || [])];
+  const rolesQuery = useQuery({
+    queryKey: ['dropdown', 'roles', props.clinicId ?? 'system'],
+    queryFn: async () => {
+      // SYSTEM MODE (clinicId is null)
+      if (!props.clinicId) {
+        const grouped = await rolesApi.getGrouped();
+        return [...grouped.systemRoles, ...grouped.templateRoles, ...grouped.clinicRoles];
+      }
+
+      // CLINIC MODE
+      const [templates, clinicRoles] = await Promise.all([
+        rolesApi.getTemplates().then((r) => r.data),
+        rolesApi.getClinicRoles(props.clinicId!).then((r) => r.data),
+      ]);
+
+      return [...templates, ...clinicRoles];
+    },
+    staleTime: 1000 * 60 * 5,
   });
+
+  const roles = computed(() => rolesQuery.data?.value ?? []);
 
   const selectedRole = computed(() => {
     const key = props.valueKey ?? 'id';
@@ -44,23 +65,23 @@
       :options="roles"
       optionLabel="name"
       :optionValue="props.valueKey ?? 'id'"
-      :loading="isLoading"
+      :loading="rolesQuery.isLoading.value"
       filter
       filterPlaceholder="Search roles..."
       :invalid="props.invalid"
-      :disabled="!!error"
+      :disabled="rolesQuery.isError.value"
       :showClear="props.showClear ?? false"
     >
       <!-- Selected Value -->
       <template #value="{ value }">
-        <div v-if="value" class="flex items-center gap-2 truncate" style="width: 100%">
+        <div v-if="selectedRole" class="flex items-center gap-2 truncate" style="width: 100%">
           <div
             class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
           >
-            <i :class="selectedRole?.iconClass || 'pi pi-shield'"></i>
+            <i :class="selectedRole.iconClass || 'pi pi-shield'"></i>
           </div>
           <span class="truncate text-sm font-medium">
-            {{ selectedRole?.name }}
+            {{ selectedRole.name }}
           </span>
         </div>
       </template>
@@ -85,8 +106,8 @@
             </div>
 
             <Tag
-              :value="option.isSystemRole ? 'System' : 'User'"
-              :severity="option.isSystemRole ? 'danger' : 'success'"
+              :value="option.isSystemRole ? 'System' : option.isTemplate ? 'Template' : 'Clinic'"
+              :severity="option.isSystemRole ? 'danger' : option.isTemplate ? 'info' : 'success'"
               class="flex-shrink-0 px-2 py-0.5 text-xs"
             />
           </div>
@@ -112,7 +133,7 @@
             <span
               v-if="option.permissionCount"
               class="flex items-center gap-1"
-              v-tooltip.top="`${option.permissionCount} granted permissions`"
+              v-tooltip.top="`${option.permissionCount} permissions`"
             >
               <i class="pi pi-lock text-xs"></i>
               {{ option.permissionCount }}

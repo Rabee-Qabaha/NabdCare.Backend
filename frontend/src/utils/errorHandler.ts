@@ -1,3 +1,4 @@
+// src/utils/errorHandler.ts
 /**
  * Error Handler Utility
  * Location: src/utils/errorHandler.ts
@@ -45,27 +46,18 @@ export function handleError(error: any): UIError {
     if (responseData?.error?.code) {
       code = responseData.error.code;
       // ✅ USE BACKEND MESSAGE DIRECTLY
-      message =
-        responseData.error.message ||
-        FALLBACK_MESSAGES[code] ||
-        'An error occurred';
+      message = responseData.error.message || FALLBACK_MESSAGES[code] || 'An error occurred';
       details = responseData.error.details;
     }
     // ✅ Fallback: Try alternate structure
     else if (responseData?.code) {
       code = responseData.code;
-      message =
-        responseData.message ||
-        FALLBACK_MESSAGES[code] ||
-        'An error occurred';
+      message = responseData.message || FALLBACK_MESSAGES[code] || 'An error occurred';
     }
     // ✅ No error code - map HTTP status
     else {
       code = mapHttpStatusToCode(httpStatus);
-      message =
-        error.message ||
-        FALLBACK_MESSAGES[code] ||
-        'An error occurred';
+      message = error.message || FALLBACK_MESSAGES[code] || 'An error occurred';
     }
   }
   // ✅ Handle plain error object

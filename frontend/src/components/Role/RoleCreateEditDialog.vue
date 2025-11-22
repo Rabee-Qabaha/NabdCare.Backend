@@ -1,127 +1,177 @@
+// src/components/Role/RoleCreateEditDialog.vue
 <template>
   <Dialog
     v-model:visible="visible"
-    :header="isEditMode ? 'Edit Role' : 'Create New Role'"
     :modal="true"
-    :style="{ width: '550px' }"
-    class="rounded-xl p-4"
+    :closable="!isSubmitting"
+    :style="{ width: '600px' }"
+    class="role-create-edit-dialog"
     @hide="onClose"
   >
-    <div classs="flex flex-col gap-6 p-2 pt-4">
-      <FloatLabel class="mt-4">
-        <InputText
-          id="name"
-          v-model.trim="formData.name"
-          type="text"
-          maxlength="100"
-          class="w-full"
-          :invalid="submitted && !isNameValid"
-          required
-        />
-        <label for="name">
-          Role Name
+    <template #header>
+      <div class="flex flex-col gap-1">
+        <h3 class="text-lg font-semibold">
+          {{ dialogTitle }}
+        </h3>
+        <p class="text-sm text-surface-500">
+          {{ dialogSubtitle }}
+        </p>
+      </div>
+    </template>
+
+    <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
+      <!-- Name -->
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium">
+          Role name
           <span class="text-red-500">*</span>
         </label>
-      </FloatLabel>
-      <small v-if="submitted && !isNameValid" class="mt-1 block text-red-500">
-        Role name is required (max 100 characters).
-      </small>
-      <small v-else class="mt-1 block text-gray-500">Max 100 characters</small>
-
-      <FloatLabel class="mt-6">
-        <Textarea
-          id="description"
-          v-model="formData.description"
-          :auto-resize="true"
-          rows="4"
-          maxlength="500"
+        <InputText
+          v-model="form.name"
           class="w-full"
+          :class="{ 'p-invalid': errors.name }"
+          placeholder="e.g. Receptionist, Doctor, Admin"
         />
-        <label for="description">Description</label>
-      </FloatLabel>
-      <small class="mt-1 block text-gray-500">
-        {{ formData.description?.length ?? 0 }}/500 characters
-      </small>
-
-      <div v-if="!isEditMode || !role?.isSystemRole" class="mt-6 flex flex-col gap-2">
-        <FloatLabel>
-          <Dropdown
-            id="clinicId"
-            v-model="formData.clinicId"
-            :options="clinics"
-            optionLabel="name"
-            optionValue="id"
-            class="w-full"
-          />
-          <label for="clinicId">Clinic</label>
-        </FloatLabel>
-        <small class="text-gray-500">Optional - leave empty for current clinic</small>
+        <small v-if="errors.name" class="p-error">
+          {{ errors.name }}
+        </small>
       </div>
 
-      <div class="mt-6">
-        <label for="colorCode" class="mb-2 block font-medium">
-          Color
-        </label>
-        <div class="flex items-center gap-2">
-          <ColorPicker v-model="formData.colorCode" />
-          <InputText
-            id="colorCode"
-            v-model="formData.colorCode"
-            class="w-full"
-            placeholder="e.g., 3B82F6"
-          />
-        </div>
-      </div>
-
-      <FloatLabel class="mt-6">
-        <Dropdown
-          id="iconClass"
-          v-model="formData.iconClass"
-          :options="primeIcons"
-          optionLabel="name"
-          optionValue="class"
-          filter
-          showClear
+      <!-- Description -->
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium">Description</label>
+        <Textarea
+          v-model="form.description"
+          rows="3"
+          auto-resize
           class="w-full"
-        >
-          <template #value="slotProps">
-            <div v-if="slotProps.value" class="flex items-center gap-2">
-              <i :class="slotProps.value" style="font-size: 1.25rem;"></i>
-              <span>{{ slotProps.value }}</span>
-            </div>
-            <span v-else>
-              Select an Icon
-            </span>
-          </template>
-          <template #option="slotProps">
+          placeholder="Short description for this role"
+        />
+      </div>
+
+      <!-- Layout: left (basic meta), right (icon/color) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- LEFT SIDE: meta fields -->
+        <div class="flex flex-col gap-3">
+          <!-- SuperAdmin-only fields -->
+          <div v-if="isSuperAdmin" class="flex flex-col gap-3">
+            <!-- Is Template -->
             <div class="flex items-center gap-2">
-              <i :class="slotProps.option.class" style="font-size: 1.25rem;"></i>
-              <span>{{ slotProps.option.name }}</span>
+              <Checkbox v-model="form.isTemplate" binary input-id="isTemplate" />
+              <label for="isTemplate" class="text-sm">
+                Template role (can be cloned by clinics)
+              </label>
             </div>
-          </template>
-        </Dropdown>
-        <label for="iconClass">Select an Icon</label>
-      </FloatLabel>
-      <div v-if="isEditMode && role" class="mt-6">
+
+            <!-- Display Order -->
+            <div class="flex flex-col gap-1">
+              <label class="text-sm font-medium">Display order</label>
+              <InputNumber v-model="form.displayOrder" class="w-full" :min="1" :max="1000" />
+              <small class="text-xs text-surface-500">
+                Lower numbers are shown first in role lists.
+              </small>
+            </div>
+
+            <!-- Clinic selector (placeholder) -->
+            <!--
+              NOTE:
+              - For SuperAdmin you can plug a real clinic dropdown here
+              - For now we keep a simple text hint; you can replace with PrimeVue Dropdown
+            -->
+            <div class="flex flex-col gap-1">
+              <label class="text-sm font-medium">Clinic (optional)</label>
+              <InputText
+                v-model="form.clinicId"
+                class="w-full"
+                placeholder="Leave empty for system-level or current clinic"
+              />
+              <small class="text-xs text-surface-500">
+                For SuperAdmin: set a specific clinic ID or leave empty to use current context.
+              </small>
+            </div>
+          </div>
+
+          <!-- Non-SuperAdmin info -->
+          <div v-else class="text-xs text-surface-500">
+            Role will be created for your current clinic.
+          </div>
         </div>
-    </div>
+
+        <!-- RIGHT SIDE: icon + color -->
+        <div class="flex flex-col gap-3">
+          <!-- Color palette -->
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium">Color</label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="color in COLOR_PALETTE"
+                :key="color"
+                type="button"
+                class="w-7 h-7 rounded-full border border-surface-300 flex items-center justify-center cursor-pointer transition-all"
+                :style="{ backgroundColor: color }"
+                :class="{
+                  'ring-2 ring-primary ring-offset-2': form.colorCode === color,
+                }"
+                @click="selectColor(color)"
+              >
+                <i v-if="form.colorCode === color" class="pi pi-check text-xs text-white"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <InputText v-model="form.colorCode" class="w-32 text-xs" placeholder="#3B82F6" />
+              <small class="text-xs text-surface-500">Optional hex color.</small>
+            </div>
+          </div>
+
+          <!-- Icon picker -->
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium">Icon</label>
+
+            <InputText v-model="iconSearch" class="w-full mb-2" placeholder="Search icon..." />
+
+            <div
+              class="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto border border-surface-200 rounded-md p-2"
+            >
+              <button
+                v-for="icon in filteredIcons"
+                :key="icon.class"
+                type="button"
+                class="flex flex-col items-center justify-center gap-1 p-2 rounded-md border text-xs cursor-pointer transition-all"
+                :class="{
+                  'border-primary ring-2 ring-primary ring-offset-2': form.iconClass === icon.class,
+                  'border-surface-200 hover:border-primary-300': form.iconClass !== icon.class,
+                }"
+                @click="selectIcon(icon.class)"
+              >
+                <i :class="icon.class" class="text-lg"></i>
+                <span class="truncate max-w-[80px]">
+                  {{ icon.label }}
+                </span>
+              </button>
+            </div>
+
+            <small class="text-xs text-surface-500 mt-1">
+              Optional. Pick an icon for this role (e.g. doctor, admin, finance).
+            </small>
+          </div>
+        </div>
+      </div>
+    </form>
 
     <template #footer>
-      <div class="flex justify-between gap-2 p-2">
+      <div class="flex justify-end gap-2">
         <Button
           label="Cancel"
-          icon="pi pi-times"
           severity="secondary"
-          outlined
-          @click="onClose"
+          class="p-button-outlined"
           :disabled="isSubmitting"
+          @click="onClose"
         />
         <Button
-          :label="isEditMode ? 'Save Changes' : 'Create Role'"
-          icon="pi pi-check"
+          :label="submitButtonLabel"
           :loading="isSubmitting"
-          :disabled="isSubmitting"
-          @click="submitForm"
+          icon="pi pi-check"
+          @click="onSubmit"
         />
       </div>
     </template>
@@ -129,237 +179,278 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import type { RoleResponseDto, CreateRoleRequestDto, UpdateRoleRequestDto } from '@/types/backend';
-import { useCreateRole, useUpdateRole } from '@/composables/query/roles/useRoleActions';
-import Dialog from 'primevue/dialog';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
-import Textarea from 'primevue/textarea';
-import Dropdown from 'primevue/dropdown';
-import FloatLabel from 'primevue/floatlabel';
-import ColorPicker from 'primevue/colorpicker';
+  import { useRoleActions } from '@/composables/query/roles/useRoleActions';
+  import { useAuthStore } from '@/stores/authStore';
+  import type {
+    CreateRoleRequestDto,
+    RoleResponseDto,
+    UpdateRoleRequestDto,
+  } from '@/types/backend';
+  import { computed, reactive, ref, watch } from 'vue';
 
-interface Props {
-  visible: boolean;
-  role?: RoleResponseDto | null;
-}
+  // ---------- Props / Emits ----------
 
-const props = withDefaults(defineProps<Props>(), {
-  role: null,
-});
-
-const emit = defineEmits<{
-  'update:visible': [value: boolean];
-  'created': [];
-  'updated': [];
-}>();
-
-const submitted = ref(false);
-
-// --- UPDATED: Expanded List of PrimeIcons ---
-const primeIcons = ref([
-  // Common UI
-  { name: 'User', class: 'pi pi-user' },
-  { name: 'User Plus', class: 'pi pi-user-plus' },
-  { name: 'User Minus', class: 'pi pi-user-minus' },
-  { name: 'Users', class: 'pi pi-users' },
-  { name: 'Cog', class: 'pi pi-cog' },
-  { name: 'Search', class: 'pi pi-search' },
-  { name: 'Home', class: 'pi pi-home' },
-  { name: 'Envelope', class: 'pi pi-envelope' },
-  { name: 'Phone', class: 'pi pi-phone' },
-  { name: 'Calendar', class: 'pi pi-calendar' },
-  { name: 'Clock', class: 'pi pi-clock' },
-  { name: 'Info Circle', class: 'pi pi-info-circle' },
-  { name: 'Question Circle', class: 'pi pi-question-circle' },
-  { name: 'Exclamation Triangle', class: 'pi pi-exclamation-triangle' },
-  { name: 'Exclamation Circle', class: 'pi pi-exclamation-circle' },
-
-  // Actions
-  { name: 'Check', class: 'pi pi-check' },
-  { name: 'Check Circle', class: 'pi pi-check-circle' },
-  { name: 'Times', class: 'pi pi-times' },
-  { name: 'Times Circle', class: 'pi pi-times-circle' },
-  { name: 'Plus', class: 'pi pi-plus' },
-  { name: 'Plus Circle', class: 'pi pi-plus-circle' },
-  { name: 'Minus', class: 'pi pi-minus' },
-  { name: 'Minus Circle', class: 'pi pi-minus-circle' },
-  { name: 'Pencil', class: 'pi pi-pencil' },
-  { name: 'Trash', class: 'pi pi-trash' },
-  { name: 'Copy', class: 'pi pi-copy' },
-  { name: 'Clone', class: 'pi pi-clone' },
-  { name: 'Filter', class: 'pi pi-filter' },
-  { name: 'Filter Slash', class: 'pi pi-filter-slash' },
-  { name: 'Upload', class: 'pi pi-upload' },
-  { name: 'Download', class: 'pi pi-download' },
-  { name: 'Refresh', class: 'pi pi-refresh' },
-  { name: 'Sync', class: 'pi pi-sync' },
-  { name: 'Sign In', class: 'pi pi-sign-in' },
-  { name: 'Sign Out', class: 'pi pi-sign-out' },
-  { name: 'Lock', class: 'pi pi-lock' },
-  { name: 'Lock Open', class: 'pi pi-lock-open' },
-
-  // Healthcare
-  { name: 'Heart', class: 'pi pi-heart' },
-  { name: 'Heart Fill', class: 'pi pi-heart-fill' },
-  { name: 'Briefcase', class: 'pi pi-briefcase' },
-  { name: 'Book', class: 'pi pi-book' },
-  { name: 'Stethoscope', class: 'pi pi-stethoscope' }, // You might need to add this to PrimeIcons if it's custom
-  { name: 'Clinic', class: 'pi pi-building' }, // Using 'building' as a proxy
-
-  // Objects & Files
-  { name: 'Shield', class: 'pi pi-shield' },
-  { name: 'Star', class: 'pi pi-star' },
-  { name: 'Star Fill', class: 'pi pi-star-fill' },
-  { name: 'Palette', class: 'pi pi-palette' },
-  { name: 'Building', class: 'pi pi-building' },
-  { name: 'File', class: 'pi pi-file' },
-  { name: 'File Excel', class: 'pi pi-file-excel' },
-  { name: 'File PDF', class: 'pi pi-file-pdf' },
-  { name: 'Folder', class: 'pi pi-folder' },
-  { name: 'Folder Open', class: 'pi pi-folder-open' },
-  { name: 'Image', class: 'pi pi-image' },
-  { name: 'Video', class: 'pi pi-video' },
-  { name: 'Globe', class: 'pi pi-globe' },
-  { name: 'Database', class: 'pi pi-database' },
-  { name: 'Server', class: 'pi pi-server' },
-
-  // Navigation & Arrows
-  { name: 'Arrow Left', class: 'pi pi-arrow-left' },
-  { name: 'Arrow Right', class: 'pi pi-arrow-right' },
-  { name: 'Arrow Up', class: 'pi pi-arrow-up' },
-  { name: 'Arrow Down', class: 'pi pi-arrow-down' },
-  { name: 'Chevron Left', class: 'pi pi-chevron-left' },
-  { name: 'Chevron Right', class: 'pi pi-chevron-right' },
-  { name: 'Chevron Up', class: 'pi pi-chevron-up' },
-  { name: 'Chevron Down', class: 'pi pi-chevron-down' },
-]);
-// --- End Expanded List ---
-
-const formData = ref({
-  name: '',
-  description: '',
-  clinicId: null as string | null,
-  colorCode: '3B82F6', 
-  iconClass: '',
-});
-
-const isSubmitting = ref(false);
-const clinics = ref([
-  { id: '1', name: 'Main Clinic' },
-  { id: '2', name: 'Branch Clinic' },
-]);
-
-const { mutate: createRole } = useCreateRole();
-const { mutate: updateRole } = useUpdateRole();
-
-const visible = computed({
-  get: () => props.visible,
-  set: (value) => emit('update:visible', value),
-});
-
-const isEditMode = computed(() => !!props.role);
-
-const isNameValid = computed(() => {
-  return formData.value.name.trim().length > 0 && formData.value.name.length <= 100;
-});
-
-const onClose = () => {
-  visible.value = false;
-};
-
-const submitForm = async () => {
-  submitted.value = true;
-
-  if (!isNameValid.value) {
-    return;
+  interface Props {
+    visible: boolean;
+    role?: RoleResponseDto | null;
+    mode?: 'create' | 'edit' | 'clone';
   }
 
-  isSubmitting.value = true;
+  const props = defineProps<Props>();
 
-  try {
-    if (isEditMode.value && props.role) {
+  const emit = defineEmits<{
+    (e: 'update:visible', value: boolean): void;
+    (e: 'saved'): void;
+  }>();
+
+  const visible = computed({
+    get: () => props.visible,
+    set: (v: boolean) => emit('update:visible', v),
+  });
+
+  // ---------- Stores & actions ----------
+
+  const authStore = useAuthStore();
+  const isSuperAdmin = computed(() => authStore.isSuperAdmin);
+
+  const { createMutation, updateMutation, canCreateRole, canEditRole } = useRoleActions();
+
+  // ---------- Local form state ----------
+
+  interface RoleFormState {
+    name: string;
+    description: string | null;
+    colorCode: string | null;
+    iconClass: string | null;
+    isTemplate: boolean;
+    displayOrder: number;
+    clinicId: string | null;
+  }
+
+  const form = reactive<RoleFormState>({
+    name: '',
+    description: null,
+    colorCode: '#3B82F6',
+    iconClass: null,
+    isTemplate: false,
+    displayOrder: 100,
+    clinicId: null,
+  });
+
+  const errors = ref<Partial<Record<keyof RoleFormState, string>>>({});
+
+  // ---------- Icon data ----------
+
+  const ICON_OPTIONS = [
+    { label: 'Doctor', class: 'fa-solid fa-user-doctor' },
+    { label: 'Nurse', class: 'fa-solid fa-user-nurse' },
+    { label: 'Reception', class: 'fa-solid fa-bell-concierge' },
+    { label: 'Admin', class: 'fa-solid fa-user-gear' },
+    { label: 'Finance', class: 'fa-solid fa-file-invoice-dollar' },
+    { label: 'Reports', class: 'fa-solid fa-chart-line' },
+    { label: 'Settings', class: 'fa-solid fa-sliders' },
+    { label: 'Clinic', class: 'fa-solid fa-hospital' },
+    { label: 'Patients', class: 'fa-solid fa-user-injured' },
+    { label: 'Calendar', class: 'fa-solid fa-calendar-days' },
+    { label: 'Security', class: 'fa-solid fa-shield-halved' },
+    { label: 'Support', class: 'fa-solid fa-headset' },
+  ];
+
+  const COLOR_PALETTE = [
+    '#3B82F6', // blue
+    '#10B981', // green
+    '#F59E0B', // amber
+    '#EF4444', // red
+    '#8B5CF6', // violet
+    '#06B6D4', // cyan
+    '#EC4899', // pink
+    '#6B7280', // gray
+  ];
+
+  const iconSearch = ref('');
+
+  const filteredIcons = computed(() => {
+    const term = iconSearch.value.trim().toLowerCase();
+    if (!term) return ICON_OPTIONS;
+
+    return ICON_OPTIONS.filter(
+      (i) => i.label.toLowerCase().includes(term) || i.class.toLowerCase().includes(term),
+    );
+  });
+
+  // ---------- Mode helpers ----------
+
+  const effectiveMode = computed<'create' | 'edit' | 'clone'>(() => {
+    if (props.mode) return props.mode;
+    if (props.role && props.role.id) return 'edit';
+    return 'create';
+  });
+
+  const dialogTitle = computed(() => {
+    if (effectiveMode.value === 'edit') return 'Edit role';
+    if (effectiveMode.value === 'clone') return 'Clone role';
+    return 'Create role';
+  });
+
+  const dialogSubtitle = computed(() => {
+    if (effectiveMode.value === 'edit') return 'Update role details and presentation.';
+    if (effectiveMode.value === 'clone') return 'Create a new role based on an existing one.';
+    return 'Define a new role for your clinic or system.';
+  });
+
+  const submitButtonLabel = computed(() => {
+    if (effectiveMode.value === 'edit') return 'Save changes';
+    if (effectiveMode.value === 'clone') return 'Create cloned role';
+    return 'Create role';
+  });
+
+  const isSubmitting = computed(
+    () => createMutation.isPending.value || updateMutation.isPending.value,
+  );
+
+  // ---------- Init / reset ----------
+
+  function resetForm() {
+    form.name = '';
+    form.description = null;
+    form.colorCode = '#3B82F6';
+    form.iconClass = null;
+    form.isTemplate = false;
+    form.displayOrder = 100;
+    form.clinicId = null;
+    errors.value = {};
+  }
+
+  function loadFromRole(role: RoleResponseDto | null | undefined, isClone = false) {
+    if (!role) {
+      resetForm();
+      return;
+    }
+
+    form.name = isClone ? `${role.name} (Copy)` : role.name || '';
+    form.description = role.description ?? null;
+    form.colorCode = role.colorCode ?? '#3B82F6';
+    form.iconClass = role.iconClass ?? null;
+    form.isTemplate = role.isTemplate ?? false;
+    form.displayOrder = role.displayOrder ?? 100;
+    form.clinicId = role.clinicId ?? null;
+    errors.value = {};
+  }
+
+  watch(
+    () => props.visible,
+    (v) => {
+      if (v) {
+        if (effectiveMode.value === 'edit') {
+          loadFromRole(props.role, false);
+        } else if (effectiveMode.value === 'clone') {
+          loadFromRole(props.role, true);
+        } else {
+          resetForm();
+        }
+      }
+    },
+    { immediate: false },
+  );
+
+  // ---------- Field helpers ----------
+
+  function selectIcon(iconClass: string) {
+    form.iconClass = iconClass;
+  }
+
+  function selectColor(color: string) {
+    form.colorCode = color;
+  }
+
+  // ---------- Validation ----------
+
+  function validateForm(): boolean {
+    const nextErrors: Partial<Record<keyof RoleFormState, string>> = {};
+
+    const name = form.name.trim();
+    if (!name) {
+      nextErrors.name = 'Role name is required.';
+    } else if (name.length < 3) {
+      nextErrors.name = 'Role name must be at least 3 characters.';
+    }
+
+    if (form.displayOrder <= 0) {
+      nextErrors.displayOrder = 'Display order must be greater than 0.';
+    }
+
+    errors.value = nextErrors;
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  // ---------- Submit / close ----------
+
+  function onClose() {
+    if (isSubmitting.value) return;
+    visible.value = false;
+  }
+
+  function onSubmit() {
+    if (!validateForm()) return;
+
+    const trimmedName = form.name.trim();
+
+    if (effectiveMode.value === 'edit') {
+      if (!props.role?.id) return;
+      if (!canEditRole) return;
+
       const payload: UpdateRoleRequestDto = {
-        name: formData.value.name,
-        description: formData.value.description || '',
-        colorCode: `#${formData.value.colorCode || '3B82F6'}`, 
-        iconClass: formData.value.iconClass || '',
-        isTemplate: false 
-      };
+        // TS may complain until TypeGen is regenerated against the new C# DTO
+        name: trimmedName,
+        description: form.description ?? '',
+        displayOrder: form.displayOrder,
+        colorCode: form.colorCode ?? '',
+        iconClass: form.iconClass ?? '',
+        isTemplate: isSuperAdmin.value ? form.isTemplate : (props.role.isTemplate ?? false),
+      } as unknown as UpdateRoleRequestDto;
 
-      updateRole(
-        { id: props.role.id, data: payload },
+      updateMutation.mutate(
+        {
+          roleId: props.role.id,
+          data: payload,
+        },
         {
           onSuccess: () => {
-            emit('updated');
+            emit('saved');
             onClose();
           },
-          onSettled: () => {
-            isSubmitting.value = false;
-          }
-        }
-      );
-    } else {
-      const payload: CreateRoleRequestDto = {
-        name: formData.value.name,
-        description: formData.value.description || '',
-        clinicId: formData.value.clinicId || '', 
-        isTemplate: false,
-        colorCode: `#${formData.value.colorCode || '3B82F6'}`, 
-        iconClass: formData.value.iconClass || '',
-        templateRoleId: ''
-      };
-
-      createRole(payload, {
-        onSuccess: () => {
-          emit('created');
-          onClose();
         },
-        onSettled: () => {
-          isSubmitting.value = false;
-        }
-      });
+      );
+
+      return;
     }
-  } catch (error) {
-    isSubmitting.value = false; 
+
+    // create / clone
+    if (!canCreateRole) return;
+
+    const createPayload: CreateRoleRequestDto = {
+      // TS may complain until TypeGen is regenerated against the new C# DTO
+      name: trimmedName,
+      description: form.description ?? '',
+      clinicId: isSuperAdmin.value ? form.clinicId || null : null,
+      isTemplate: isSuperAdmin.value ? form.isTemplate : false,
+      displayOrder: form.displayOrder,
+      colorCode: form.colorCode ?? '',
+      iconClass: form.iconClass ?? '',
+      templateRoleId: effectiveMode.value === 'clone' && props.role?.id ? props.role.id : null,
+    } as unknown as CreateRoleRequestDto;
+
+    createMutation.mutate(createPayload, {
+      onSuccess: () => {
+        emit('saved');
+        onClose();
+      },
+    });
   }
-};
-
-const formatDate = (date: string | Date): string => {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
-
-watch(
-  () => props.visible,
-  (newVal) => {
-    if (newVal) {
-      submitted.value = false;   
-
-      if (props.role) {
-        // Edit mode
-        formData.value = {
-          name: props.role.name,
-          description: props.role.description || '',
-          clinicId: props.role.clinicId || null,
-          colorCode: props.role.colorCode?.replace('#', '') || '3B82F6', 
-          iconClass: props.role.iconClass || '',
-        };
-      } else {
-        // Create mode
-        formData.value = {
-          name: '',
-          description: '',
-          clinicId: null,
-          colorCode: '3B82F6', 
-          iconClass: '',
-        };
-      }
-    }
-  }
-);
 </script>
+
+<style scoped>
+  .role-create-edit-dialog :deep(.p-dialog-content) {
+    padding-top: 0.75rem;
+  }
+</style>

@@ -1,195 +1,214 @@
 <template>
   <Dialog
     v-model:visible="visible"
-    header="Role Details"
-    :modal="true"
-    class="w-full md:w-2/3"
+    modal
+    :style="{ width: '600px', maxWidth: '90vw' }"
+    :pt="{
+      root: { class: 'rounded-xl border-0 shadow-2xl overflow-hidden' },
+      header: { class: 'border-b border-surface-200/50 py-4 px-6 bg-white' },
+      content: { class: 'p-0 h-full flex flex-col' },
+      footer: { class: 'border-t border-surface-200/50 py-4 px-6 bg-surface-50' },
+    }"
     @hide="onClose"
   >
-    <div v-if="role" class="space-y-6">
-      <!-- Header Card -->
-      <div
-        class="rounded-lg p-6 text-white"
-        :style="{ backgroundColor: role.colorCode || '#3B82F6' }"
-      >
-        <div class="flex items-start gap-4">
+    <template #header>
+      <div class="flex items-center gap-3">
+        <div
+          class="flex items-center justify-center w-12 h-12 rounded-full shrink-0 shadow-sm"
+          :class="
+            role?.isSystemRole ? 'bg-orange-50 text-orange-600' : 'bg-primary-50 text-primary-600'
+          "
+        >
+          <i :class="['text-xl pi', role?.isSystemRole ? 'pi-lock' : 'pi-briefcase']"></i>
+        </div>
+
+        <div class="flex flex-col">
+          <h3 class="text-xl font-bold text-surface-900 leading-tight">{{ role?.name }}</h3>
+          <div class="flex items-center gap-2 text-sm mt-1">
+            <Tag
+              :value="role?.isSystemRole ? 'System Role' : 'Clinic Role'"
+              :severity="role?.isSystemRole ? 'warn' : 'info'"
+              class="!text-[10px] !px-1.5 !py-0.5 uppercase font-bold"
+            />
+            <span v-if="role?.isTemplate" class="text-surface-500 text-xs italic">(Template)</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <div class="flex flex-col h-[600px] bg-surface-50/30">
+      <div class="p-6 pb-4 bg-white border-b border-surface-200/50">
+        <div class="mb-4 text-sm text-surface-600 leading-relaxed">
+          {{ role?.description || 'No description provided for this role.' }}
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="p-3 bg-surface-50 border border-surface-200 rounded-lg flex flex-col gap-1">
+            <span class="text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+              Assigned Users
+            </span>
+            <div class="flex items-center gap-2 text-lg font-bold text-surface-800">
+              <i class="pi pi-users text-primary-500 text-base"></i>
+              {{ role?.userCount ?? 0 }}
+            </div>
+          </div>
+
+          <div class="p-3 bg-surface-50 border border-surface-200 rounded-lg flex flex-col gap-1">
+            <span class="text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+              Permissions
+            </span>
+            <div class="flex items-center gap-2 text-lg font-bold text-surface-800">
+              <i class="pi pi-shield text-primary-500 text-base"></i>
+              {{ totalPermissionCount }}
+            </div>
+          </div>
+
+          <div class="p-3 bg-surface-50 border border-surface-200 rounded-lg flex flex-col gap-1">
+            <span class="text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+              Status
+            </span>
+            <div class="flex items-center gap-2 text-lg font-bold text-surface-800">
+              <i class="pi pi-check-circle text-green-500 text-base"></i>
+              Active
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold text-surface-500 uppercase tracking-wide">
+            Assigned Capabilities
+          </span>
+        </div>
+
+        <div v-if="isLoading" class="space-y-3">
+          <Skeleton height="4rem" class="rounded-lg" v-for="i in 2" :key="i" />
+        </div>
+
+        <div
+          v-else-if="assignedCategories.length === 0"
+          class="flex flex-col items-center justify-center py-12 text-surface-400 bg-white rounded-xl border border-surface-200 border-dashed"
+        >
+          <i class="pi pi-lock-open text-3xl mb-2 opacity-30"></i>
+          <span class="text-sm font-medium">No permissions assigned</span>
+          <span class="text-xs opacity-70">This role has no active capabilities.</span>
+        </div>
+
+        <div v-else class="space-y-4">
           <div
-            v-if="role.iconClass"
-            class="w-16 h-16 bg-white bg-opacity-20 rounded-lg flex items-center justify-center text-3xl"
+            v-for="cat in assignedCategories"
+            :key="cat.key"
+            class="bg-white border border-surface-200 rounded-lg overflow-hidden shadow-sm"
           >
-            <i :class="role.iconClass" />
-          </div>
-          <div class="flex-1">
-            <h3 class="text-2xl font-bold mb-2">{{ role.name }}</h3>
-            <div class="flex gap-2 flex-wrap">
-              <Tag
-                :value="role.isSystemRole ? '🔒 System' : '🏥 Clinic'"
-                :severity="role.isSystemRole ? 'info' : 'success'"
+            <div
+              class="bg-surface-50/80 px-4 py-2 border-b border-surface-100 flex items-center justify-between"
+            >
+              <span class="font-semibold text-sm text-surface-700">{{ cat.label }}</span>
+              <Badge
+                :value="cat.items.length"
+                severity="secondary"
+                class="!bg-white !text-surface-500 shadow-sm !min-w-[1.25rem]"
               />
-              <Tag
-                :value="role.isDeleted ? '🗑️ Deleted' : '✓ Active'"
-                :severity="role.isDeleted ? 'danger' : 'success'"
-              />
-              <Tag v-if="role.isTemplate" value="📋 Template" severity="warning" />
             </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Description -->
-      <div>
-        <h4 class="font-semibold text-gray-900 mb-2">Description</h4>
-        <p class="text-gray-600">{{ role.description || 'No description provided' }}</p>
-      </div>
-
-      <!-- Statistics -->
-      <div class="grid grid-cols-3 gap-4">
-        <div class="bg-blue-50 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-blue-600 mb-1">{{ role.userCount }}</div>
-          <div class="text-sm text-gray-600">Users Assigned</div>
-        </div>
-        <div class="bg-purple-50 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-purple-600 mb-1">{{ role.permissionCount }}</div>
-          <div class="text-sm text-gray-600">Permissions</div>
-        </div>
-        <div class="bg-green-50 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-green-600 mb-1">
-            {{ role.displayOrder }}
-          </div>
-          <div class="text-sm text-gray-600">Display Order</div>
-        </div>
-      </div>
-
-      <!-- Organization Info -->
-      <div>
-        <h4 class="font-semibold text-gray-900 mb-3">Organization</h4>
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span class="text-gray-600">Clinic:</span>
-            <div class="font-medium text-gray-900">{{ role.clinicName || 'N/A' }}</div>
-          </div>
-          <div>
-            <span class="text-gray-600">Template:</span>
-            <div class="font-medium text-gray-900">{{ role.templateRoleId ? 'Yes' : 'No' }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Audit Information -->
-      <div>
-        <h4 class="font-semibold text-gray-900 mb-3">Audit Information</h4>
-        <div class="grid grid-cols-2 gap-4 text-sm space-y-3">
-          <div>
-            <span class="text-gray-600">Created By:</span>
-            <div class="font-medium text-gray-900">
-              {{ role.createdByUserName || role.createdBy || 'N/A' }}
+            <div class="p-3 flex flex-wrap gap-2">
+              <div
+                v-for="perm in cat.items"
+                :key="perm.id"
+                class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-primary-50 text-primary-700 text-xs font-medium border border-primary-100"
+                :title="perm.description"
+              >
+                <i class="pi pi-check-circle text-[10px]"></i>
+                {{ perm.name }}
+              </div>
             </div>
-          </div>
-          <div>
-            <span class="text-gray-600">Created At:</span>
-            <div class="font-medium text-gray-900">{{ formatDateTime(role.createdAt) }}</div>
-          </div>
-          <div v-if="role.updatedAt">
-            <span class="text-gray-600">Last Modified By:</span>
-            <div class="font-medium text-gray-900">
-              {{ role.updatedByUserName || role.updatedBy || 'Never' }}
-            </div>
-          </div>
-          <div v-if="role.updatedAt">
-            <span class="text-gray-600">Last Modified At:</span>
-            <div class="font-medium text-gray-900">{{ formatDateTime(role.updatedAt) }}</div>
-          </div>
-          <div v-if="role.isDeleted">
-            <span class="text-gray-600">Deleted By:</span>
-            <div class="font-medium text-gray-900">
-              {{ role.deletedByUserName || role.deletedBy || 'N/A' }}
-            </div>
-          </div>
-          <div v-if="role.isDeleted">
-            <span class="text-gray-600">Deleted At:</span>
-            <div class="font-medium text-gray-900">
-              {{ role.deletedAt ? formatDateTime(role.deletedAt) : 'N/A' }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- IDs -->
-      <div class="bg-gray-50 rounded-lg p-4">
-        <h4 class="font-semibold text-gray-900 mb-3">Identifiers</h4>
-        <div class="space-y-2 font-mono text-sm">
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600">Role ID:</span>
-            <Button
-              :label="role.id"
-              text
-              severity="info"
-              @click="copyToClipboard(role.id)"
-              class="justify-start"
-            />
-          </div>
-          <div v-if="role.clinicId" class="flex items-center justify-between">
-            <span class="text-gray-600">Clinic ID:</span>
-            <Button
-              :label="role.clinicId"
-              text
-              severity="info"
-              @click="copyToClipboard(role.clinicId)"
-              class="justify-start"
-            />
           </div>
         </div>
       </div>
     </div>
 
     <template #footer>
-      <Button label="Close" @click="onClose" />
+      <div class="flex justify-end w-full mt-4">
+        <Button
+          label="Close"
+          severity="secondary"
+          outlined
+          class="w-full sm:w-auto min-w-[100px]"
+          @click="onClose"
+        />
+      </div>
     </template>
   </Dialog>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { RoleResponseDto } from '@/types/backend';
-import Dialog from 'primevue/dialog';
-import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+  import Badge from 'primevue/badge';
+  import Button from 'primevue/button';
+  import Dialog from 'primevue/dialog';
+  import Skeleton from 'primevue/skeleton';
+  import Tag from 'primevue/tag';
 
-interface Props {
-  visible: boolean;
-  role?: RoleResponseDto | null;
-}
+  import { useRolePermissions } from '@/composables/query/roles/useRolePermissions';
+  import { computed } from 'vue';
 
-const props = withDefaults(defineProps<Props>(), {
-  role: null,
-});
+  interface Props {
+    visible: boolean;
+    roleId: string | null;
+    role?: any;
+  }
 
-const emit = defineEmits<{
-  'update:visible': [value: boolean];
-}>();
+  const props = defineProps<Props>();
+  const emit = defineEmits(['update:visible']);
 
-const visible = computed({
-  get: () => props.visible,
-  set: (value) => emit('update:visible', value),
-});
-
-const { role } = props;
-
-const onClose = () => {
-  visible.value = false;
-};
-
-const formatDateTime = (date: string | Date): string => {
-  return new Date(date).toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  const visible = computed({
+    get: () => props.visible,
+    set: (v) => emit('update:visible', v),
   });
-};
 
-const copyToClipboard = (text: string) => {
-  navigator.clipboard.writeText(text);
-};
+  const roleIdRef = computed(() => props.roleId);
+
+  // Use the composable logic to fetch data
+  const { categories, permissionsQuery } = useRolePermissions(roleIdRef);
+
+  const isLoading = computed(() => permissionsQuery.isLoading.value);
+
+  // Logic: Filter to show ONLY assigned categories/permissions
+  const assignedCategories = computed(() => {
+    return categories.value
+      .map((cat) => {
+        // Filter items that are checked (assigned)
+        const assignedItems = cat.items.filter((p) => p.checked);
+
+        // If category has no items, remove it entirely
+        if (assignedItems.length === 0) return null;
+
+        return { ...cat, items: assignedItems };
+      })
+      .filter(Boolean) as any[];
+  });
+
+  const totalPermissionCount = computed(() =>
+    assignedCategories.value.reduce((sum, c) => sum + c.items.length, 0),
+  );
+
+  function onClose() {
+    visible.value = false;
+  }
 </script>
+
+<style scoped>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--surface-300);
+    border-radius: 20px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--surface-400);
+  }
+</style>

@@ -16,11 +16,11 @@
         <div
           class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 shrink-0"
         >
-          <i class="pi pi-briefcase text-xl"></i>
+          <i class="pi pi-shield text-xl"></i>
         </div>
         <div class="flex flex-col">
-          <h3 class="text-lg font-bold text-surface-900 leading-tight">Manage Role Permissions</h3>
-          <p class="text-sm text-surface-500">Configure capabilities for this role</p>
+          <h3 class="text-lg font-bold text-surface-900 leading-tight">Manage Permissions</h3>
+          <p class="text-sm text-surface-500">Configure access levels for this user</p>
         </div>
       </div>
     </template>
@@ -43,7 +43,7 @@
           <div class="flex justify-between items-center mt-3 h-6">
             <div class="flex items-center gap-2">
               <span class="uppercase tracking-wider text-[10px] font-bold text-surface-400">
-                Role Permissions
+                Available Permissions
               </span>
               <Badge
                 :value="totalVisible"
@@ -125,7 +125,6 @@
                       class="opacity-50 scale-90"
                     />
                   </div>
-
                   <div
                     class="flex items-center gap-3 z-10"
                     :class="{ 'pointer-events-none opacity-50': isMutating }"
@@ -134,7 +133,7 @@
                     <span
                       class="text-xs font-medium text-surface-400 hidden sm:block hover:text-surface-600"
                     >
-                      {{ isCategoryFullySelected(cat) ? 'Deselect All' : 'Select All' }}
+                      {{ isCategoryFullySelected(cat) ? 'Deselect Custom' : 'Select All' }}
                     </span>
                     <ToggleSwitch
                       :model-value="isCategoryFullySelected(cat)"
@@ -153,26 +152,30 @@
                   <div
                     v-for="perm in cat.items"
                     :key="perm.id"
-                    @click="onPermissionClick(perm)"
+                    @click="!perm.inherited && onPermissionClick(perm)"
                     class="group relative p-3 flex items-start gap-3 rounded-lg border transition-all duration-200 select-none"
                     :class="[
-                      // 1. ASSIGNED (Blue)
-                      perm.checked
+                      // 1. Inherited (Role)
+                      perm.inherited ? 'bg-surface-50 border-surface-300 cursor-default' : '',
+                      // 2. Custom (Direct)
+                      !perm.inherited && perm.checked
                         ? 'bg-primary-50 border-primary-200 ring-1 ring-primary-200 cursor-pointer'
                         : '',
-
-                      // 2. UNASSIGNED (White)
-                      !perm.checked
+                      // 3. Unassigned
+                      !perm.inherited && !perm.checked
                         ? 'bg-white border-surface-200 hover:border-primary-300 cursor-pointer hover:shadow-sm'
                         : '',
-
                       isMutating ? 'pointer-events-none' : '',
                     ]"
                   >
                     <div class="mt-0.5 relative">
                       <ToggleSwitch
                         :model-value="perm.checked"
+                        :disabled="perm.inherited"
                         class="scale-75 shrink-0 pointer-events-none"
+                        :pt="{
+                          slider: { class: perm.inherited ? '!bg-surface-400' : '' },
+                        }"
                       />
                     </div>
 
@@ -185,10 +188,17 @@
                           {{ perm.name }}
                         </span>
                         <span
-                          v-if="perm.checked"
+                          v-if="perm.inherited"
+                          class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-surface-200 text-surface-600 border border-surface-300"
+                        >
+                          <i class="pi pi-lock text-[10px]"></i>
+                          Role
+                        </span>
+                        <span
+                          v-else-if="perm.checked"
                           class="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-primary-100 text-primary-700 border border-primary-200"
                         >
-                          Assigned
+                          Custom
                         </span>
                       </div>
                       <span class="text-xs text-surface-500 leading-snug line-clamp-2 mt-0.5">
@@ -212,7 +222,23 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end w-full mt-4">
+      <div class="flex justify-between w-full items-center mt-4">
+        <div class="flex items-center">
+          <Button
+            v-if="hasCustomPermissions"
+            label="Reset to Role"
+            icon="pi pi-refresh"
+            severity="danger"
+            text
+            size="small"
+            :loading="isMutating"
+            @click="confirmReset"
+          />
+          <span v-else class="text-xs text-surface-400 italic ml-2">
+            Matches default role settings
+          </span>
+        </div>
+
         <Button
           label="Done"
           severity="secondary"
@@ -238,46 +264,52 @@
   import InputText from 'primevue/inputtext';
   import Skeleton from 'primevue/skeleton';
   import ToggleSwitch from 'primevue/toggleswitch';
+  import { useConfirm } from 'primevue/useconfirm';
 
-  import { useRolePermissions } from '@/composables/query/roles/useRolePermissions';
+  import { useUserPermissions } from '@/composables/query/users/useUserPermissions';
   import { computed, ref, watch } from 'vue';
 
   interface Props {
     visible: boolean;
-    roleId: string | null;
+    userId: string | null;
   }
 
   const props = defineProps<Props>();
   const emit = defineEmits(['update:visible']);
+  const confirm = useConfirm();
 
   const visible = computed({
     get: () => props.visible,
     set: (v) => emit('update:visible', v),
   });
 
-  const roleIdRef = computed(() => props.roleId);
-  // Make sure you use the correct composable here (useRolePermissions)
-  const { categories, togglePermission, toggleCategory, permissionsQuery, isMutating } =
-    useRolePermissions(roleIdRef);
+  const userIdRef = computed(() => props.userId);
+  const {
+    categories,
+    togglePermission,
+    toggleCategory,
+    permissionsQuery,
+    isMutating,
+    resetToRole,
+    hasCustomPermissions,
+  } = useUserPermissions(userIdRef);
 
   const isLoading = computed(() => permissionsQuery.isLoading.value);
-
   const search = ref('');
 
   const filteredCategories = computed(() => {
     const q = search.value.trim().toLowerCase();
     if (!q) return categories.value;
-
     return categories.value
-      .map((cat) => {
-        const filtered = cat.items.filter(
+      .map((c) => {
+        const filtered = c.items.filter(
           (p) =>
             p.key.toLowerCase().includes(q) ||
             p.name.toLowerCase().includes(q) ||
             (p.description ?? '').toLowerCase().includes(q),
         );
         if (!filtered.length) return null;
-        return { ...cat, items: filtered };
+        return { ...c, items: filtered };
       })
       .filter(Boolean) as any[];
   });
@@ -285,7 +317,6 @@
   const totalVisible = computed(() =>
     filteredCategories.value.reduce((s, c) => s + c.items.length, 0),
   );
-
   const openPanels = ref<string[]>([]);
 
   watch(
@@ -309,8 +340,30 @@
   }
 
   function onPermissionClick(perm: any) {
-    if (isMutating.value) return;
+    if (perm.inherited || isMutating.value) return;
     togglePermission(perm.id, !perm.checked);
+  }
+
+  function confirmReset(event: Event) {
+    confirm.require({
+      target: event.currentTarget as HTMLElement,
+      message:
+        'This will remove all custom permissions assigned to this user. They will revert to the default permissions provided by their Role.',
+      header: 'Reset Permissions?',
+      icon: 'pi pi-exclamation-triangle',
+      rejectProps: {
+        label: 'Cancel',
+        severity: 'secondary',
+        outlined: true,
+      },
+      acceptProps: {
+        label: 'Reset',
+        severity: 'danger',
+      },
+      accept: () => {
+        resetToRole();
+      },
+    });
   }
 
   function onClose() {

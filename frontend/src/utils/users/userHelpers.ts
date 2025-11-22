@@ -1,6 +1,13 @@
+// src/utils/users/userHelpers.ts
 import type { UserResponseDto } from '@/types/backend';
-import { type UserFilterOptions, type UserWithMetadata, type UserActionAvailability, UserRoleType, UserStatus } from '@/types/domain/users';
-import { USER_VALIDATION } from '@/types/domain/users';
+import {
+  USER_VALIDATION,
+  type UserActionAvailability,
+  type UserFilterOptions,
+  UserRoleType,
+  UserStatus,
+  type UserWithMetadata,
+} from '@/types/domain/users';
 
 export function detectUserStatus(user: UserResponseDto): UserStatus {
   if (user.isDeleted) return UserStatus.DELETED;

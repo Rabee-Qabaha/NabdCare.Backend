@@ -377,6 +377,7 @@ public class CachedPermissionService : IPermissionService
             var userInfo = await _permissionService.GetUserForAuthorizationAsync(userId);
             if (userInfo.HasValue)
             {
+                InvalidateUser(userId, userInfo.Value.RoleId);
                 UpdateVersion(userId, userInfo.Value.RoleId);
             }
 
@@ -405,6 +406,7 @@ public class CachedPermissionService : IPermissionService
             var userInfo = await _permissionService.GetUserForAuthorizationAsync(userId);
             if (userInfo.HasValue)
             {
+                InvalidateUser(userId, userInfo.Value.RoleId);
                 UpdateVersion(userId, userInfo.Value.RoleId);
             }
 
@@ -414,6 +416,29 @@ public class CachedPermissionService : IPermissionService
         return result;
     }
 
+    public async Task<bool> ClearUserPermissionsAsync(Guid userId)
+    {
+        // Call the inner service
+        var result = await _permissionService.ClearUserPermissionsAsync(userId);
+
+        if (result)
+        {
+            // 1. Clear the "Overrides" list cache
+            InvalidateUserPermissions(userId);
+        
+            // 2. Clear the "Effective" list cache
+            var userInfo = await _permissionService.GetUserForAuthorizationAsync(userId);
+            if (userInfo.HasValue)
+            {
+                InvalidateUser(userId, userInfo.Value.RoleId);
+                UpdateVersion(userId, userInfo.Value.RoleId);
+            }
+        
+            _logger.LogInformation("Successfully reset permissions for user {UserId}", userId);
+        }
+        return result;
+    }
+    
     public Task<(Guid RoleId, Guid? ClinicId)?> GetUserForAuthorizationAsync(Guid userId)
     {
         if (userId == Guid.Empty)

@@ -1,7 +1,7 @@
+// src/utils/roles/roleHelpers.ts
 import type { RoleResponseDto } from '@/types/backend';
 import type { RoleFilterOptions, RoleWithMetadata } from '@/types/domain/roles';
-import { RoleCategory } from '@/types/domain/roles';
-import { ROLE_VALIDATION } from '@/types/domain/roles';
+import { ROLE_VALIDATION, RoleCategory } from '@/types/domain/roles';
 
 export function detectRoleCategory(role: RoleResponseDto): RoleCategory {
   return role.isSystemRole ? RoleCategory.SYSTEM : RoleCategory.CLINIC;
@@ -42,8 +42,8 @@ export function filterRolesByOptions(
   return roles.filter((role) => {
     if (options.searchTerm) {
       const term = options.searchTerm.toLowerCase();
-      const matchesSearch = [role.name, role.description].some(
-        (val) => val?.toLowerCase().includes(term),
+      const matchesSearch = [role.name, role.description].some((val) =>
+        val?.toLowerCase().includes(term),
       );
       if (!matchesSearch) return false;
     }

@@ -1,3 +1,4 @@
+// src/components/Role/DeleteConfirmDialog.vue
 <template>
   <Dialog
     v-model:visible="visible"
@@ -23,44 +24,44 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import Dialog from 'primevue/dialog';
-import Button from 'primevue/button';
+  import Button from 'primevue/button';
+  import Dialog from 'primevue/dialog';
+  import { computed, ref } from 'vue';
 
-interface Props {
-  visible: boolean;
-  title?: string;
-  message?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  title: 'Confirm Delete',
-  message: 'Are you sure you want to delete this item?',
-});
-
-const emit = defineEmits<{
-  'update:visible': [value: boolean];
-  'confirm': [];
-}>();
-
-const isDeleting = ref(false);
-
-const visible = computed({
-  get: () => props.visible,
-  set: (value) => emit('update:visible', value),
-});
-
-const onClose = () => {
-  visible.value = false;
-};
-
-const confirmDelete = async () => {
-  isDeleting.value = true;
-  try {
-    emit('confirm');
-    onClose();
-  } finally {
-    isDeleting.value = false;
+  interface Props {
+    visible: boolean;
+    title?: string;
+    message?: string;
   }
-};
+
+  const props = withDefaults(defineProps<Props>(), {
+    title: 'Confirm Delete',
+    message: 'Are you sure you want to delete this item?',
+  });
+
+  const emit = defineEmits<{
+    'update:visible': [value: boolean];
+    confirm: [];
+  }>();
+
+  const isDeleting = ref(false);
+
+  const visible = computed({
+    get: () => props.visible,
+    set: (value) => emit('update:visible', value),
+  });
+
+  const onClose = () => {
+    visible.value = false;
+  };
+
+  const confirmDelete = async () => {
+    isDeleting.value = true;
+    try {
+      emit('confirm');
+      onClose();
+    } finally {
+      isDeleting.value = false;
+    }
+  };
 </script>

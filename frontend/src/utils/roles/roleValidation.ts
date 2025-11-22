@@ -1,3 +1,4 @@
+// src/utils/roles/roleValidation.ts
 import { ROLE_VALIDATION } from '@/types/domain/roles';
 
 export function validateRoleName(name: string): boolean {

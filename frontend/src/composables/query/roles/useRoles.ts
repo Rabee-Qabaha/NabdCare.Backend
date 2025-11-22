@@ -1,59 +1,85 @@
 // src/composables/query/roles/useRoles.ts
-import { useQuery } from "@tanstack/vue-query";
-import { ref, computed } from "vue";
-import type { RoleResponseDto } from "@/types/backend";
-import { rolesApi } from "@/api/modules/roles";
-import { useRoleFilters } from "@/composables/role/useRoleFilters";
-import { useErrorHandler } from "@/composables/errorHandling/useErrorHandler";
+import { rolesApi } from '@/api/modules/roles';
+import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
+import { useRoleFilters } from '@/composables/role/useRoleFilters';
+import type { RoleResponseDto } from '@/types/backend';
+import { useQuery } from '@tanstack/vue-query';
+import { computed, ref } from 'vue';
 
-export function useRoles(options?: {
-  includeDeleted?: boolean;
-  clinicId?: string | null;
-}) {
-  const roles = ref<RoleResponseDto[]>([]);
+export function useRoles(options?: { includeDeleted?: boolean; clinicId?: string | null }) {
   const includeDeleted = ref(options?.includeDeleted ?? false);
   const clinicId = ref(options?.clinicId ?? null);
 
   const { handleErrorAndNotify } = useErrorHandler();
 
-  const query = useQuery({
-    queryKey: ["roles", { includeDeleted: includeDeleted.value, clinicId: clinicId.value }],
+  // ============================================
+  // 🔑 Build the query key reactively
+  // ============================================
+  const queryKey = computed(() => [
+    'roles',
+    {
+      includeDeleted: includeDeleted.value,
+      clinicId: clinicId.value,
+    },
+  ]);
+
+  // ============================================
+  // 🔍 Main Vue Query request
+  // ============================================
+  const query = useQuery<RoleResponseDto[]>({
+    queryKey,
+
     queryFn: async () => {
       try {
+        // rolesApi expects single object
         const response = await rolesApi.getAll({
           includeDeleted: includeDeleted.value,
-          clinicId: clinicId.value,
+          clinicId: clinicId.value ?? undefined,
         });
 
-        // FIX: unwrap AxiosResponse if necessary
-        const data = (response?.data ?? response) as RoleResponseDto[];
-
-        roles.value = data;
-        return data;
-      } catch (error) {
-        handleErrorAndNotify(error);
-        throw error;
+        return response.data;
+      } catch (err) {
+        handleErrorAndNotify(err);
+        throw err;
       }
     },
-    staleTime: 1000 * 60 * 5,
-    placeholderData: (prev) => prev,
+
+    // ============================
+    // 🌀 SWR behaviour
+    // ============================
+    staleTime: 1000 * 60 * 5, // data considered fresh for 5 minutes
+    gcTime: 1000 * 60 * 30, // garbage collect after 30 mins
+    placeholderData: (prev) => prev, // use cached data instantly (SWR)
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 
+  // Data reactive
+  const roles = computed(() => query.data.value ?? []);
+
+  // ============================================
+  // 🔍 Client-side filters
+  // ============================================
   const { filters, filteredRoles, resetFilters, clearFilter } = useRoleFilters(roles);
 
-  const totalCount = computed(() => filteredRoles.value.length);
-
   return {
+    // DATA
     roles,
     filteredRoles,
+
+    // FILTERS
     filters,
-    isLoading: query.isLoading,
-    error: query.error,
-    refetch: query.refetch,
-    totalCount,
-    includeDeleted,
-    clinicId,
     resetFilters,
     clearFilter,
+
+    // STATE
+    isLoading: query.isLoading, // first load only
+    isFetching: query.isFetching, // SWR background refresh
+    error: query.error,
+
+    // CONTROLS
+    refetch: query.refetch,
+    includeDeleted,
+    clinicId,
   };
 }
