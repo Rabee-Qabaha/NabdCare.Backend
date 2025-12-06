@@ -1,3 +1,4 @@
+// src/composables/query/users/useUsers.ts
 import { usersApi } from '@/api/modules/users';
 import type { PaginatedResult, UserResponseDto } from '@/types/backend';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/vue-query';
@@ -54,6 +55,7 @@ export function useInfiniteUsersPaged(options: {
     initialPageParam: null,
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
     staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
 }

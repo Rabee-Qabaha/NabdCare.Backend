@@ -1,27 +1,15 @@
-// src/views/admin/users/UsersManagement.vue
 <template>
   <div class="card">
     <div class="space-y-4 p-4 md:p-6">
       <header>
         <PageHeader
-          v-if="!initialLoading"
           title="Users Management"
           description="Manage all users across all clinics"
           :stats="[{ icon: 'pi pi-users', label: `${filteredUsers.length} Total Users` }]"
         />
-        <div v-else class="space-y-3">
-          <Skeleton height="2rem" width="40%" />
-          <Skeleton height="1.2rem" width="60%" />
-        </div>
       </header>
 
-      <div v-if="initialLoading" class="flex justify-between">
-        <Skeleton height="3rem" width="150px" />
-        <Skeleton height="3rem" width="150px" />
-      </div>
-
       <UserToolbar
-        v-else
         :loading="isFetching"
         :include-deleted="includeDeleted"
         :can-create="canCreate"
@@ -39,29 +27,31 @@
       />
 
       <div>
-        <div v-if="initialLoading"><Skeleton height="3rem" class="w-full" /></div>
-        <div v-else>
-          <IconField class="w-full">
-            <InputIcon><i class="pi pi-search" /></InputIcon>
-            <InputText
-              v-model="activeFilters.global"
-              placeholder="Search users by name, email, role, or clinic..."
-              class="w-full"
-            />
-          </IconField>
-          <small v-if="activeFilters.global" class="mt-1 block text-surface-500">
-            {{ filteredUsers.length }} result{{ filteredUsers.length !== 1 ? 's' : '' }} found
-          </small>
-        </div>
+        <IconField class="w-full">
+          <InputIcon><i class="pi pi-search" /></InputIcon>
+          <InputText
+            v-model="activeFilters.global"
+            placeholder="Search users by name, email, role, or clinic..."
+            class="w-full"
+          />
+        </IconField>
+        <small v-if="activeFilters.global && !showGridLoading" class="mt-1 block text-surface-500">
+          {{ filteredUsers.length }} result{{ filteredUsers.length !== 1 ? 's' : '' }} found
+        </small>
       </div>
 
       <div
-        v-if="initialLoading"
+        v-if="error"
+        class="rounded-lg bg-red-50 p-4 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+      >
+        <p class="text-sm text-red-700 dark:text-red-300">{{ errorMessage }}</p>
+      </div>
+
+      <div
+        v-if="showGridLoading"
         class="grid gap-5 sm:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-4"
       >
-        <div v-for="n in 8" :key="n" class="h-64 rounded-xl border border-surface-200 p-4">
-          <Skeleton height="100%" />
-        </div>
+        <UserCardSkeleton v-for="n in 8" :key="n" />
       </div>
 
       <div
@@ -86,7 +76,6 @@
                   v-tooltip.top="'Edit'"
                   @click="openEditDialog(u)"
                 />
-
                 <Button
                   v-if="canActivate"
                   :icon="u.isActive ? 'pi pi-ban' : 'pi pi-check'"
@@ -97,7 +86,6 @@
                   @click="toggleUserStatus(u)"
                   :loading="loadingUserIds.has(u.id)"
                 />
-
                 <Button
                   v-if="canResetPassword"
                   icon="pi pi-key"
@@ -107,7 +95,6 @@
                   v-tooltip.top="'Reset Password'"
                   @click="openResetPasswordDialog(u)"
                 />
-
                 <Button
                   icon="pi pi-shield"
                   text
@@ -116,7 +103,6 @@
                   v-tooltip.top="'Permissions'"
                   @click="openPermissionsDialog(u)"
                 />
-
                 <Button
                   v-if="canDelete"
                   icon="pi pi-trash"
@@ -234,12 +220,13 @@
 <script setup lang="ts">
   // Components
   import EmptyState from '@/components/EmptyState.vue';
-
-  // ✅ Changed import to the Shared component
   import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog.vue';
-
   import ResetPasswordDialog from '@/components/User/ResetPasswordDialog.vue';
   import UserCard from '@/components/User/UserCard.vue';
+
+  // ✅ Import the new Skeleton
+  import UserCardSkeleton from '@/components/User/UserCardSkeleton.vue';
+
   import UserDialog from '@/components/User/UserDialog.vue';
   import UserFilters from '@/components/User/UserFilters.vue';
   import UserPermissionsDialog from '@/components/User/userPermissionsDialog.vue';
@@ -254,7 +241,7 @@
   import InputIcon from 'primevue/inputicon';
   import InputText from 'primevue/inputtext';
   import ProgressSpinner from 'primevue/progressspinner';
-  import Skeleton from 'primevue/skeleton';
+  // Removed Skeleton from here as it's now inside UserCardSkeleton
 
   import { useUserActions } from '@/composables/query/users/useUserActions';
   import { useInfiniteUsersPaged } from '@/composables/query/users/useUsers';
@@ -274,7 +261,7 @@
   const canResetPassword = computed(() => can('Users.ResetPassword'));
   const canActivate = computed(() => can('Users.Activate'));
 
-  // 1. Data Fetching (Infinite)
+  // 1. Data Fetching
   const includeDeleted = ref(false);
 
   const {
@@ -282,7 +269,8 @@
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isFetching,
+    isFetching, // This is true when refetching OR loading next page
+    isLoading, // This is true only on initial load
     refetch,
     error,
   } = useInfiniteUsersPaged({
@@ -296,7 +284,12 @@
     return data.pages.flatMap((page) => page.items ?? []);
   });
 
-  const initialLoading = computed(() => isFetching.value && allUsersRef.value.length === 0);
+  const showGridLoading = computed(() => {
+    if (isLoading.value) return true;
+    if (isFetching.value && visibleUsers.value.length === 0) return true;
+    return false;
+  });
+
   const errorMessage = computed(() => (error.value ? (error.value as any).message : null));
 
   // 2. Filtering & Logic
@@ -325,8 +318,6 @@
 
   const filtersDialogVisible = ref(false);
   const selectedUserIds = ref<string[]>([]);
-
-  // ✅ Added local loading state for delete actions
   const isDeleting = ref(false);
 
   // 4. Actions
@@ -344,10 +335,8 @@
 
   // 5. Handlers
 
-  // --- Filter Sync ---
   function applyFilters(newFilters: any) {
     Object.assign(activeFilters, newFilters);
-
     const needsDeleted = newFilters.status === 'deleted' || newFilters.status === 'all';
     if (needsDeleted && !includeDeleted.value) {
       includeDeleted.value = true;
@@ -371,7 +360,6 @@
     }
   }
 
-  // --- CRUD ---
   async function saveUser(userData: any) {
     try {
       if (userData.id) {
@@ -394,12 +382,9 @@
     }
   }
 
-  // ✅ Updated Soft Delete Handler to manage loading state
   function softDeleteUser() {
     if (!selectedUser.value) return;
-
     isDeleting.value = true;
-
     softDeleteMutation.mutate(selectedUser.value.id, {
       onSuccess: () => {
         closeAll();
@@ -412,12 +397,9 @@
     });
   }
 
-  // ✅ Updated Hard Delete Handler to manage loading state
   function hardDeleteUser() {
     if (!selectedUser.value) return;
-
     isDeleting.value = true;
-
     hardDeleteMutation.mutate(selectedUser.value.id, {
       onSuccess: () => {
         closeAll();
@@ -475,7 +457,6 @@
     if (observer) observer.disconnect();
     observer = new IntersectionObserver(async (entries) => {
       const entry = entries[0];
-
       if (entry && entry.isIntersecting && hasNextPage.value && !isFetchingNextPage.value) {
         await fetchNextPage();
         visibleCount.value += 20;
