@@ -1,8 +1,9 @@
+// src/components/User/UserCardActions.vue
 <script setup lang="ts">
-  import { computed } from 'vue';
   import { useResourceAuthorization } from '@/composables/query/authorization/useResourceAuthorization';
-  import Button from 'primevue/button';
   import type { UserResponseDto } from '@/types/backend';
+  import Button from 'primevue/button';
+  import { computed } from 'vue';
 
   /**
    * User Card Action Buttons Component

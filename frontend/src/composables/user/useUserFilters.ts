@@ -1,136 +1,82 @@
 // src/composables/user/useUserFilters.ts
-import { ref, computed, type Ref } from 'vue';
 import type { UserResponseDto } from '@/types/backend';
-import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
+import { computed, reactive, type Ref } from 'vue';
 
 export function useUserFilters(users: Ref<UserResponseDto[]>) {
-  const filters = ref<Record<string, any>>({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    fullName: {
-      operator: FilterOperator.AND,
-      constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-    },
-    email: {
-      operator: FilterOperator.AND,
-      constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-    },
-    roleName: {
-      operator: FilterOperator.AND,
-      constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-    },
-    clinicName: {
-      operator: FilterOperator.AND,
-      constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-    },
-    isActive: {
-      operator: FilterOperator.AND,
-      constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }],
-    },
-    createdAt: {
-      operator: FilterOperator.AND,
-      constraints: [{ value: null, matchMode: FilterMatchMode.DATE_IS }],
-    },
+  const activeFilters = reactive({
+    global: '',
+    roleId: null as string | null,
+    clinicId: null as string | null,
+    isActive: null as boolean | null,
+    status: 'active' as string | null,
+    dateRange: null as Date[] | null,
   });
 
-  const showDeleted = ref(false);
-
   const filteredUsers = computed(() => {
-    const list = users.value || [];
-    const f = filters.value;
+    let data = users.value || [];
 
-    const global = f.global.value;
-    const fullName = f.fullName.constraints[0].value;
-    const email = f.email.constraints[0].value;
-    const roleName = f.roleName.constraints[0].value;
-    const clinicName = f.clinicName.constraints[0].value;
-    const status = f.isActive.constraints[0].value;
-    const createdDate = f.createdAt.constraints[0].value;
+    // 1. Deleted Status
+    if (activeFilters.status === 'deleted') {
+      data = data.filter((u) => u.isDeleted);
+    } else if (activeFilters.status === 'all') {
+      // No filter
+    } else {
+      data = data.filter((u) => !u.isDeleted);
+    }
 
-    return list.filter((u) => {
-      const globalMatch = !global
-        ? true
-        : [u.fullName, u.email, u.roleName, u.clinicName].some(
-            (val) => val?.toLowerCase().includes(global.toLowerCase()),
-          );
+    // 2. Account Status
+    if (activeFilters.isActive !== null) {
+      data = data.filter((u) => u.isActive === activeFilters.isActive);
+    }
 
-      const fullNameMatch = !fullName
-        ? true
-        : u.fullName?.toLowerCase().includes(fullName.toLowerCase());
+    // 3. Role
+    if (activeFilters.roleId) {
+      data = data.filter((u) => u.roleId === activeFilters.roleId);
+    }
 
-      const emailMatch = !email ? true : u.email?.toLowerCase().includes(email.toLowerCase());
+    // 4. Clinic
+    if (activeFilters.clinicId) {
+      data = data.filter((u) => u.clinicId === activeFilters.clinicId);
+    }
 
-      const roleMatch = !roleName
-        ? true
-        : u.roleName?.toLowerCase().includes(roleName.toLowerCase());
-
-      const clinicMatch = !clinicName
-        ? true
-        : (u.clinicName?.toLowerCase() ?? '').includes(clinicName.toLowerCase());
-
-      const statusMatch = status === null || status === undefined ? true : u.isActive === status;
-
-      const dateMatch = !createdDate
-        ? true
-        : new Date(u.createdAt).toDateString() === new Date(createdDate).toDateString();
-
-      return (
-        globalMatch &&
-        fullNameMatch &&
-        emailMatch &&
-        roleMatch &&
-        clinicMatch &&
-        statusMatch &&
-        dateMatch
+    // 5. Global Search
+    if (activeFilters.global) {
+      const q = activeFilters.global.toLowerCase();
+      data = data.filter(
+        (u) =>
+          u.fullName.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.roleName?.toLowerCase().includes(q),
       );
-    });
+    }
+
+    // 6. Date Range
+    if (activeFilters.dateRange && activeFilters.dateRange.length === 2) {
+      const [start, end] = activeFilters.dateRange;
+      if (start && end) {
+        const startDate = new Date(start);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        data = data.filter((u) => {
+          if (!u.createdAt) return false;
+          const d = new Date(u.createdAt);
+          return d >= startDate && d <= endDate;
+        });
+      }
+    }
+
+    return data;
   });
 
   const resetFilters = () => {
-    filters.value = {
-      global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-      fullName: {
-        operator: FilterOperator.AND,
-        constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-      },
-      email: {
-        operator: FilterOperator.AND,
-        constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-      },
-      roleName: {
-        operator: FilterOperator.AND,
-        constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-      },
-      clinicName: {
-        operator: FilterOperator.AND,
-        constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
-      },
-      isActive: {
-        operator: FilterOperator.AND,
-        constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }],
-      },
-      createdAt: {
-        operator: FilterOperator.AND,
-        constraints: [{ value: null, matchMode: FilterMatchMode.DATE_IS }],
-      },
-    };
-    showDeleted.value = false;
+    activeFilters.global = '';
+    activeFilters.roleId = null;
+    activeFilters.clinicId = null;
+    activeFilters.isActive = null;
+    activeFilters.status = 'active';
+    activeFilters.dateRange = null;
   };
 
-  const clearFilter = (filterName: string) => {
-    if (filters.value[filterName]) {
-      if (filters.value[filterName].constraints) {
-        filters.value[filterName].constraints[0].value = null;
-      } else {
-        filters.value[filterName].value = null;
-      }
-    }
-  };
-
-  return {
-    filters,
-    showDeleted,
-    filteredUsers,
-    resetFilters,
-    clearFilter,
-  };
+  return { activeFilters, filteredUsers, resetFilters };
 }

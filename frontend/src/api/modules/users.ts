@@ -1,13 +1,14 @@
-import { type AxiosResponse } from "axios";
-import { api } from "@/api/apiClient";
+// src/api/modules/users.ts
+import { api } from '@/api/apiClient';
 import type {
-  PaginatedResult,
-  UserResponseDto,
-  CreateUserRequestDto,
-  UpdateUserRequestDto,
   ChangePasswordRequestDto,
+  CreateUserRequestDto,
+  PaginatedResult,
   ResetPasswordRequestDto,
-} from "@/types/backend";
+  UpdateUserRequestDto,
+  UserResponseDto,
+} from '@/types/backend';
+import { type AxiosResponse } from 'axios';
 
 export interface UsersPagedParams {
   cursor?: string | null;
@@ -31,19 +32,19 @@ export const usersApi = {
       ClinicId: params?.clinicId,
     };
 
-    return api.get("/users/paged", { params: query });
+    return api.get('/users/paged', { params: query });
   },
 
   getByClinicPaged(
     clinicId: string,
-    params?: UsersPagedParams
+    params?: UsersPagedParams,
   ): Promise<AxiosResponse<PaginatedResult<UserResponseDto>>> {
     const query = {
       Limit: params?.limit ?? defaultPaging.limit,
       Descending: params?.descending ?? defaultPaging.descending,
       Cursor: params?.cursor ?? null,
       IncludeDeleted: params?.includeDeleted ?? false,
-      Search: params?.search
+      Search: params?.search,
     };
 
     return api.get(`/users/clinic/${clinicId}/paged`, { params: query });
@@ -54,13 +55,13 @@ export const usersApi = {
   },
 
   getMe(): Promise<AxiosResponse<UserResponseDto>> {
-    return api.get("/users/me");
+    return api.get('/users/me');
   },
 
-  checkEmailExists(email: string): Promise<
-    AxiosResponse<{ exists: boolean; isDeleted: boolean; userId: string | null }>
-  > {
-    return api.get("/users/check-email", { params: { email } });
+  checkEmailExists(
+    email: string,
+  ): Promise<AxiosResponse<{ exists: boolean; isDeleted: boolean; userId: string | null }>> {
+    return api.get('/users/check-email', { params: { email } });
   },
 
   restore(id: string): Promise<AxiosResponse<UserResponseDto>> {
@@ -68,7 +69,7 @@ export const usersApi = {
   },
 
   create(payload: CreateUserRequestDto): Promise<AxiosResponse<UserResponseDto>> {
-    return api.post("/users", payload);
+    return api.post('/users', payload);
   },
 
   update(id: string, payload: UpdateUserRequestDto): Promise<AxiosResponse<UserResponseDto>> {

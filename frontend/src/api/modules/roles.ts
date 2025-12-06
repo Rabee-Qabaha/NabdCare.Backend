@@ -9,6 +9,10 @@ import type {
 } from '@/types/backend';
 
 export const rolesApi = {
+  // -----------------------------------------
+  // QUERIES
+  // -----------------------------------------
+
   getAll(iparams: { includeDeleted?: boolean; clinicId?: string | null }) {
     return api.get<RoleResponseDto[]>('/roles', {
       params: iparams,
@@ -31,6 +35,10 @@ export const rolesApi = {
     return api.get<RoleResponseDto>(`/roles/${id}`);
   },
 
+  // -----------------------------------------
+  // COMMANDS
+  // -----------------------------------------
+
   create(data: CreateRoleRequestDto) {
     return api.post<RoleResponseDto>('/roles', data);
   },
@@ -47,15 +55,22 @@ export const rolesApi = {
     return api.delete<RoleResponseDto>(`/roles/${id}`);
   },
 
+  hardDelete(id: string) {
+    return api.delete<RoleResponseDto>(`/roles/${id}/permanent`);
+  },
+
   restore(id: string) {
     return api.post<RoleResponseDto>(`/roles/${id}/restore`);
   },
 
+  // -----------------------------------------
+  // PERMISSIONS
+  // -----------------------------------------
+
   getPermissions(roleId: string) {
-    return api.get<PermissionResponseDto[]>(`/roles/${roleId}/permissions`).then((r) => {
-      console.log('🔥 RAW BACKEND GET PERMISSIONS:', r.data);
-      return r;
-    });
+    // Note: Ensure backend returns PermissionResponseDto[].
+    // If backend returns string[] (IDs only), this type should be string[].
+    return api.get<PermissionResponseDto[]>(`/roles/${roleId}/permissions`);
   },
 
   assignPermission(roleId: string, permissionId: string) {

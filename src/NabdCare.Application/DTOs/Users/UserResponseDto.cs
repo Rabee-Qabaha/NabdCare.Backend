@@ -11,7 +11,8 @@ public class UserResponseDto
     
     public Guid RoleId { get; set; }
     public string RoleName { get; set; } = string.Empty;
-    
+    public string? RoleColorCode { get; set; } 
+    public string? RoleIcon { get; set; }
     public bool IsSystemRole { get; set; }
     
     public bool IsActive { get; set; }

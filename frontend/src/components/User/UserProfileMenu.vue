@@ -1,18 +1,16 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useToast } from 'primevue/usetoast';
-  import Menu from 'primevue/menu';
   import Avatar from 'primevue/avatar';
-  import ChangePasswordDialog from '@/components/User/ChangePasswordDialog.vue';
+  import Menu from 'primevue/menu';
+  import { useToast } from 'primevue/usetoast';
+  import { computed, ref } from 'vue';
+  import { useRouter } from 'vue-router';
 
+  import ChangePasswordDialog from '@/components/User/ChangePasswordDialog.vue';
   import { useAuthStore } from '@/stores/authStore';
-  import { useChangePassword } from '@/composables/query/users/useUserActions';
 
   const toast = useToast();
   const router = useRouter();
   const authStore = useAuthStore();
-  const { mutateAsync: changePassword } = useChangePassword();
 
   // ======================
   // 🔹 STATE
@@ -24,21 +22,29 @@
   // 🧠 COMPUTED
   // ======================
   const currentUser = computed(() => authStore.currentUser);
-  const userName = computed(() => currentUser.value?.fullName || currentUser.value?.email || 'User');
+
+  // Fallback to 'User' if data is missing
+  const userName = computed(
+    () => currentUser.value?.fullName || currentUser.value?.email || 'User',
+  );
+  const initials = computed(() => userName.value.charAt(0).toUpperCase());
 
   const userRoleDisplay = computed(() => {
     const role = currentUser.value?.roleName || 'User';
-    return role.replace(/([a-z])([A-Z])/g, '$1 $2'); // e.g. "SuperAdmin" → "Super Admin"
+    // Format CamelCase to Spaced (e.g. "SystemAdmin" -> "System Admin")
+    return role.replace(/([a-z])([A-Z])/g, '$1 $2');
   });
 
   // ======================
-  // 📋 MENU
+  // 📋 MENU ACTIONS
   // ======================
   const profileMenuItems = [
     {
       label: 'Change Password',
       icon: 'pi pi-key',
-      command: () => (changePasswordDialog.value = true),
+      command: () => {
+        changePasswordDialog.value = true;
+      },
     },
     { separator: true },
     {
@@ -49,117 +55,51 @@
           await authStore.logout();
           await router.push({ name: 'login' });
           toast.add({
-            severity: 'info',
+            severity: 'secondary',
             summary: 'Logged Out',
-            detail: 'You have been successfully logged out.',
-            life: 3000,
+            detail: 'See you next time!',
+            life: 2000,
           });
         } catch (err: any) {
-          toast.add({
-            severity: 'error',
-            summary: 'Logout Failed',
-            detail: err.message || 'An unexpected error occurred.',
-            life: 3000,
-          });
+          console.error(err);
         }
       },
     },
   ];
 
-  // ======================
-  // ⚙️ METHODS
-  // ======================
   const toggleProfileMenu = (event: MouseEvent) => profileMenu.value?.toggle(event);
-
-  async function handleChangePassword(passwords: {
-    currentPassword?: string;
-    newPassword: string;
-    confirmPassword: string;
-  }) {
-    if (!passwords.newPassword || passwords.newPassword !== passwords.confirmPassword) {
-      toast.add({
-        severity: 'warn',
-        summary: 'Validation',
-        detail: 'Passwords do not match.',
-        life: 3000,
-      });
-      return;
-    }
-
-    const userId = currentUser.value?.id;
-    if (!userId) {
-      toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'User ID not found.',
-        life: 3000,
-      });
-      return;
-    }
-
-    try {
-      await changePassword({
-        id: userId,
-        data: {
-          currentPassword: passwords.currentPassword || '',
-          newPassword: passwords.newPassword,
-        },
-      });
-      toast.add({
-        severity: 'success',
-        summary: 'Password Changed',
-        detail: 'Your password has been updated successfully.',
-        life: 3000,
-      });
-      changePasswordDialog.value = false;
-    } catch (err: any) {
-      toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: err.message || 'Failed to change password.',
-        life: 3000,
-      });
-    }
-  }
 </script>
 
 <template>
   <div
-    class="user-profile-menu flex cursor-pointer select-none items-center"
+    class="user-profile-menu flex cursor-pointer select-none items-center gap-2 rounded-lg p-1 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors duration-200"
     @click="toggleProfileMenu"
+    aria-haspopup="true"
+    aria-controls="overlay_menu"
   >
     <Avatar
-      :label="userName?.charAt(0)"
+      :label="initials"
       shape="circle"
-      size="large"
-      class="mr-2 bg-surface-100 dark:bg-surface-800"
+      class="bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400 font-bold"
     />
-    
+
     <div class="flex flex-col text-left leading-tight">
-      <span class="text-[13px] font-semibold text-surface-900 dark:text-surface-0">
+      <span class="text-sm font-semibold text-surface-900 dark:text-surface-0">
         {{ userName }}
       </span>
-      <span class="text-xs text-surface-500 dark:text-surface-300">
+      <span class="text-xs text-surface-500 dark:text-surface-400">
         {{ userRoleDisplay }}
       </span>
     </div>
-    <i class="pi pi-angle-down ml-2 text-gray-600 dark:text-gray-300"></i>
+
+    <i class="pi pi-angle-down text-surface-500 dark:text-surface-400 text-xs"></i>
 
     <Menu ref="profileMenu" :model="profileMenuItems" :popup="true" />
   </div>
 
-  <!-- 🔒 Change Password Dialog -->
-<ChangePasswordDialog
-  v-model:visible="changePasswordDialog"
-  :userId="currentUser?.id!"
-/>
+  <ChangePasswordDialog
+    v-if="currentUser?.id"
+    v-model:visible="changePasswordDialog"
+    :userId="currentUser.id"
+  />
 </template>
-
-<style scoped>
-  .user-profile-menu {
-    transition: opacity 0.15s ease-in-out;
-  }
-  .user-profile-menu:hover {
-    opacity: 0.9;
-  }
-</style>

@@ -1,3 +1,4 @@
+// src/api/errorInterceptor.ts
 /**
  * Error Interceptor
  * Location: src/api/errorInterceptor.ts
@@ -9,8 +10,8 @@
  * Updated: 2025-11-08 18:58:40
  */
 
-import type { AxiosInstance } from 'axios';
 import { handleError } from '@/utils/errorHandler';
+import type { AxiosInstance } from 'axios';
 
 /**
  * Setup error interceptor on axios instance
@@ -33,9 +34,7 @@ export function setupErrorInterceptor(apiClient: AxiosInstance) {
 
       // ✅ Don't show toast for auth refresh endpoints (handled by route guard)
       const silentEndpoints = ['/auth/refresh', '/auth/me'];
-      const isSilent = silentEndpoints.some((ep) =>
-        error.config?.url?.includes(ep)
-      );
+      const isSilent = silentEndpoints.some((ep) => error.config?.url?.includes(ep));
 
       if (isSilent) {
         console.debug('🤐 Silent error (will be handled by route guard)');
@@ -43,6 +42,6 @@ export function setupErrorInterceptor(apiClient: AxiosInstance) {
 
       // ✅ Reject with processed error
       return Promise.reject(uiError);
-    }
+    },
   );
 }

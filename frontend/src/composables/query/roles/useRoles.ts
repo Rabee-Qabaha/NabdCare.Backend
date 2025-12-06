@@ -60,24 +60,23 @@ export function useRoles(options?: { includeDeleted?: boolean; clinicId?: string
   // ============================================
   // 🔍 Client-side filters
   // ============================================
-  const { filters, filteredRoles, resetFilters, clearFilter } = useRoleFilters(roles);
+  const { activeFilters, filteredRoles, resetFilters } = useRoleFilters(roles);
 
   return {
-    // DATA
+    // Data
     roles,
     filteredRoles,
 
-    // FILTERS
-    filters,
+    // Filters
+    activeFilters,
     resetFilters,
-    clearFilter,
 
-    // STATE
-    isLoading: query.isLoading, // first load only
-    isFetching: query.isFetching, // SWR background refresh
+    // State
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
     error: query.error,
 
-    // CONTROLS
+    // Controls
     refetch: query.refetch,
     includeDeleted,
     clinicId,

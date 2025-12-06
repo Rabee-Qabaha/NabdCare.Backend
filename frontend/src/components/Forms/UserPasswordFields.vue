@@ -1,11 +1,10 @@
-<!-- src/components/Forms/UserPasswordFields.vue -->
 <script setup lang="ts">
   import FloatLabel from 'primevue/floatlabel';
   import Password from 'primevue/password';
   import { computed, watch } from 'vue';
 
   import { usePasswordValidation } from '@/composables/validation/usePasswordValidation';
-  import { getPasswordRequirementStatus } from '@/utils/users/userValidation';
+  import { getPasswordRequirementStatus, validatePassword } from '@/utils/users/userValidation';
 
   const props = withDefaults(
     defineProps<{
@@ -26,8 +25,7 @@
 
   const {
     passwords,
-    isPasswordSecure,
-    isNewPasswordSecure,
+    isNewPasswordSecure, // Boolean
     doPasswordsMatch,
     getFieldError,
     getFieldErrorMessage,
@@ -42,6 +40,11 @@
 
   const requiresCurrentPassword = computed(() => props.mode === 'change');
 
+  const requirementsList = computed(() => {
+    const strength = validatePassword(passwords.newPassword || '');
+    return getPasswordRequirementStatus(strength);
+  });
+
   const isValid = computed(() => {
     if (requiresCurrentPassword.value && !passwords.currentPassword) return false;
 
@@ -53,27 +56,31 @@
     );
   });
 
-  // Expose API to parent (same pattern ResetPasswordDialog uses)
+  // Expose API to parent
   defineExpose({ resetPasswords, isValid });
 </script>
 
 <template>
   <div class="rounded-lg bg-surface-50 p-4 dark:bg-surface-800">
-    <h4 class="mb-3 flex items-center gap-2 text-lg font-bold">
+    <h4 class="mb-3 flex items-center gap-2 text-lg font-bold text-surface-900 dark:text-surface-0">
       <i class="pi pi-lock"></i>
       Password Settings
     </h4>
 
-    <ul class="grid grid-cols-1 sm:grid-cols-2 mb-4 text-sm">
-      <li
-        v-for="req in getPasswordRequirementStatus(isPasswordSecure)"
-        :key="req.key"
-        class="flex items-center gap-2"
-      >
+    <ul class="grid grid-cols-1 sm:grid-cols-2 mb-4 text-sm gap-2">
+      <li v-for="req in requirementsList" :key="req.label" class="flex items-center gap-2">
         <i
-          :class="req.met ? 'pi pi-check-circle text-green-500' : 'pi pi-times-circle text-red-500'"
+          class="pi text-[10px]"
+          :class="req.met ? 'pi-check-circle text-green-500' : 'pi-times-circle text-red-500'"
         />
-        {{ req.label }}
+        <span
+          :class="{
+            'text-surface-900 dark:text-surface-0': req.met,
+            'text-surface-600 dark:text-surface-400': !req.met,
+          }"
+        >
+          {{ req.label }}
+        </span>
       </li>
     </ul>
 
@@ -99,7 +106,7 @@
           inputClass="w-full"
           class="w-full"
           :feedback="true"
-          :invalid="props.submitted && getFieldError('newPassword')"
+          :invalid="props.submitted && !!getFieldError('newPassword')"
           @input="markFieldTouched('newPassword')"
           :disabled="props.loading"
         />
@@ -118,7 +125,7 @@
           inputClass="w-full"
           class="w-full"
           :feedback="false"
-          :invalid="props.submitted && getFieldError('confirmPassword')"
+          :invalid="props.submitted && !!getFieldError('confirmPassword')"
           @input="markFieldTouched('confirmPassword')"
           :disabled="props.loading"
         />

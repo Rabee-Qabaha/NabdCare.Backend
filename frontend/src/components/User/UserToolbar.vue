@@ -5,11 +5,41 @@
     <div class="flex flex-wrap gap-2">
       <Button
         v-if="canCreate"
-        label="Create Role"
+        label="Create User"
         icon="pi pi-plus"
         class="w-full font-semibold shadow-sm sm:w-auto"
         @click="$emit('create')"
       />
+
+      <div v-if="hasSelection" class="flex gap-2">
+        <Button
+          v-if="canActivate"
+          label="Activate"
+          icon="pi pi-check"
+          severity="success"
+          outlined
+          size="small"
+          @click="$emit('bulk-activate')"
+        />
+        <Button
+          v-if="canActivate"
+          label="Deactivate"
+          icon="pi pi-ban"
+          severity="warning"
+          outlined
+          size="small"
+          @click="$emit('bulk-deactivate')"
+        />
+        <Button
+          v-if="canDelete"
+          label="Delete"
+          icon="pi pi-trash"
+          severity="danger"
+          outlined
+          size="small"
+          @click="$emit('bulk-delete')"
+        />
+      </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
@@ -40,7 +70,7 @@
           severity="secondary"
           text
           rounded
-          v-tooltip.top="'Reset all filters'"
+          v-tooltip.top="'Reset filters'"
           @click="$emit('reset-filters')"
         />
         <Button
@@ -64,7 +94,19 @@
     loading: boolean;
     includeDeleted: boolean;
     canCreate: boolean;
+    canActivate: boolean;
+    canDelete: boolean;
+    hasSelection: boolean;
   }>();
 
-  defineEmits(['create', 'filters', 'toggle-deleted', 'reset-filters', 'refresh']);
+  defineEmits([
+    'create',
+    'filters',
+    'toggle-deleted',
+    'reset-filters',
+    'refresh',
+    'bulk-activate',
+    'bulk-deactivate',
+    'bulk-delete',
+  ]);
 </script>

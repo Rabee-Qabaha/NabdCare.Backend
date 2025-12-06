@@ -105,6 +105,12 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Roles.ViewAll,
                 Permissions.Roles.ViewSystem,
                 Permissions.Roles.ViewTemplates,
+                Permissions.Roles.Create,
+                Permissions.Roles.Edit,
+                Permissions.Roles.Delete,
+                Permissions.Roles.HardDelete,
+                Permissions.Roles.Restore,
+                
                 Permissions.AppPermissions.View,
                 Permissions.AppPermissions.Assign, 
                 Permissions.AppPermissions.Revoke,
@@ -206,6 +212,16 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Users.Delete,
                 Permissions.Users.ChangeRole,
                 Permissions.Users.ResetPassword,
+
+                // Roles (Manage Clinic Roles)
+                Permissions.Roles.ViewClinic,
+                Permissions.Roles.View,
+                Permissions.Roles.Create,
+                Permissions.Roles.Clone,
+                Permissions.Roles.Edit,
+                Permissions.Roles.Delete,
+                Permissions.Roles.HardDelete,
+                Permissions.Roles.Restore,
 
                 // Patients
                 Permissions.Patients.View,

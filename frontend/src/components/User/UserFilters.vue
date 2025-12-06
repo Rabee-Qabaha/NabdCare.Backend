@@ -1,4 +1,3 @@
-// src/components/Role/RoleFilters.vue
 <template>
   <Drawer
     v-model:visible="visible"
@@ -8,61 +7,32 @@
   >
     <div class="flex flex-col gap-6">
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-surface-700">Role Name</label>
+        <label class="text-sm font-semibold text-surface-700">Search</label>
         <IconField>
           <InputIcon class="pi pi-search" />
-          <InputText v-model="local.name" placeholder="Search by name..." class="w-full" />
+          <InputText v-model="local.global" placeholder="Name, Email..." class="w-full" />
         </IconField>
       </div>
 
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-surface-700">Role Origin</label>
-        <Select
-          v-model="local.isSystem"
-          :options="typeOptions"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="All Origins"
-          showClear
-          class="w-full"
-        >
-          <template #option="slotProps">
-            <div class="flex items-center gap-2">
-              <i :class="slotProps.option.icon" class="text-surface-500"></i>
-              <span>{{ slotProps.option.label }}</span>
-            </div>
-          </template>
-        </Select>
+        <label class="text-sm font-semibold text-surface-700">Role</label>
+        <RoleSelect v-model="local.roleId" showClear class="w-full" />
       </div>
 
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-surface-700">Role Usage</label>
-        <Select
-          v-model="local.isTemplate"
-          :options="templateOptions"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="All Types"
-          showClear
-          class="w-full"
-        >
-          <template #option="slotProps">
-            <div class="flex items-center gap-2">
-              <i :class="slotProps.option.icon" class="text-surface-500"></i>
-              <span>{{ slotProps.option.label }}</span>
-            </div>
-          </template>
-        </Select>
+        <label class="text-sm font-semibold text-surface-700">Clinic</label>
+        <ClinicSelect v-model="local.clinicId" showClear class="w-full" />
       </div>
 
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-surface-700">Status</label>
+        <label class="text-sm font-semibold text-surface-700">Account Status</label>
         <Select
-          v-model="local.status"
+          v-model="local.isActive"
           :options="statusOptions"
           optionLabel="label"
           optionValue="value"
-          placeholder="Active Only (Default)"
+          placeholder="All Statuses"
+          showClear
           class="w-full"
         >
           <template #option="slotProps">
@@ -70,11 +40,30 @@
               <i
                 :class="[
                   slotProps.option.icon,
-                  slotProps.option.value === 'deleted'
-                    ? 'text-red-500'
-                    : slotProps.option.value === 'all'
-                      ? 'text-blue-500'
-                      : 'text-green-500',
+                  slotProps.option.value ? 'text-green-500' : 'text-orange-500',
+                ]"
+              ></i>
+              <span>{{ slotProps.option.label }}</span>
+            </div>
+          </template>
+        </Select>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-surface-700">Deleted State</label>
+        <Select
+          v-model="local.status"
+          :options="deletedOptions"
+          optionLabel="label"
+          optionValue="value"
+          class="w-full"
+        >
+          <template #option="slotProps">
+            <div class="flex items-center gap-2">
+              <i
+                :class="[
+                  slotProps.option.icon,
+                  slotProps.option.value === 'deleted' ? 'text-red-500' : 'text-surface-500',
                 ]"
               ></i>
               <span>{{ slotProps.option.label }}</span>
@@ -115,6 +104,8 @@
 </template>
 
 <script setup lang="ts">
+  import ClinicSelect from '@/components/Dropdowns/ClinicSelect.vue';
+  import RoleSelect from '@/components/Dropdowns/RoleSelect.vue';
   import Button from 'primevue/button';
   import DatePicker from 'primevue/datepicker';
   import Drawer from 'primevue/drawer';
@@ -124,18 +115,19 @@
   import Select from 'primevue/select';
   import { computed, reactive, watch } from 'vue';
 
-  // Updated Interface to match useRoleFilters.ts
-  interface FilterState {
-    name: string;
-    isSystem: boolean | null;
-    isTemplate: boolean | null;
-    status: string | null; // 'active' | 'deleted' | 'all'
+  // Interface matches useUserFilters.ts
+  interface UserFilterState {
+    global: string;
+    roleId: string | null;
+    clinicId: string | null;
+    isActive: boolean | null;
+    status: string | null;
     dateRange: Date[] | null;
   }
 
   const props = defineProps<{
     visible: boolean;
-    filters: FilterState;
+    filters: UserFilterState;
   }>();
 
   const emit = defineEmits(['update:visible', 'apply', 'reset']);
@@ -145,47 +137,36 @@
     set: (v) => emit('update:visible', v),
   });
 
-  const local = reactive<FilterState>({
-    name: '',
-    isSystem: null,
-    isTemplate: null,
+  const local = reactive<UserFilterState>({
+    global: '',
+    roleId: null,
+    clinicId: null,
+    isActive: null,
     status: 'active',
     dateRange: null,
   });
 
-  // Options
-  const typeOptions = [
-    { label: 'System Roles', value: true, icon: 'pi pi-lock' },
-    { label: 'Clinic Roles', value: false, icon: 'pi pi-building' },
-  ];
-  const templateOptions = [
-    { label: 'Templates', value: true, icon: 'pi pi-copy' },
-    { label: 'Standard Roles', value: false, icon: 'pi pi-id-card' },
+  const statusOptions = [
+    { label: 'Active Users', value: true, icon: 'pi pi-check-circle' },
+    { label: 'Deactivated Users', value: false, icon: 'pi pi-ban' },
   ];
 
-  // Updated Status Options (3 States)
-  const statusOptions = [
-    { label: 'Active Only', value: 'active', icon: 'pi pi-check-circle' },
+  const deletedOptions = [
+    { label: 'Active Only', value: 'active', icon: 'pi pi-user' },
     { label: 'Deleted Only', value: 'deleted', icon: 'pi pi-trash' },
     { label: 'Show All', value: 'all', icon: 'pi pi-list' },
   ];
 
-  // Sync when opening
+  // Sync
   watch(
     () => props.visible,
     (isOpen) => {
-      if (isOpen) {
-        // Copy all props to local state
-        Object.assign(local, props.filters);
-      }
+      if (isOpen) Object.assign(local, props.filters);
     },
   );
 
-  // =========================================
-  // ⚡ INSTANT FILTER LOGIC
-  // =========================================
+  // Instant Filter Debounce
   let debounceTimer: any = null;
-
   watch(
     local,
     (newVal) => {
@@ -199,10 +180,11 @@
 
   const onClear = () => {
     emit('reset');
-    // Reset local state to defaults
-    local.name = '';
-    local.isSystem = null;
-    local.isTemplate = null;
+    // Reset local
+    local.global = '';
+    local.roleId = null;
+    local.clinicId = null;
+    local.isActive = null;
     local.status = 'active';
     local.dateRange = null;
   };

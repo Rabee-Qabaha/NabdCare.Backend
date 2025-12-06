@@ -63,14 +63,20 @@ public interface IRoleService
     // ============================================
 
     Task<RoleResponseDto> CreateRoleAsync(CreateRoleRequestDto dto);
-    Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, Guid? targetClinicId, string? newRoleName);
+    // Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, Guid? targetClinicId, string? newRoleName);
+    Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, CloneRoleRequestDto dto);
     Task<RoleResponseDto?> UpdateRoleAsync(Guid id, UpdateRoleRequestDto dto);
     
     /// <summary>
     /// Soft delete a role. Cannot delete system roles or roles with assigned users.
     /// </summary>
-    Task<RoleResponseDto?> DeleteRoleAsync(Guid id);
-
+    Task<bool> SoftDeleteRoleAsync(Guid id);
+    
+    /// <summary>
+    /// Hard delete a role. Cannot delete system roles or roles with assigned users.
+    /// </summary>
+    Task<bool> HardDeleteRoleAsync(Guid id);
+    
     /// <summary>
     /// Restore a soft-deleted role.
     /// </summary>

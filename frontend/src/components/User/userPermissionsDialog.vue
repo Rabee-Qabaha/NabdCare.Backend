@@ -5,29 +5,39 @@
     :style="{ width: '750px', maxWidth: '90vw' }"
     :pt="{
       root: { class: 'rounded-xl border-0 shadow-2xl overflow-hidden' },
-      header: { class: 'border-b border-surface-200/50 py-4 px-6 bg-white' },
-      content: { class: 'p-0 h-full flex flex-col' },
-      footer: { class: 'border-t border-surface-200/50 py-4 px-6 bg-surface-50' },
+      header: {
+        class:
+          'border-b border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-0 dark:bg-surface-900',
+      },
+      content: { class: 'p-0 h-full flex flex-col bg-surface-0 dark:bg-surface-900' },
+      footer: {
+        class:
+          'border-t border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-50 dark:bg-surface-800',
+      },
     }"
     @hide="onClose"
   >
     <template #header>
       <div class="flex items-center gap-3">
         <div
-          class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 shrink-0"
+          class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shrink-0"
         >
           <i class="pi pi-shield text-xl"></i>
         </div>
         <div class="flex flex-col">
-          <h3 class="text-lg font-bold text-surface-900 leading-tight">Manage Permissions</h3>
-          <p class="text-sm text-surface-500">Configure access levels for this user</p>
+          <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight">
+            Manage Permissions
+          </h3>
+          <p class="text-sm text-surface-500 dark:text-surface-400">
+            Configure access levels for this user
+          </p>
         </div>
       </div>
     </template>
 
     <div class="flex flex-col h-[600px]">
       <div
-        class="px-6 py-4 border-b border-surface-100 bg-white/95 backdrop-blur-sm sticky top-0 z-20"
+        class="px-6 py-4 border-b border-surface-100 dark:border-surface-800 bg-white/95 dark:bg-surface-900/95 backdrop-blur-sm sticky top-0 z-20"
       >
         <div v-if="!isLoading">
           <IconField iconPosition="left" class="w-full">
@@ -35,14 +45,16 @@
             <InputText
               v-model="search"
               placeholder="Find permission..."
-              class="w-full border-surface-200 focus:border-primary-500 shadow-sm"
+              class="w-full border-surface-200 dark:border-surface-700 focus:border-primary-500 shadow-sm"
               variant="filled"
             />
           </IconField>
 
           <div class="flex justify-between items-center mt-3 h-6">
             <div class="flex items-center gap-2">
-              <span class="uppercase tracking-wider text-[10px] font-bold text-surface-400">
+              <span
+                class="uppercase tracking-wider text-[10px] font-bold text-surface-400 dark:text-surface-500"
+              >
                 Available Permissions
               </span>
               <Badge
@@ -64,7 +76,7 @@
               >
                 <div
                   v-if="isMutating"
-                  class="flex items-center gap-2 text-primary-600 bg-primary-50 px-2 py-1 rounded-md"
+                  class="flex items-center gap-2 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-md"
                 >
                   <i class="pi pi-spinner pi-spin text-xs"></i>
                   <span class="text-xs font-medium">Saving...</span>
@@ -82,7 +94,7 @@
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto bg-surface-50/50 p-6 custom-scrollbar">
+      <div class="flex-1 overflow-y-auto bg-surface-50/50 dark:bg-surface-900 p-6 custom-scrollbar">
         <div v-if="isLoading" class="space-y-4">
           <div v-for="i in 3" :key="i" class="space-y-2">
             <Skeleton height="3.5rem" class="rounded-xl" />
@@ -102,7 +114,7 @@
               :pt="{
                 root: {
                   class:
-                    'border border-surface-200 rounded-xl bg-white overflow-hidden shadow-sm transition-all duration-200',
+                    'border border-surface-200 dark:border-surface-700 rounded-xl bg-white dark:bg-surface-800 overflow-hidden shadow-sm transition-all duration-200',
                 },
               }"
             >
@@ -110,14 +122,16 @@
                 :pt="{
                   root: {
                     class:
-                      'bg-white hover:bg-surface-50 px-5 py-4 transition-colors cursor-pointer select-none',
+                      'bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 px-5 py-4 transition-colors cursor-pointer select-none',
                   },
                   toggleIcon: { class: 'text-surface-400' },
                 }"
               >
                 <div class="flex items-center justify-between w-full mr-3">
                   <div class="flex items-center gap-2.5">
-                    <span class="font-bold text-surface-700 text-base">{{ cat.label }}</span>
+                    <span class="font-bold text-surface-700 dark:text-surface-100 text-base">
+                      {{ cat.label }}
+                    </span>
                     <Badge
                       :value="cat.items.length"
                       severity="contrast"
@@ -131,7 +145,7 @@
                     @click.stop
                   >
                     <span
-                      class="text-xs font-medium text-surface-400 hidden sm:block hover:text-surface-600"
+                      class="text-xs font-medium text-surface-400 hidden sm:block hover:text-surface-600 dark:hover:text-surface-300"
                     >
                       {{ isCategoryFullySelected(cat) ? 'Deselect Custom' : 'Select All' }}
                     </span>
@@ -146,7 +160,12 @@
               </AccordionHeader>
 
               <AccordionContent
-                :pt="{ content: { class: 'p-4 bg-surface-50/30 border-t border-surface-100' } }"
+                :pt="{
+                  content: {
+                    class:
+                      'p-4 bg-surface-50/30 dark:bg-surface-900/30 border-t border-surface-100 dark:border-surface-700',
+                  },
+                }"
               >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div
@@ -155,16 +174,21 @@
                     @click="!perm.inherited && onPermissionClick(perm)"
                     class="group relative p-3 flex items-start gap-3 rounded-lg border transition-all duration-200 select-none"
                     :class="[
-                      // 1. Inherited (Role)
-                      perm.inherited ? 'bg-surface-50 border-surface-300 cursor-default' : '',
-                      // 2. Custom (Direct)
+                      // 1. Inherited (Role) - Disabled Look
+                      perm.inherited
+                        ? 'bg-surface-50 dark:bg-surface-800/50 border-surface-300 dark:border-surface-600 opacity-90 cursor-default'
+                        : '',
+
+                      // 2. Custom (Override) - Active Look
                       !perm.inherited && perm.checked
-                        ? 'bg-primary-50 border-primary-200 ring-1 ring-primary-200 cursor-pointer'
+                        ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700 ring-1 ring-primary-200 dark:ring-primary-800 cursor-pointer'
                         : '',
-                      // 3. Unassigned
+
+                      // 3. Unchecked - Standard Look
                       !perm.inherited && !perm.checked
-                        ? 'bg-white border-surface-200 hover:border-primary-300 cursor-pointer hover:shadow-sm'
+                        ? 'bg-white dark:bg-surface-800 border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-500 cursor-pointer hover:shadow-sm'
                         : '',
+
                       isMutating ? 'pointer-events-none' : '',
                     ]"
                   >
@@ -174,34 +198,52 @@
                         :disabled="perm.inherited"
                         class="scale-75 shrink-0 pointer-events-none"
                         :pt="{
-                          slider: { class: perm.inherited ? '!bg-surface-400' : '' },
+                          slider: {
+                            class: perm.inherited ? '!bg-surface-400 dark:!bg-surface-600' : '',
+                          },
                         }"
                       />
+                      <div
+                        v-if="perm.inherited"
+                        class="absolute inset-0 flex items-center justify-center z-10"
+                      >
+                        <i
+                          class="pi pi-lock text-[10px] text-surface-600 dark:text-surface-300 bg-surface-100/80 dark:bg-surface-700/80 px-1 rounded font-bold shadow-sm"
+                        ></i>
+                      </div>
                     </div>
 
                     <div class="flex flex-col min-w-0 w-full">
                       <div class="flex items-center justify-between gap-2">
                         <span
                           class="text-sm font-semibold truncate"
-                          :class="perm.checked ? 'text-surface-900' : 'text-surface-600'"
+                          :class="
+                            perm.checked
+                              ? 'text-surface-900 dark:text-surface-0'
+                              : 'text-surface-600 dark:text-surface-400'
+                          "
                         >
                           {{ perm.name }}
                         </span>
+
                         <span
                           v-if="perm.inherited"
-                          class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-surface-200 text-surface-600 border border-surface-300"
+                          class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-300 border border-surface-300 dark:border-surface-600"
                         >
                           <i class="pi pi-lock text-[10px]"></i>
                           Role
                         </span>
+
                         <span
                           v-else-if="perm.checked"
-                          class="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-primary-100 text-primary-700 border border-primary-200"
+                          class="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-700"
                         >
                           Custom
                         </span>
                       </div>
-                      <span class="text-xs text-surface-500 leading-snug line-clamp-2 mt-0.5">
+                      <span
+                        class="text-xs text-surface-500 dark:text-surface-400 leading-snug line-clamp-2 mt-0.5"
+                      >
                         {{ perm.description }}
                       </span>
                     </div>
@@ -213,10 +255,13 @@
         </div>
 
         <div v-else class="flex flex-col items-center justify-center h-full py-12 text-surface-400">
-          <div class="w-16 h-16 bg-surface-100 rounded-full flex items-center justify-center mb-4">
+          <div
+            class="w-16 h-16 bg-surface-100 dark:bg-surface-800 rounded-full flex items-center justify-center mb-4"
+          >
             <i class="pi pi-search text-2xl opacity-50"></i>
           </div>
-          <p class="font-medium text-surface-600">No permissions found</p>
+          <p class="font-medium text-surface-600 dark:text-surface-300">No permissions found</p>
+          <p class="text-sm opacity-70">Try adjusting your search terms</p>
         </div>
       </div>
     </div>

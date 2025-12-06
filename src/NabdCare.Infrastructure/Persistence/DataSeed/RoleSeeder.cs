@@ -58,7 +58,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = false,
                 ClinicId = null,
                 DisplayOrder = 1,
-                IconClass = "pi-crown",
+                IconClass = "pi pi-crown",
                 ColorCode = "#DC2626", // Red
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -75,7 +75,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 2,
-                IconClass = "pi-cog",
+                IconClass = "pi pi-cog",
                 ColorCode = "#3B82F6", // Blue
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -88,7 +88,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 3,
-                IconClass = "pi-credit-card",
+                IconClass = "pi pi-credit-card",
                 ColorCode = "#10B981", // Green
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -101,8 +101,8 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 4,
-                IconClass = "pi-headphones",
-                ColorCode = "#F59E0B", // Amber
+                IconClass = "pi pi-headphones",
+                ColorCode = "#F59E0B",
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
             },
@@ -118,7 +118,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 5,
-                IconClass = "pi-shield",
+                IconClass = "pi pi-shield",
                 ColorCode = "#8B5CF6", // Purple
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -131,7 +131,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 6,
-                IconClass = "pi-user-md",
+                IconClass = "pi pi-user",
                 ColorCode = "#06B6D4", // Cyan
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -144,7 +144,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 7,
-                IconClass = "pi-phone",
+                IconClass = "pi pi-phone",
                 ColorCode = "#14B8A6", // Teal
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -157,7 +157,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 8,
-                IconClass = "pi-heart-fill",
+                IconClass = " pi pi-heart-fill",
                 ColorCode = "#EC4899", // Pink
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"
@@ -170,7 +170,7 @@ public class RoleSeeder : ISingleSeeder
                 IsTemplate = true,
                 ClinicId = null,
                 DisplayOrder = 9,
-                IconClass = "pi-flask",
+                IconClass = "pi pi-wave-pulse",
                 ColorCode = "#A78BFA", // Violet
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "System:Seeder"

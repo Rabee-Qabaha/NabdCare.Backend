@@ -144,8 +144,9 @@ public static class Permissions
         public const string Clone = "Roles.Clone";
         public const string Edit = "Roles.Edit";
         public const string Delete = "Roles.Delete";
+        public const string HardDelete = "Roles.HardDelete";
         public const string Restore = "Roles.Restore";
-
+        
         public static readonly Dictionary<string, string> Descriptions = new()
         {
             [ViewAll] = "View all roles (system + clinic + templates)",
@@ -156,7 +157,8 @@ public static class Permissions
             [Create] = "Create new roles (clinic-level)",
             [Clone] = "Clone template roles to clinic",
             [Edit] = "Edit existing roles",
-            [Delete] = "Delete clinic roles (cannot delete system roles)"
+            [Delete] = "Delete clinic roles (cannot delete system roles)",
+            [HardDelete] = "Permanently delete a role (irreversible)"
         };
     }
 

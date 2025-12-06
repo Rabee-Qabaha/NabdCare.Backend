@@ -2,6 +2,7 @@ import { rolesApi } from '@/api/modules/roles';
 import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
 import { usePermissionRegistry } from '@/composables/query/permissions/usePermissionRegistry';
 import type { PermissionDefinition } from '@/modules/permissions/permissionRegistry';
+import type { PermissionResponseDto } from '@/types/backend';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
 import { computed, ref, watch, type Ref } from 'vue';
 
@@ -10,22 +11,20 @@ export function useRolePermissions(roleId: Ref<string | null>) {
   const { registry } = usePermissionRegistry();
   const queryClient = useQueryClient();
 
-  // 1. LOCAL STATE
-  // Stores { checked: boolean, ts: timestamp } to handle "Sticky" UI
   const pendingUpdates = ref(new Map<string, { checked: boolean; ts: number }>());
-
   const queryKey = computed(() => ['role-permissions', roleId.value]);
 
-  // -----------------------------------------------------------------------
-  // 2. QUERY (Fixed Type)
-  // -----------------------------------------------------------------------
-  // [FIX] The API returns string[] (List of IDs), not PermissionResponseDto[]
-  const permissionsQuery = useQuery<string[]>({
+  // 1. QUERY (Corrected Types)
+  const permissionsQuery = useQuery<PermissionResponseDto[]>({
     queryKey,
     queryFn: async () => {
       if (!roleId.value) return [];
       const res = await rolesApi.getPermissions(roleId.value);
-      return res.data; // This is ["guid1", "guid2", ...]
+
+      // SAFETY CHECK: If backend actually sends strings ["id1", "id2"] but DTO says objects
+      // We can force cast or map here if needed.
+      // Assuming DTO is correct (returns Objects):
+      return res.data || [];
     },
     enabled: computed(() => !!roleId.value),
     staleTime: 0,
@@ -33,14 +32,22 @@ export function useRolePermissions(roleId: Ref<string | null>) {
     placeholderData: keepPreviousData,
   });
 
-  // [FIX] Create a Set of IDs directly from the string array
-  const serverPermissionIds = computed(() => new Set(permissionsQuery.data.value ?? []));
+  // 2. Computed Set of IDs
+  const serverPermissionIds = computed(() => {
+    const data = permissionsQuery.data.value ?? [];
+
+    // Handle if data is array of strings (backend discrepancy)
+    if (data.length > 0 && typeof data[0] === 'string') {
+      return new Set(data as unknown as string[]);
+    }
+
+    // Standard case: Array of Objects
+    return new Set(data.map((p) => p.id));
+  });
 
   const isLoading = computed(() => permissionsQuery.isLoading.value);
 
-  // -----------------------------------------------------------------------
-  // 3. REACTIVE CLEANUP (Sticky Fix)
-  // -----------------------------------------------------------------------
+  // 3. REACTIVE CLEANUP
   watch(
     serverPermissionIds,
     (serverIds) => {
@@ -52,13 +59,10 @@ export function useRolePermissions(roleId: Ref<string | null>) {
       currentMap.forEach((val, id) => {
         const serverHasIt = serverIds.has(id);
 
-        // CASE 1: We wanted ON, Server says ON -> Cleanup
         if (val.checked === true && serverHasIt) {
           currentMap.delete(id);
           changed = true;
-        }
-        // CASE 2: We wanted OFF, Server says OFF -> Cleanup
-        else if (val.checked === false && !serverHasIt) {
+        } else if (val.checked === false && !serverHasIt) {
           currentMap.delete(id);
           changed = true;
         }
@@ -84,14 +88,10 @@ export function useRolePermissions(roleId: Ref<string | null>) {
     if (expired) pendingUpdates.value = currentMap;
   }, 2000);
 
-  // -----------------------------------------------------------------------
-  // 4. DATA COMPUTATION (Fixed Matching)
-  // -----------------------------------------------------------------------
+  // 4. DATA COMPUTATION
   const categories = computed(() => {
     const serverIds = serverPermissionIds.value;
     const pendingMap = pendingUpdates.value;
-
-    // Force reactivity
     const _trigger = pendingMap.size;
     void _trigger;
 
@@ -100,11 +100,13 @@ export function useRolePermissions(roleId: Ref<string | null>) {
       items: cat.items.map((perm: PermissionDefinition) => {
         const id = perm.id;
 
-        // [FIX] Match purely by ID
+        // Check Server State
+        // Note: serverIds is Set<string>, id is string. Perfect match.
         const isAssignedServer = id ? serverIds.has(id) : false;
 
-        // Optimistic Override
+        // Check Pending State
         let isChecked = isAssignedServer;
+
         if (id && pendingMap.has(id)) {
           isChecked = pendingMap.get(id)!.checked;
         }
@@ -121,9 +123,7 @@ export function useRolePermissions(roleId: Ref<string | null>) {
     await queryClient.invalidateQueries({ queryKey: queryKey.value });
   }
 
-  // -----------------------------------------------------------------------
   // 5. MUTATIONS
-  // -----------------------------------------------------------------------
   const assignMutation = useMutation({
     mutationFn: (permissionId: string) => rolesApi.assignPermission(roleId.value!, permissionId),
     onError: (err: any) => handleErrorAndNotify(err),
@@ -138,9 +138,7 @@ export function useRolePermissions(roleId: Ref<string | null>) {
     () => assignMutation.isPending.value || removeMutation.isPending.value,
   );
 
-  // -----------------------------------------------------------------------
   // 6. ACTIONS
-  // -----------------------------------------------------------------------
   function setOptimistic(ids: string[], state: boolean) {
     const newMap = new Map(pendingUpdates.value);
     const now = Date.now();

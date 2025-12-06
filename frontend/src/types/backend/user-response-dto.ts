@@ -9,6 +9,8 @@ export class UserResponseDto {
   fullName: string = "";
   roleId: string;
   roleName: string = "";
+  roleColorCode: string;
+  roleIcon: string;
   isSystemRole: boolean;
   isActive: boolean;
   isDeleted: boolean;

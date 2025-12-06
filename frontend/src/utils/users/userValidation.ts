@@ -1,4 +1,5 @@
-import { USER_VALIDATION, PASSWORD_REQUIREMENTS } from '@/types/domain/users';
+// src/utils/users/userValidation.ts
+import { PASSWORD_REQUIREMENTS, USER_VALIDATION } from '@/types/domain/users';
 
 export interface PasswordStrength {
   minLength: boolean;

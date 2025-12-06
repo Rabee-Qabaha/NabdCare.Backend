@@ -25,8 +25,8 @@ public class CreateRoleValidator : AbstractValidator<CreateRoleRequestDto>
 
         RuleFor(x => x.IconClass)
             .MaximumLength(50).WithMessage("IconClass cannot exceed 50 characters")
-            .Matches(@"^[a-z0-9\-]+$")
+            .Matches(@"^[a-z0-9\-\s]+$") 
             .When(x => !string.IsNullOrWhiteSpace(x.IconClass))
-            .WithMessage("IconClass must contain only lowercase letters, numbers, and hyphens");
+            .WithMessage("IconClass must contain only lowercase letters, numbers, hyphens, and spaces");
     }
 }

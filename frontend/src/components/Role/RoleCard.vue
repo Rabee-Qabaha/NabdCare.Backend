@@ -1,78 +1,113 @@
 <template>
   <div
-    class="relative flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all duration-200"
+    class="group relative flex flex-col justify-between overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
     :class="[
       role.isDeleted
-        ? 'border-pink-200 bg-pink-50 dark:border-pink-400 dark:bg-pink-550'
-        : 'border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900',
-      'hover:shadow-primary/40',
+        ? 'border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-900/10'
+        : 'border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 hover:border-primary-500 dark:hover:border-primary-400',
     ]"
   >
-    <!-- Icon area -->
-    <div
-      class="h-16 flex items-center justify-center text-4xl text-white"
-      :style="{ backgroundColor: role.colorCode || '#3B82F6' }"
-    >
-      <i v-if="role.iconClass" :class="role.iconClass"></i>
-      <i v-else class="pi pi-shield"></i>
-    </div>
+    <div v-if="role.isDeleted" class="absolute top-0 left-0 w-full h-1 bg-red-500 z-10"></div>
 
-    <!-- Main content -->
-    <div class="p-4 pb-2">
-      <div class="flex items-center justify-between mb-1">
-        <h3 class="m-0 text-xl font-bold">{{ role.name }}</h3>
-        <Tag
-          :value="role.isSystemRole ? 'System Role' : 'Clinic Role'"
-          :severity="role.isSystemRole ? 'info' : 'success'"
-          rounded
-          class="text-xs"
-        />
-      </div>
-      <p class="m-0 text-sm text-surface-600 dark:text-surface-400 line-clamp-2">
-        {{ role.description || 'No description' }}
-      </p>
-    </div>
+    <div class="p-5 pb-2">
+      <div class="flex justify-between items-start mb-4">
+        <div
+          class="flex items-center justify-center w-12 h-12 rounded-xl text-white shadow-sm shrink-0"
+          :style="{ backgroundColor: role.colorCode || '#64748b' }"
+        >
+          <i :class="[role.iconClass || 'pi pi-shield', 'text-xl']"></i>
+        </div>
 
-    <!-- Stats -->
-    <div
-      class="border-t px-4 py-3 text-sm flex flex-col gap-1"
-      :class="role.isDeleted ? 'border-pink-200' : 'border-surface-200'"
-    >
-      <div class="flex items-center justify-between">
-        <span>
-          <i class="pi pi-users"></i>
-          Users
-        </span>
-        <span>{{ role.userCount }}</span>
+        <div class="flex flex-col items-end gap-2">
+          <Tag
+            :value="role.isSystemRole ? 'System' : 'Clinic'"
+            :severity="role.isSystemRole ? 'warn' : 'success'"
+            class="!text-[10px] uppercase font-bold tracking-wide !px-2"
+          />
+          <span
+            v-if="role.isDeleted"
+            class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded"
+          >
+            Deleted
+          </span>
+        </div>
       </div>
 
-      <div class="flex items-center justify-between">
-        <span>
-          <i class="pi pi-sliders-h"></i>
-          Permissions
-        </span>
-        <span>{{ role.permissionCount }}</span>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <span>
-          <i class="pi pi-building"></i>
-          Clinic
-        </span>
-        <span>{{ role.clinicName || 'No Clinic' }}</span>
+      <div class="mb-2">
+        <h3
+          class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight mb-1 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"
+        >
+          {{ role.name }}
+        </h3>
+        <p class="text-sm text-surface-500 dark:text-surface-400 leading-relaxed line-clamp-2 h-10">
+          {{ role.description || 'No description provided.' }}
+        </p>
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="flex items-center justify-between border-t px-4 py-2">
-      <div class="font-mono text-xs">ID: {{ role.id.slice(0, 8) }}</div>
-      <slot name="actions" :role="role"></slot>
+    <div class="mt-auto">
+      <div
+        class="grid grid-cols-2 border-t border-surface-200 dark:border-surface-700 divide-x divide-surface-200 dark:divide-surface-700 bg-surface-50/50 dark:bg-surface-800/30"
+      >
+        <div
+          class="p-3 flex flex-col items-center justify-center hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+        >
+          <span
+            class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-wide"
+          >
+            Users
+          </span>
+          <div
+            class="flex items-center gap-1.5 text-surface-900 dark:text-surface-0 font-bold text-sm"
+          >
+            <i class="pi pi-users text-primary-500 dark:text-primary-400 text-xs"></i>
+            <span>{{ role.userCount }}</span>
+          </div>
+        </div>
+
+        <div
+          class="p-3 flex flex-col items-center justify-center hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+        >
+          <span
+            class="text-[10px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-wide"
+          >
+            Perms
+          </span>
+          <div
+            class="flex items-center gap-1.5 text-surface-900 dark:text-surface-0 font-bold text-sm"
+          >
+            <i class="pi pi-key text-primary-500 dark:text-primary-400 text-xs"></i>
+            <span>{{ role.permissionCount }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="flex items-center justify-between p-3 border-t border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-900"
+      >
+        <div class="flex flex-col">
+          <div
+            class="flex items-center gap-1 text-xs text-surface-500 dark:text-surface-400 font-medium max-w-[120px] truncate"
+          >
+            <i class="pi pi-building text-[10px] opacity-70"></i>
+            <span :title="role.clinicName">{{ role.clinicName || 'Global' }}</span>
+          </div>
+          <span class="text-[9px] text-surface-400 dark:text-surface-500 font-mono mt-0.5">
+            #{{ role.id.slice(0, 6) }}
+          </span>
+        </div>
+
+        <div class="flex gap-2">
+          <slot name="actions" :role="role"></slot>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
   import type { RoleResponseDto } from '@/types/backend';
+  import Tag from 'primevue/tag';
 
   defineProps<{
     role: RoleResponseDto;

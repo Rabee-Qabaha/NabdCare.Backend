@@ -1,7 +1,6 @@
-// src/composables/query/permissions/usePermissions.ts
 import { permissionsApi } from '@/api/modules/permissions';
-import { useMutationWithInvalidate } from '@/composables/query/helpers/useMutationWithInvalidate';
-import { useQueryWithToasts } from '@/composables/query/helpers/useQueryWithToasts';
+import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
+import { useToastService } from '@/composables/useToastService';
 import type {
   AssignPermissionToUserDto,
   CreatePermissionDto,
@@ -10,8 +9,10 @@ import type {
   PermissionResponseDto,
   UpdatePermissionDto,
 } from '@/types/backend';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
+import { computed, unref, type Ref } from 'vue';
 
-/* 🔹 Query keys — fully type-safe */
+/* 🔹 Query keys */
 export const permissionKeys = {
   all: ['permissions'] as const,
   paged: (params?: PaginationRequestDto) => ['permissions', 'paged', params] as const,
@@ -24,132 +25,153 @@ export const permissionKeys = {
 
 /* ✅ Queries */
 
-export function useAllPermissionsPaged(params: PaginationRequestDto) {
-  return useQueryWithToasts<PaginatedResult<PermissionResponseDto>>({
-    queryKey: permissionKeys.paged(params),
-    queryFn: () => permissionsApi.getAllPaged(params),
-    successMessage: 'Permissions loaded successfully.',
-    errorMessage: 'Failed to load permissions.',
+export function useAllPermissionsPaged(params: Ref<PaginationRequestDto> | PaginationRequestDto) {
+  return useQuery<PaginatedResult<PermissionResponseDto>>({
+    queryKey: computed(() => permissionKeys.paged(unref(params))),
+    queryFn: () => permissionsApi.getAllPaged(unref(params)),
+    placeholderData: keepPreviousData, // Prevents flickering
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
 export function useAllPermissions() {
-  return useQueryWithToasts<PermissionResponseDto[]>({
+  return useQuery<PermissionResponseDto[]>({
     queryKey: permissionKeys.all,
     queryFn: () => permissionsApi.getAll(),
-    successMessage: 'Permissions loaded successfully.',
-    errorMessage: 'Failed to load permissions.',
+    staleTime: 1000 * 60 * 5,
   });
 }
 
 export function useGroupedPermissions() {
-  return useQueryWithToasts({
+  return useQuery({
     queryKey: permissionKeys.grouped,
     queryFn: () => permissionsApi.getGrouped(),
-    successMessage: 'Grouped permissions loaded successfully.',
-    errorMessage: 'Failed to load grouped permissions.',
+    staleTime: 1000 * 60 * 5,
   });
 }
 
-export function usePermissionById(id: string) {
-  return useQueryWithToasts({
-    queryKey: permissionKeys.byId(id),
-    queryFn: () => permissionsApi.getById(id),
-    enabled: !!id,
-    successMessage: 'Permission loaded successfully.',
-    errorMessage: 'Failed to load permission.',
+export function usePermissionById(id: Ref<string> | string) {
+  return useQuery({
+    queryKey: computed(() => permissionKeys.byId(unref(id))),
+    queryFn: () => permissionsApi.getById(unref(id)),
+    enabled: computed(() => !!unref(id)),
   });
 }
 
 export function useMyPermissions() {
-  return useQueryWithToasts({
+  return useQuery({
     queryKey: permissionKeys.me,
     queryFn: () => permissionsApi.getMine(),
-    successMessage: "Fetched current user's permissions.",
-    errorMessage: "Failed to fetch current user's permissions.",
   });
 }
 
-export function useUserPermissions(userId: string) {
-  return useQueryWithToasts({
-    queryKey: permissionKeys.user(userId),
-    queryFn: () => permissionsApi.getByUser(userId),
-    enabled: !!userId,
-    successMessage: 'Fetched user permissions.',
-    errorMessage: 'Failed to fetch user permissions.',
+export function useUserPermissions(userId: Ref<string | null> | string) {
+  return useQuery({
+    queryKey: computed(() => permissionKeys.user(unref(userId) || '')),
+    queryFn: () => permissionsApi.getByUser(unref(userId)!),
+    enabled: computed(() => !!unref(userId)),
   });
 }
 
-export function useRolePermissions(roleId: string) {
-  return useQueryWithToasts({
-    queryKey: permissionKeys.role(roleId),
-    queryFn: () => permissionsApi.getByRole(roleId),
-    enabled: !!roleId,
-    successMessage: 'Fetched role permissions.',
-    errorMessage: 'Failed to fetch role permissions.',
+export function useRolePermissions(roleId: Ref<string | null> | string) {
+  return useQuery({
+    queryKey: computed(() => permissionKeys.role(unref(roleId) || '')),
+    queryFn: () => permissionsApi.getByRole(unref(roleId)!),
+    enabled: computed(() => !!unref(roleId)),
   });
 }
 
 /* ✅ Mutations */
 
 export function useCreatePermission() {
-  return useMutationWithInvalidate({
-    mutationKey: ['permissions', 'create'],
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { handleErrorAndNotify } = useErrorHandler();
+
+  return useMutation({
     mutationFn: (dto: CreatePermissionDto) => permissionsApi.create(dto),
-    invalidateKeys: [permissionKeys.all],
-    successMessage: 'Permission created successfully!',
-    errorMessage: 'Failed to create permission.',
+    onSuccess: () => {
+      toast.success('Permission created successfully!');
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
+    },
+    onError: (err) => handleErrorAndNotify(err),
   });
 }
 
 export function useUpdatePermission() {
-  return useMutationWithInvalidate({
-    mutationKey: ['permissions', 'update'],
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { handleErrorAndNotify } = useErrorHandler();
+
+  return useMutation({
     mutationFn: (data: { id: string; dto: UpdatePermissionDto }) =>
       permissionsApi.update(data.id, data.dto),
-    invalidateKeys: [(v) => permissionKeys.byId(v.id), permissionKeys.all],
-    successMessage: 'Permission updated successfully!',
-    errorMessage: 'Failed to update permission.',
+    onSuccess: (_, variables) => {
+      toast.success('Permission updated successfully!');
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
+      queryClient.invalidateQueries({ queryKey: permissionKeys.byId(variables.id) });
+    },
+    onError: (err) => handleErrorAndNotify(err),
   });
 }
 
 export function useDeletePermission() {
-  return useMutationWithInvalidate({
-    mutationKey: ['permissions', 'delete'],
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { handleErrorAndNotify } = useErrorHandler();
+
+  return useMutation({
     mutationFn: (id: string) => permissionsApi.delete(id),
-    invalidateKeys: [permissionKeys.all],
-    successMessage: 'Permission deleted successfully!',
-    errorMessage: 'Failed to delete permission.',
+    onSuccess: () => {
+      toast.success('Permission deleted successfully!');
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
+    },
+    onError: (err) => handleErrorAndNotify(err),
   });
 }
 
 export function useAssignPermissionToUser() {
-  return useMutationWithInvalidate({
-    mutationKey: ['permissions', 'assign-user'],
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { handleErrorAndNotify } = useErrorHandler();
+
+  return useMutation({
     mutationFn: (dto: AssignPermissionToUserDto) => permissionsApi.assignToUser(dto),
-    invalidateKeys: [(v) => permissionKeys.user(v.userId)],
-    successMessage: 'Permission assigned successfully!',
-    errorMessage: 'Failed to assign permission.',
+    onSuccess: (_, variables) => {
+      toast.success('Permission assigned successfully!');
+      queryClient.invalidateQueries({ queryKey: permissionKeys.user(variables.userId) });
+    },
+    onError: (err) => handleErrorAndNotify(err),
   });
 }
 
 export function useRemovePermissionFromUser() {
-  return useMutationWithInvalidate({
-    mutationKey: ['permissions', 'remove-user'],
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { handleErrorAndNotify } = useErrorHandler();
+
+  return useMutation({
     mutationFn: (data: { userId: string; permissionId: string }) =>
       permissionsApi.removeFromUser(data.userId, data.permissionId),
-    invalidateKeys: [(v) => permissionKeys.user(v.userId)],
-    successMessage: 'Permission removed successfully!',
-    errorMessage: 'Failed to remove permission.',
+    onSuccess: (_, variables) => {
+      toast.success('Permission removed successfully!');
+      queryClient.invalidateQueries({ queryKey: permissionKeys.user(variables.userId) });
+    },
+    onError: (err) => handleErrorAndNotify(err),
   });
 }
 
 export function useRefreshUserPermissions() {
-  return useMutationWithInvalidate({
-    mutationKey: ['permissions', 'refresh-user'],
+  const toast = useToastService();
+  const queryClient = useQueryClient();
+  const { handleErrorAndNotify } = useErrorHandler();
+
+  return useMutation({
     mutationFn: (userId: string) => permissionsApi.refreshUser(userId),
-    invalidateKeys: [permissionKeys.all],
-    successMessage: 'Permissions cache refreshed successfully!',
-    errorMessage: 'Failed to refresh permissions cache.',
+    onSuccess: () => {
+      toast.success('Permissions cache refreshed successfully!');
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
+    },
+    onError: (err) => handleErrorAndNotify(err),
   });
 }

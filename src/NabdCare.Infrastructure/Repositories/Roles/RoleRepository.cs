@@ -45,26 +45,36 @@ public class RoleRepository : IRoleRepository
             .Include(r => r.Clinic)
             .AsQueryable();
 
-        // Filter by deletion status
-        if (!includeDeleted)
+        // ---------------------------------------------------------
+        // 1. HANDLE DELETION & SECURITY
+        // ---------------------------------------------------------
+        if (includeDeleted)
         {
+            // 🔓 Unlock deleted rows (This also disables tenant filters!)
+            query = query.IgnoreQueryFilters();
+
+            // 🔒 MANUALLY RE-APPLY TENANT SECURITY
+            if (!IsSuperAdmin() && CurrentClinicId.HasValue)
+            {
+                query = query.Where(r =>
+                    r.IsSystemRole ||
+                    r.IsTemplate ||
+                    r.ClinicId == CurrentClinicId
+                );
+            }
+        }
+        else
+        {
+            // Standard Mode: Global Filter handles both !IsDeleted AND Tenant Security
             query = query.Where(r => !r.IsDeleted);
         }
 
-        // Filter by clinic if specified
+        // ---------------------------------------------------------
+        // 2. SPECIFIC FILTERING
+        // ---------------------------------------------------------
         if (clinicId.HasValue)
         {
             query = query.Where(r => r.ClinicId == clinicId);
-        }
-
-        // Filter by tenant context (if not SuperAdmin)
-        if (!IsSuperAdmin() && CurrentClinicId.HasValue)
-        {
-            query = query.Where(r => 
-                r.IsSystemRole || 
-                r.IsTemplate ||
-                r.ClinicId == CurrentClinicId
-            );
         }
 
         return await query
@@ -82,31 +92,50 @@ public class RoleRepository : IRoleRepository
             .Include(r => r.Clinic)
             .AsQueryable();
 
-        // Filter by deletion status
-        if (!includeDeleted)
+        // ---------------------------------------------------------
+        // 1. HANDLE DELETION & SECURITY
+        // ---------------------------------------------------------
+        if (includeDeleted)
         {
+            // 🔓 Disable "IsDeleted" filter -> Show All (Active + Deleted)
+            query = query.IgnoreQueryFilters();
+
+            // 🔒 MANUALLY RE-APPLY TENANT SECURITY
+            if (!IsSuperAdmin() && CurrentClinicId.HasValue)
+            {
+                query = query.Where(r =>
+                    r.IsSystemRole ||
+                    r.IsTemplate ||
+                    r.ClinicId == CurrentClinicId
+                );
+            }
+        }
+        else
+        {
+            // Active Only
             query = query.Where(r => !r.IsDeleted);
         }
 
-        // Apply ABAC filter if provided
+        // ---------------------------------------------------------
+        // 2. ABAC & SEARCH
+        // ---------------------------------------------------------
         if (abacFilter is not null)
             query = abacFilter(query);
 
-        // Optional text filter
         if (!string.IsNullOrWhiteSpace(pagination.Filter))
         {
             var filter = pagination.Filter.ToLower();
             query = query.Where(r => r.Name.ToLower().Contains(filter));
         }
 
-        // Sorting
+        // ---------------------------------------------------------
+        // 3. SORTING & PAGING
+        // ---------------------------------------------------------
         if (!string.IsNullOrEmpty(pagination.SortBy))
         {
             query = pagination.SortBy.ToLower() switch
             {
-                "name" => pagination.Descending
-                    ? query.OrderByDescending(r => r.Name)
-                    : query.OrderBy(r => r.Name),
+                "name" => pagination.Descending ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
                 "displayorder" => pagination.Descending
                     ? query.OrderByDescending(r => r.DisplayOrder)
                     : query.OrderBy(r => r.DisplayOrder),
@@ -137,25 +166,36 @@ public class RoleRepository : IRoleRepository
         Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
     {
         var query = _dbContext.Roles
-            .Where(r => r.ClinicId == clinicId)
             .Include(r => r.Clinic)
             .AsQueryable();
 
-        // Filter by deletion status
-        if (!includeDeleted)
+        // 1. Handle Deletion Status
+        if (includeDeleted)
         {
+            // Disable global filters to see deleted items
+            query = query.IgnoreQueryFilters();
+        }
+        else
+        {
+            // Enforce active only
             query = query.Where(r => !r.IsDeleted);
         }
 
+        // 2. Enforce Clinic Scope (Required because IgnoreQueryFilters removes the global tenant check)
+        query = query.Where(r => r.ClinicId == clinicId);
+
+        // 3. Apply ABAC Filter
         if (abacFilter is not null)
             query = abacFilter(query);
 
+        // 4. Search Text
         if (!string.IsNullOrWhiteSpace(pagination.Filter))
         {
             var filter = pagination.Filter.ToLower();
             query = query.Where(r => r.Name.ToLower().Contains(filter));
         }
 
+        // 5. Sorting
         if (!string.IsNullOrEmpty(pagination.SortBy))
         {
             query = pagination.SortBy.ToLower() switch
@@ -174,6 +214,7 @@ public class RoleRepository : IRoleRepository
             query = query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name);
         }
 
+        // 6. Pagination Execution
         var total = await query.CountAsync();
         var roles = await query.Take(pagination.Limit).ToListAsync();
 
@@ -284,32 +325,38 @@ public class RoleRepository : IRoleRepository
         return existing;
     }
 
-    /// <summary>
-    /// Soft delete a role
-    /// </summary>
-    public async Task<Role?> DeleteRoleAsync(Guid id)
+    public async Task<bool> SoftDeleteRoleAsync(Guid id)
     {
         var role = await _dbContext.Roles
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Id == id);
 
-        if (role == null)
-            return null;
+        if (role == null) return false;
 
-        if (role.IsSystemRole && !IsSuperAdmin())
-            throw new UnauthorizedAccessException("System roles cannot be deleted");
-
-        if (!IsSuperAdmin() && role.ClinicId != CurrentClinicId)
-            throw new UnauthorizedAccessException("You can delete only roles belonging to your clinic");
+        if (role.IsSystemRole && !IsSuperAdmin()) return false;
+        if (!IsSuperAdmin() && role.ClinicId != CurrentClinicId) return false;
 
         role.IsDeleted = true;
-        role.DeletedAt = DateTime.UtcNow;
-        role.DeletedBy = CurrentUserId;
 
         _dbContext.Roles.Update(role);
         await _dbContext.SaveChangesAsync();
-        _logger.LogInformation("Soft deleted role {RoleId}", id);
-        return role;
+        return true;
+    }
+
+    public async Task<bool> HardDeleteRoleAsync(Guid id)
+    {
+        var role = await _dbContext.Roles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+        if (role == null) return false;
+
+        if (role.IsSystemRole && !IsSuperAdmin()) return false;
+        if (!IsSuperAdmin() && role.ClinicId != CurrentClinicId) return false;
+
+        _dbContext.Roles.Remove(role);
+        await _dbContext.SaveChangesAsync();
+        return true;
     }
 
     /// <summary>

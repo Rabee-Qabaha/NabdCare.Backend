@@ -1,48 +1,74 @@
-// src/composables/user/useUserDialog.ts
-import { ref, computed } from 'vue';
+// src/composables/user/useUserDialogs.ts
 import type { UserResponseDto } from '@/types/backend';
+import { ref } from 'vue';
 
-export function useUserDialog() {
-  const visible = ref(false);
-  const localUser = ref<Partial<UserResponseDto>>({});
-  const submitted = ref(false);
-  const saving = ref(false);
+export function useUserDialogs() {
+  const dialogs = ref({
+    createEdit: false,
+    permissions: false,
+    resetPassword: false,
+    deleteConfirm: false,
+    permanentDelete: false,
+    bulkAction: false,
+  });
 
-  const mode = computed(() => (localUser.value.id ? 'edit' : 'create'));
+  const selectedUser = ref<UserResponseDto | null>(null);
+  const currentBulkAction = ref<'activate' | 'deactivate' | 'delete' | null>(null);
 
-  const isNewUser = computed(() => !localUser.value.id);
+  function openCreateDialog() {
+    selectedUser.value = null;
+    dialogs.value.createEdit = true;
+  }
 
-  const open = (user?: Partial<UserResponseDto>) => {
-    if (user) {
-      localUser.value = { ...user };
-    } else {
-      localUser.value = {};
-    }
-    submitted.value = false;
-    visible.value = true;
-  };
+  function openEditDialog(user: UserResponseDto) {
+    selectedUser.value = { ...user }; // Clone to avoid mutation
+    dialogs.value.createEdit = true;
+  }
 
-  const close = () => {
-    visible.value = false;
-    submitted.value = false;
-    localUser.value = {};
-  };
+  function openPermissionsDialog(user: UserResponseDto) {
+    selectedUser.value = user;
+    dialogs.value.permissions = true;
+  }
 
-  const reset = () => {
-    localUser.value = {};
-    submitted.value = false;
-    saving.value = false;
-  };
+  function openResetPasswordDialog(user: UserResponseDto) {
+    selectedUser.value = user;
+    dialogs.value.resetPassword = true;
+  }
+
+  function openDeleteDialog(user: UserResponseDto) {
+    selectedUser.value = user;
+    dialogs.value.deleteConfirm = true;
+  }
+
+  function openPermanentDeleteDialog(user: UserResponseDto) {
+    selectedUser.value = user;
+    dialogs.value.permanentDelete = true;
+  }
+
+  function openBulkActionDialog(action: 'activate' | 'deactivate' | 'delete') {
+    currentBulkAction.value = action;
+    dialogs.value.bulkAction = true;
+  }
+
+  function closeAll() {
+    Object.keys(dialogs.value).forEach(
+      (k) => (dialogs.value[k as keyof typeof dialogs.value] = false),
+    );
+    selectedUser.value = null;
+    currentBulkAction.value = null;
+  }
 
   return {
-    visible,
-    localUser,
-    submitted,
-    saving,
-    mode,
-    isNewUser,
-    open,
-    close,
-    reset,
+    dialogs,
+    selectedUser,
+    currentBulkAction,
+    openCreateDialog,
+    openEditDialog,
+    openPermissionsDialog,
+    openResetPasswordDialog,
+    openDeleteDialog,
+    openPermanentDeleteDialog,
+    openBulkActionDialog,
+    closeAll,
   };
 }

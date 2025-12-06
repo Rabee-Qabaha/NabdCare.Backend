@@ -1,3 +1,4 @@
+// src/composables/query/users/useUserPermissions.ts
 import { permissionsApi } from '@/api/modules/permissions';
 import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
 import { usePermissionRegistry } from '@/composables/query/permissions/usePermissionRegistry';

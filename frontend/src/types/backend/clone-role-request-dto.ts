@@ -7,5 +7,8 @@ export interface CloneRoleRequestDto {
   clinicId: string | null;
   newRoleName: string | null;
   description: string | null;
+  colorCode: string | null;
+  iconClass: string | null;
+  displayOrder: number | null;
   copyPermissions: boolean | null;
 }

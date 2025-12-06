@@ -1,7 +1,8 @@
-import type { MutationFunction } from "@tanstack/vue-query";
-import { useMutation, useQueryClient } from "@tanstack/vue-query";
-import { useToast } from "primevue/usetoast";
-import { isRef, unref, type Ref } from "vue";
+// src/composables/query/helpers/useMutationWithInvalidate.ts
+import type { MutationFunction } from '@tanstack/vue-query';
+import { useMutation, useQueryClient } from '@tanstack/vue-query';
+import { useToast } from 'primevue/usetoast';
+import { isRef, unref, type Ref } from 'vue';
 
 /**
  * ✅ Vue Query v5-compatible helper
@@ -39,7 +40,7 @@ export function useMutationWithInvalidate<
   throwOnError?: boolean | ((error: TError) => boolean);
   retry?: number | boolean | ((failureCount: number, error: TError) => boolean);
   retryDelay?: number | ((attemptIndex: number, error: TError) => number);
-  networkMode?: "always" | "online" | "offlineFirst";
+  networkMode?: 'always' | 'online' | 'offlineFirst';
   gcTime?: number;
   meta?: Record<string, unknown>;
 }) {
@@ -71,20 +72,20 @@ export function useMutationWithInvalidate<
     async onSuccess(data, variables, context) {
       // 🔁 invalidate cache
       for (const key of invalidateKeys) {
-        const resolved = typeof key === "function" ? key(variables) : key;
+        const resolved = typeof key === 'function' ? key(variables) : key;
         await queryClient.invalidateQueries({ queryKey: resolved as unknown[] });
       }
 
       // ✅ success toast
       if (successMessage)
-        toast.add({ severity: "success", summary: "Success", detail: successMessage, life: 3000 });
+        toast.add({ severity: 'success', summary: 'Success', detail: successMessage, life: 3000 });
 
       const cb = unwrapCallback(onSuccess);
       if (cb) await cb(data, variables, context as TContext);
     },
     async onError(error, variables, context) {
       if (errorMessage)
-        toast.add({ severity: "error", summary: "Error", detail: errorMessage, life: 4000 });
+        toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 4000 });
 
       const cb = unwrapCallback(onError);
       if (cb) await cb(error, variables, context as TContext | undefined);

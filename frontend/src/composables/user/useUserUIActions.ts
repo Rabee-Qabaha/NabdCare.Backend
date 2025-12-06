@@ -1,54 +1,34 @@
 // src/composables/user/useUserUIActions.ts
-import { ref } from 'vue';
-import { useToast } from 'primevue/usetoast';
+import type { UserResponseDto } from '@/types/backend';
 import { useConfirm } from 'primevue/useconfirm';
-import type { UserResponseDto } from '../../types/backend/index';
-import {
-  useActivateUser,
-  useDeactivateUser,
-  useSoftDeleteUser,
-  useHardDeleteUser,
-  useRestoreUser,
-} from '../query/users/useUserActions';
+import { ref } from 'vue';
+import { useUserActions } from '../query/users/useUserActions';
 
 export function useUserUIActions() {
-  const toast = useToast();
   const confirm = useConfirm();
   const loadingUserIds = ref<Set<string>>(new Set());
 
-  const activateMutation = useActivateUser();
-  const deactivateMutation = useDeactivateUser();
-  const softDeleteMutation = useSoftDeleteUser();
-  const hardDeleteMutation = useHardDeleteUser();
-  const restoreMutation = useRestoreUser();
+  const {
+    activateMutation,
+    deactivateMutation,
+    softDeleteMutation,
+    hardDeleteMutation,
+    restoreMutation,
+  } = useUserActions();
 
   const toggleUserStatus = async (user: UserResponseDto) => {
     loadingUserIds.value.add(user.id);
     try {
       if (user.isActive) {
         await deactivateMutation.mutateAsync(user.id);
-        toast.add({
-          severity: 'success',
-          summary: 'Deactivated',
-          detail: `${user.fullName} has been deactivated`,
-          life: 3000,
-        });
+        // Success toast handled in useUserActions
       } else {
         await activateMutation.mutateAsync(user.id);
-        toast.add({
-          severity: 'success',
-          summary: 'Activated',
-          detail: `${user.fullName} has been activated`,
-          life: 3000,
-        });
+        // Success toast handled in useUserActions
       }
     } catch (err: any) {
-      toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: err.message || 'Failed to update user status',
-        life: 3000,
-      });
+      // Error toast handled by Global Interceptor, but keep specific fallback if needed
+      console.error('Status toggle failed', err);
     } finally {
       loadingUserIds.value.delete(user.id);
     }
@@ -56,12 +36,12 @@ export function useUserUIActions() {
 
   const confirmSoftDelete = (user: UserResponseDto, onConfirm: () => void) => {
     confirm.require({
-      message: `Are you sure you want to delete ${user.fullName}? This user will be soft-deleted and can be recovered.`,
-      header: 'Confirm Delete',
+      message: `Are you sure you want to move ${user.fullName} to the trash?`,
+      header: 'Confirm Soft Delete',
       icon: 'pi pi-exclamation-triangle',
       rejectLabel: 'Cancel',
-      acceptLabel: 'Delete',
-      rejectProps: { outlined: true },
+      acceptLabel: 'Move to Trash',
+      rejectProps: { outlined: true, severity: 'secondary' },
       acceptProps: { severity: 'danger' },
       accept: onConfirm,
     });
@@ -69,12 +49,12 @@ export function useUserUIActions() {
 
   const confirmHardDelete = (user: UserResponseDto, onConfirm: () => void) => {
     confirm.require({
-      message: `Permanently delete ${user.fullName}? This action cannot be undone.`,
+      message: `This action is IRREVERSIBLE. Permanently delete ${user.fullName}?`,
       header: '⚠️ Permanent Deletion',
       icon: 'pi pi-exclamation-triangle',
       rejectLabel: 'Cancel',
-      acceptLabel: 'Delete Permanently',
-      rejectProps: { outlined: true },
+      acceptLabel: 'Delete Forever',
+      rejectProps: { outlined: true, severity: 'secondary' },
       acceptProps: { severity: 'danger' },
       accept: onConfirm,
     });
@@ -82,14 +62,14 @@ export function useUserUIActions() {
 
   const confirmRestore = (user: UserResponseDto, onConfirm: () => void) => {
     confirm.require({
-      message: `Restore user ${user.fullName} (${user.email})?`,
+      message: `Restore user ${user.fullName}?`,
       header: 'Restore User',
       icon: 'pi pi-refresh',
       rejectLabel: 'Cancel',
       acceptLabel: 'Restore',
       acceptIcon: 'pi pi-undo',
       acceptProps: { severity: 'success' },
-      rejectProps: { outlined: true },
+      rejectProps: { outlined: true, severity: 'secondary' },
       accept: onConfirm,
     });
   };
@@ -100,6 +80,7 @@ export function useUserUIActions() {
     confirmSoftDelete,
     confirmHardDelete,
     confirmRestore,
+    // Expose mutations if needed by parent
     activateMutation,
     deactivateMutation,
     softDeleteMutation,

@@ -55,32 +55,35 @@ public class RoleService : IRoleService
     public async Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null)
     {
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} getting all roles (includeDeleted={IncludeDeleted}, clinicId={ClinicId})", 
+        _logger.LogInformation("User {UserId} getting all roles (includeDeleted={IncludeDeleted}, clinicId={ClinicId})",
             userId, includeDeleted, clinicId ?? Guid.Empty);
 
         var roles = await _roleRepository.GetAllRolesAsync(includeDeleted, clinicId);
         var roleList = roles.ToList();
-        
+
         _logger.LogInformation("User {UserId} retrieved {Count} roles", userId, roleList.Count);
         return await MapRolesToDtos(roleList);
     }
 
     public async Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(
-        PaginationRequestDto pagination, 
+        PaginationRequestDto pagination,
         bool includeDeleted = false)
     {
         if (pagination == null)
             throw new ArgumentNullException(nameof(pagination));
 
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} requested paginated roles (includeDeleted={IncludeDeleted}, Limit={Limit})", 
+        _logger.LogInformation(
+            "User {UserId} requested paginated roles (includeDeleted={IncludeDeleted}, Limit={Limit})",
             userId, includeDeleted, pagination.Limit);
 
         if (!_tenantContext.IsSuperAdmin)
         {
-            _logger.LogWarning("Non-SuperAdmin user {UserId} attempted to access all paginated roles. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "Non-SuperAdmin user {UserId} attempted to access all paginated roles. Error code: {ErrorCode}",
                 userId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can view all roles. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"Only SuperAdmin can view all roles. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         var result = await _roleRepository.GetAllPagedAsync(pagination, includeDeleted, query =>
@@ -101,25 +104,29 @@ public class RoleService : IRoleService
     }
 
     public async Task<PaginatedResult<RoleResponseDto>> GetClinicRolesPagedAsync(
-        Guid clinicId, 
-        PaginationRequestDto pagination, 
+        Guid clinicId,
+        PaginationRequestDto pagination,
         bool includeDeleted = false)
     {
         if (clinicId == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(clinicId));
+            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(clinicId));
 
         if (pagination == null)
             throw new ArgumentNullException(nameof(pagination));
 
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} requested paginated roles for clinic {ClinicId} (includeDeleted={IncludeDeleted})", 
+        _logger.LogInformation(
+            "User {UserId} requested paginated roles for clinic {ClinicId} (includeDeleted={IncludeDeleted})",
             userId, clinicId, includeDeleted);
 
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
         {
-            _logger.LogWarning("User {UserId} attempted to view roles for clinic {ClinicId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to view roles for clinic {ClinicId} without permission. Error code: {ErrorCode}",
                 userId, clinicId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You can only view roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You can only view roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         var result = await _roleRepository.GetClinicRolesPagedAsync(clinicId, pagination, includeDeleted, query =>
@@ -128,7 +135,8 @@ public class RoleService : IRoleService
         var items = await MapRolesToDtos(result.Items);
 
         var roleResponseDtos = items as RoleResponseDto[] ?? items.ToArray();
-        _logger.LogInformation("User {UserId} retrieved {Count} roles for clinic {ClinicId}", userId, roleResponseDtos.Length, clinicId);
+        _logger.LogInformation("User {UserId} retrieved {Count} roles for clinic {ClinicId}", userId,
+            roleResponseDtos.Length, clinicId);
 
         return new PaginatedResult<RoleResponseDto>
         {
@@ -147,7 +155,8 @@ public class RoleService : IRoleService
         {
             _logger.LogWarning("Non-SuperAdmin user {UserId} attempted to view system roles. Error code: {ErrorCode}",
                 userId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can view system roles. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"Only SuperAdmin can view system roles. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         var roles = await _roleRepository.GetSystemRolesAsync();
@@ -167,27 +176,33 @@ public class RoleService : IRoleService
     public async Task<IEnumerable<RoleResponseDto>> GetClinicRolesAsync(Guid clinicId)
     {
         if (clinicId == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(clinicId));
+            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(clinicId));
 
         var userId = _userContext.GetCurrentUserId();
 
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
         {
-            _logger.LogWarning("User {UserId} attempted to view roles for clinic {ClinicId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to view roles for clinic {ClinicId} without permission. Error code: {ErrorCode}",
                 userId, clinicId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You can only view roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You can only view roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
-        var roles = (await _roleRepository.GetClinicRolesPagedAsync(clinicId, new PaginationRequestDto { Limit = 100 })).Items;
+        var roles = (await _roleRepository.GetClinicRolesPagedAsync(clinicId, new PaginationRequestDto { Limit = 100 }))
+            .Items;
         var enumerable = roles.ToList();
-        _logger.LogInformation("User {UserId} retrieved {Count} roles for clinic {ClinicId}", userId, enumerable.Count, clinicId);
+        _logger.LogInformation("User {UserId} retrieved {Count} roles for clinic {ClinicId}", userId, enumerable.Count,
+            clinicId);
         return await MapRolesToDtos(enumerable);
     }
 
     public async Task<RoleResponseDto?> GetRoleByIdAsync(Guid id)
     {
         if (id == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(id));
 
         var role = await _roleRepository.GetRoleByIdAsync(id);
         if (role == null)
@@ -198,9 +213,11 @@ public class RoleService : IRoleService
 
         if (!CanAccessRole(role))
         {
-            _logger.LogWarning("User {UserId} attempted to view role {RoleId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to view role {RoleId} without permission. Error code: {ErrorCode}",
                 _userContext.GetCurrentUserId(), id, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You don't have permission to view this role. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You don't have permission to view this role. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         var dto = _mapper.Map<RoleResponseDto>(role);
@@ -214,7 +231,8 @@ public class RoleService : IRoleService
     public async Task<IEnumerable<string>> GetRolePermissionsAsync(Guid roleId)
     {
         if (roleId == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(roleId));
 
         var role = await _roleRepository.GetRoleByIdAsync(roleId);
         if (role == null)
@@ -225,9 +243,11 @@ public class RoleService : IRoleService
 
         if (!CanAccessRole(role))
         {
-            _logger.LogWarning("User {UserId} attempted to view permissions for role {RoleId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to view permissions for role {RoleId} without permission. Error code: {ErrorCode}",
                 _userContext.GetCurrentUserId(), roleId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You don't have permission to view this role's permissions. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You don't have permission to view this role's permissions. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         var permissionIds = await _roleRepository.GetRolePermissionIdsAsync(roleId);
@@ -249,7 +269,7 @@ public class RoleService : IRoleService
         var validationResult = await _createRoleValidator.ValidateAsync(dto);
         if (!validationResult.IsValid)
         {
-            _logger.LogWarning("Role creation validation failed. Errors: {Errors}", 
+            _logger.LogWarning("Role creation validation failed. Errors: {Errors}",
                 string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
             throw new ValidationException(validationResult.Errors);
         }
@@ -263,7 +283,8 @@ public class RoleService : IRoleService
         {
             _logger.LogWarning("Role name {RoleName} already exists. Error code: {ErrorCode}",
                 dto.Name, ErrorCodes.DUPLICATE_RESOURCE);
-            throw new InvalidOperationException($"Role name '{dto.Name}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
+            throw new InvalidOperationException(
+                $"Role name '{dto.Name}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
         }
 
         var role = _mapper.Map<Role>(dto);
@@ -280,79 +301,98 @@ public class RoleService : IRoleService
         var response = _mapper.Map<RoleResponseDto>(created);
         response.PermissionCount = await _roleRepository.GetRolePermissionCountAsync(created.Id);
 
-        _logger.LogInformation("User {UserId} created role {RoleId} with name {RoleName}", userId, created.Id, created.Name);
+        _logger.LogInformation("User {UserId} created role {RoleId} with name {RoleName}", userId, created.Id,
+            created.Name);
         return response;
     }
 
-    public async Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, Guid? targetClinicId, string? newRoleName)
+    public async Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, CloneRoleRequestDto dto)
     {
         if (templateRoleId == Guid.Empty)
-            throw new ArgumentException($"Template role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(templateRoleId));
+            throw new ArgumentException("Template role ID cannot be empty.", nameof(templateRoleId));
 
-        var dto = new CloneRoleRequestDto { ClinicId = targetClinicId, NewRoleName = newRoleName };
-        
-        // Validate DTO
         var validationResult = await _cloneRoleValidator.ValidateAsync(dto);
         if (!validationResult.IsValid)
         {
-            _logger.LogWarning("Role clone validation failed. Errors: {Errors}", 
-                string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
             throw new ValidationException(validationResult.Errors);
         }
 
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} cloning role {TemplateRoleId}", userId, templateRoleId);
-
         var templateRole = await _roleRepository.GetRoleByIdAsync(templateRoleId);
+
         if (templateRole == null)
+            throw new KeyNotFoundException(
+                $"Template role {templateRoleId} not found. Error code: {ErrorCodes.ROLE_NOT_FOUND}");
+
+        // 1. Determine Target Scope (Allow null for SuperAdmin global templates)
+        var targetClinicId = await ValidateCloneRolePermissions(dto.ClinicId);
+
+        // 2. Determine Role Type
+        bool isSystemRole = false;
+        bool isTemplate = false;
+
+        if (targetClinicId == null)
         {
-            _logger.LogWarning("Template role {TemplateRoleId} not found. Error code: {ErrorCode}",
-                templateRoleId, ErrorCodes.ROLE_NOT_FOUND);
-            throw new KeyNotFoundException($"Template role {templateRoleId} not found. Error code: {ErrorCodes.ROLE_NOT_FOUND}");
+            // Global Scope logic
+            if (templateRole.IsSystemRole)
+                isSystemRole = true;
+            else
+                isTemplate = true;
         }
 
-        if (!templateRole.IsTemplate)
-        {
-            _logger.LogWarning("Role {RoleId} is not a template role. Error code: {ErrorCode}",
-                templateRoleId, ErrorCodes.INVALID_OPERATION);
-            throw new InvalidOperationException($"Can only clone template roles. Error code: {ErrorCodes.INVALID_OPERATION}");
-        }
+        // 3. Validate Name
+        var roleName = string.IsNullOrWhiteSpace(dto.NewRoleName)
+            ? $"{templateRole.Name} (Copy)"
+            : dto.NewRoleName.Trim();
 
-        var actualTargetClinicId = await ValidateCloneRolePermissions(targetClinicId);
-        var roleName = string.IsNullOrWhiteSpace(newRoleName) ? templateRole.Name : newRoleName.Trim();
+        if (await _roleRepository.RoleNameExistsAsync(roleName, targetClinicId))
+            throw new InvalidOperationException(
+                $"Role '{roleName}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
 
-        if (await _roleRepository.RoleNameExistsAsync(roleName, actualTargetClinicId))
-        {
-            _logger.LogWarning("Role name {RoleName} already exists. Error code: {ErrorCode}",
-                roleName, ErrorCodes.DUPLICATE_RESOURCE);
-            throw new InvalidOperationException($"Role '{roleName}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
-        }
-
-        var cloned = new Role
+        // 4. Create Entity
+        var clonedRole = new Role
         {
             Id = Guid.NewGuid(),
             Name = roleName,
-            ClinicId = actualTargetClinicId,
-            Description = templateRole.Description,
-            IsSystemRole = false,
+            ClinicId = targetClinicId,
+
+            // Visuals: Prefer DTO, fallback to Source
+            Description = !string.IsNullOrWhiteSpace(dto.Description) ? dto.Description : templateRole.Description,
+            ColorCode = !string.IsNullOrWhiteSpace(dto.ColorCode) ? dto.ColorCode : templateRole.ColorCode,
+            IconClass = !string.IsNullOrWhiteSpace(dto.IconClass) ? dto.IconClass : templateRole.IconClass,
+            DisplayOrder = dto.DisplayOrder ?? templateRole.DisplayOrder,
+
+            // Type Flags
+            IsSystemRole = isSystemRole,
+            IsTemplate = isTemplate,
+
+            TemplateRoleId = templateRoleId,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = userId
         };
 
-        var created = await _roleRepository.CreateRoleAsync(cloned);
-        await CopyPermissionsFromTemplate(created.Id, templateRoleId);
+        var created = await _roleRepository.CreateRoleAsync(clonedRole);
+
+        // 5. Copy Permissions
+        if (dto.CopyPermissions)
+        {
+            await CopyPermissionsFromTemplate(created.Id, templateRoleId);
+        }
 
         var response = _mapper.Map<RoleResponseDto>(created);
         response.PermissionCount = await _roleRepository.GetRolePermissionCountAsync(created.Id);
 
-        _logger.LogInformation("User {UserId} cloned role from {TemplateRoleId} to {NewRoleId}", userId, templateRoleId, created.Id);
+        _logger.LogInformation("User {UserId} cloned role {NewRoleId} from {TemplateRoleId}", userId, created.Id,
+            templateRoleId);
+
         return response;
     }
 
     public async Task<RoleResponseDto?> UpdateRoleAsync(Guid id, UpdateRoleRequestDto dto)
     {
         if (id == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(id));
 
         if (dto == null)
             throw new ArgumentNullException(nameof(dto));
@@ -361,7 +401,7 @@ public class RoleService : IRoleService
         var validationResult = await _updateRoleValidator.ValidateAsync(dto);
         if (!validationResult.IsValid)
         {
-            _logger.LogWarning("Role update validation failed. Errors: {Errors}", 
+            _logger.LogWarning("Role update validation failed. Errors: {Errors}",
                 string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
             throw new ValidationException(validationResult.Errors);
         }
@@ -386,9 +426,11 @@ public class RoleService : IRoleService
 
         if (!CanAccessRole(role))
         {
-            _logger.LogWarning("User {UserId} attempted to update role {RoleId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to update role {RoleId} without permission. Error code: {ErrorCode}",
                 userId, id, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You don't have permission to update this role. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You don't have permission to update this role. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         _mapper.Map(dto, role);
@@ -398,7 +440,8 @@ public class RoleService : IRoleService
         var updated = await _roleRepository.UpdateRoleAsync(role);
         if (updated == null)
         {
-            _logger.LogWarning("Failed to update role {RoleId}. Error code: {ErrorCode}", id, ErrorCodes.INTERNAL_ERROR);
+            _logger.LogWarning("Failed to update role {RoleId}. Error code: {ErrorCode}", id,
+                ErrorCodes.INTERNAL_ERROR);
             return null;
         }
 
@@ -410,61 +453,87 @@ public class RoleService : IRoleService
         return response;
     }
 
-    /// <summary>
-    /// Soft delete a role (sets IsDeleted=true, cannot delete system roles or roles with users)
-    /// </summary>
-    public async Task<RoleResponseDto?> DeleteRoleAsync(Guid id)
+    // ---------------------------------------------------------
+// SOFT DELETE (Move to Trash)
+// ---------------------------------------------------------
+    public async Task<bool> SoftDeleteRoleAsync(Guid id)
     {
         if (id == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(id));
 
         var userId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} deleting role {RoleId}", userId, id);
+        _logger.LogInformation("User {UserId} soft deleting role {RoleId}", userId, id);
 
+        // 1. Get Role
         var role = await _roleRepository.GetRoleByIdAsync(id);
         if (role == null)
         {
-            _logger.LogWarning("Role {RoleId} not found for deletion. Error code: {ErrorCode}",
-                id, ErrorCodes.ROLE_NOT_FOUND);
-            return null;
+            _logger.LogWarning("Role {RoleId} not found. Error code: {ErrorCode}", id, ErrorCodes.ROLE_NOT_FOUND);
+            throw new KeyNotFoundException($"Role with ID {id} not found. Error code: {ErrorCodes.ROLE_NOT_FOUND}");
         }
 
+        // 2. Security Checks
         if (role.IsSystemRole)
         {
-            _logger.LogWarning("User {UserId} attempted to delete system role {RoleId}. Error code: {ErrorCode}",
-                userId, id, ErrorCodes.INVALID_OPERATION);
-            throw new InvalidOperationException($"Cannot delete system roles. Error code: {ErrorCodes.INVALID_OPERATION}");
+            _logger.LogWarning("Attempted to delete system role {RoleId}. Error code: {ErrorCode}", id,
+                ErrorCodes.INVALID_OPERATION);
+            throw new InvalidOperationException(
+                $"Cannot delete system roles. Error code: {ErrorCodes.INVALID_OPERATION}");
         }
 
         if (!CanAccessRole(role))
         {
-            _logger.LogWarning("User {UserId} attempted to delete role {RoleId} without permission. Error code: {ErrorCode}",
-                userId, id, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You don't have permission to delete this role. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You don't have permission to delete this role. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
+        // 3. Usage Check (Prevent Orphaned Users)
         var userCount = await _roleRepository.GetRoleUserCountAsync(id);
         if (userCount > 0)
         {
             _logger.LogWarning("Cannot delete role {RoleId} with {UserCount} assigned users. Error code: {ErrorCode}",
                 id, userCount, ErrorCodes.CONFLICT);
-            throw new InvalidOperationException($"Cannot delete role with assigned users. Error code: {ErrorCodes.CONFLICT}");
+            throw new InvalidOperationException(
+                $"Cannot delete role because it is assigned to {userCount} users. Please reassign them first. Error code: {ErrorCodes.CONFLICT}");
         }
 
-        var deleted = await _roleRepository.DeleteRoleAsync(id);
+        // 4. Perform Soft Delete
+        var deleted = await _roleRepository.SoftDeleteRoleAsync(id);
+        
+        return deleted;
+    }
 
-        if (deleted == null)
+// ---------------------------------------------------------
+// HARD DELETE (Permanent Removal)
+// ---------------------------------------------------------
+    public async Task<bool> HardDeleteRoleAsync(Guid id)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException($"Role ID cannot be empty.", nameof(id));
+
+        var userId = _userContext.GetCurrentUserId();
+        _logger.LogInformation("User {UserId} PERMANENTLY deleting role {RoleId}", userId, id);
+
+        // 1. Get Role (Even if deleted)
+        // Note: GetRoleByIdAsync in repo uses IgnoreQueryFilters so it finds deleted roles
+        var role = await _roleRepository.GetRoleByIdAsync(id);
+
+        if (role == null) throw new KeyNotFoundException($"Role {id} not found.");
+
+        // 2. Only allow Hard Delete if already Soft Deleted (Safety)
+        if (!role.IsDeleted)
         {
-            _logger.LogWarning("Failed to delete role {RoleId}. Error code: {ErrorCode}", id, ErrorCodes.INTERNAL_ERROR);
-            return null;
+            throw new InvalidOperationException(
+                "Role must be soft-deleted (moved to trash) before it can be permanently deleted.");
         }
 
-        var response = _mapper.Map<RoleResponseDto>(deleted);
-        response.UserCount = await _roleRepository.GetRoleUserCountAsync(id);
-        response.PermissionCount = await _roleRepository.GetRolePermissionCountAsync(id);
+        // 3. Security Checks
+        if (role.IsSystemRole) throw new InvalidOperationException("Cannot delete system roles.");
+        if (!CanAccessRole(role)) throw new UnauthorizedAccessException("Permission denied.");
 
-        _logger.LogInformation("User {UserId} soft deleted role {RoleId}", userId, id);
-        return response;
+        // 4. Perform Hard Delete
+        return await _roleRepository.HardDeleteRoleAsync(id); 
     }
 
     /// <summary>
@@ -473,7 +542,8 @@ public class RoleService : IRoleService
     public async Task<RoleResponseDto?> RestoreRoleAsync(Guid id)
     {
         if (id == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(id));
 
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} restoring role {RoleId}", userId, id);
@@ -495,16 +565,19 @@ public class RoleService : IRoleService
 
         if (!CanAccessRole(role))
         {
-            _logger.LogWarning("User {UserId} attempted to restore role {RoleId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to restore role {RoleId} without permission. Error code: {ErrorCode}",
                 userId, id, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You don't have permission to restore this role. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You don't have permission to restore this role. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         var restored = await _roleRepository.RestoreRoleAsync(id);
 
         if (restored == null)
         {
-            _logger.LogWarning("Failed to restore role {RoleId}. Error code: {ErrorCode}", id, ErrorCodes.INTERNAL_ERROR);
+            _logger.LogWarning("Failed to restore role {RoleId}. Error code: {ErrorCode}", id,
+                ErrorCodes.INTERNAL_ERROR);
             return null;
         }
 
@@ -519,10 +592,12 @@ public class RoleService : IRoleService
     public async Task<bool> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId)
     {
         if (roleId == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(roleId));
 
         if (permissionId == Guid.Empty)
-            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(permissionId));
 
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} assigning permission {PermissionId} to role {RoleId}",
@@ -534,10 +609,12 @@ public class RoleService : IRoleService
     public async Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId)
     {
         if (roleId == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(roleId));
 
         if (permissionId == Guid.Empty)
-            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionId));
+            throw new ArgumentException($"Permission ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(permissionId));
 
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} removing permission {PermissionId} from role {RoleId}",
@@ -549,11 +626,13 @@ public class RoleService : IRoleService
     public async Task<int> BulkAssignPermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
         if (roleId == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(roleId));
 
         var enumerable = permissionIds.ToList();
         if (permissionIds == null || enumerable.Count == 0)
-            throw new ArgumentException($"Permission IDs cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permissionIds));
+            throw new ArgumentException($"Permission IDs cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(permissionIds));
 
         var userId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {UserId} bulk assigning {Count} permissions to role {RoleId}",
@@ -565,7 +644,8 @@ public class RoleService : IRoleService
     public async Task<bool> SyncRolePermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
         if (roleId == Guid.Empty)
-            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(roleId));
+            throw new ArgumentException($"Role ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}",
+                nameof(roleId));
 
         if (permissionIds == null)
             throw new ArgumentNullException(nameof(permissionIds));
@@ -592,6 +672,7 @@ public class RoleService : IRoleService
             dto.PermissionCount = await _roleRepository.GetRolePermissionCountAsync(role.Id);
             dtos.Add(dto);
         }
+
         return dtos;
     }
 
@@ -629,14 +710,17 @@ public class RoleService : IRoleService
         {
             _logger.LogWarning("User {UserId} attempted to create role without clinic context. Error code: {ErrorCode}",
                 _userContext.GetCurrentUserId(), ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You must belong to a clinic to create roles. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You must belong to a clinic to create roles. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         if (dto.ClinicId.HasValue && dto.ClinicId != _tenantContext.ClinicId)
         {
-            _logger.LogWarning("User {UserId} attempted to create role for clinic {ClinicId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to create role for clinic {ClinicId} without permission. Error code: {ErrorCode}",
                 _userContext.GetCurrentUserId(), dto.ClinicId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You can only create roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You can only create roles for your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         return Task.FromResult(_tenantContext.ClinicId);
@@ -646,12 +730,12 @@ public class RoleService : IRoleService
     {
         if (_tenantContext.IsSuperAdmin)
         {
-            if (!targetClinicId.HasValue)
-            {
-                _logger.LogWarning("SuperAdmin {UserId} attempted to clone role without specifying target clinic. Error code: {ErrorCode}",
-                    _userContext.GetCurrentUserId(), ErrorCodes.INVALID_ARGUMENT);
-                throw new InvalidOperationException($"SuperAdmin must specify target clinic. Error code: {ErrorCodes.INVALID_ARGUMENT}");
-            }
+            // if (!targetClinicId.HasValue)
+            // {
+            //     _logger.LogWarning("SuperAdmin {UserId} attempted to clone role without specifying target clinic. Error code: {ErrorCode}",
+            //         _userContext.GetCurrentUserId(), ErrorCodes.INVALID_ARGUMENT);
+            //     throw new InvalidOperationException($"SuperAdmin must specify target clinic. Error code: {ErrorCodes.INVALID_ARGUMENT}");
+            // }
             return Task.FromResult(targetClinicId);
         }
 
@@ -659,14 +743,17 @@ public class RoleService : IRoleService
         {
             _logger.LogWarning("User {UserId} attempted to clone role without clinic context. Error code: {ErrorCode}",
                 _userContext.GetCurrentUserId(), ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You must belong to a clinic to clone roles. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You must belong to a clinic to clone roles. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         if (targetClinicId.HasValue && targetClinicId != _tenantContext.ClinicId)
         {
-            _logger.LogWarning("User {UserId} attempted to clone role to clinic {TargetClinicId} without permission. Error code: {ErrorCode}",
+            _logger.LogWarning(
+                "User {UserId} attempted to clone role to clinic {TargetClinicId} without permission. Error code: {ErrorCode}",
                 _userContext.GetCurrentUserId(), targetClinicId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You can only clone roles to your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
+            throw new UnauthorizedAccessException(
+                $"You can only clone roles to your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
         }
 
         return Task.FromResult(_tenantContext.ClinicId);

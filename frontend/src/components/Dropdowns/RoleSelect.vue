@@ -1,151 +1,145 @@
 <script setup lang="ts">
-  import FloatLabel from 'primevue/floatlabel';
   import Select from 'primevue/select';
   import Tag from 'primevue/tag';
   import { computed } from 'vue';
 
   import { rolesApi } from '@/api/modules/roles';
+  import type { RoleResponseDto } from '@/types/backend';
   import { useQuery } from '@tanstack/vue-query';
 
-  const props = defineProps<{
-    modelValue: string | null;
-    label?: string;
-    invalid?: boolean;
-    required?: boolean;
-    valueKey?: 'id' | 'name';
-    showClear?: boolean;
-    clinicId?: string | null;
-  }>();
+  const props = withDefaults(
+    defineProps<{
+      modelValue: string | null;
+      placeholder?: string;
+      invalid?: boolean;
+      valueKey?: 'id' | 'name';
+      showClear?: boolean;
+      clinicId?: string | null;
+    }>(),
+    {
+      valueKey: 'id',
+      showClear: true,
+      clinicId: null,
+    },
+  );
 
   const emit = defineEmits<{
     (e: 'update:modelValue', value: string | null): void;
   }>();
 
-  /* -----------------------------------------------------------
-   LOAD ROLES SMARTLY
-   If clinicId → fetch template + clinic roles
-   Else → fetch ALL roles (system + clinic + template)
------------------------------------------------------------ */
-
+  // -----------------------------------------------------------
+  // DATA FETCHING
+  // -----------------------------------------------------------
   const rolesQuery = useQuery({
-    queryKey: ['dropdown', 'roles', props.clinicId ?? 'system'],
+    queryKey: ['dropdown', 'roles', props.clinicId ?? 'global'],
     queryFn: async () => {
-      // SYSTEM MODE (clinicId is null)
-      if (!props.clinicId) {
-        const grouped = await rolesApi.getGrouped();
-        return [...grouped.systemRoles, ...grouped.templateRoles, ...grouped.clinicRoles];
-      }
-
-      // CLINIC MODE
-      const [templates, clinicRoles] = await Promise.all([
-        rolesApi.getTemplates().then((r) => r.data),
-        rolesApi.getClinicRoles(props.clinicId!).then((r) => r.data),
-      ]);
-
-      return [...templates, ...clinicRoles];
+      const res = await rolesApi.getAll({
+        clinicId: props.clinicId,
+        includeDeleted: false,
+      });
+      return res.data || [];
     },
     staleTime: 1000 * 60 * 5,
   });
 
-  const roles = computed(() => rolesQuery.data?.value ?? []);
+  const roles = computed(() => rolesQuery.data.value ?? []);
 
   const selectedRole = computed(() => {
-    const key = props.valueKey ?? 'id';
-    return roles.value.find((r) => r[key] === props.modelValue) ?? null;
+    if (!props.modelValue) return null;
+    return roles.value.find((r) => r[props.valueKey] === props.modelValue) ?? null;
   });
+
+  function getRoleSeverity(role: RoleResponseDto) {
+    if (role.isSystemRole) return 'warn';
+    if (role.isTemplate) return 'info';
+    return 'success';
+  }
+
+  function getRoleLabel(role: RoleResponseDto) {
+    if (role.isSystemRole) return 'System';
+    if (role.isTemplate) return 'Clinic';
+    return 'Clinic';
+  }
 </script>
 
 <template>
-  <FloatLabel variant="on" class="w-full">
+  <div class="w-full">
     <Select
-      size="medium"
-      class="w-full"
       :modelValue="modelValue"
       @update:modelValue="emit('update:modelValue', $event)"
       :options="roles"
       optionLabel="name"
-      :optionValue="props.valueKey ?? 'id'"
+      :optionValue="valueKey"
       :loading="rolesQuery.isLoading.value"
       filter
       filterPlaceholder="Search roles..."
-      :invalid="props.invalid"
+      :invalid="invalid"
       :disabled="rolesQuery.isError.value"
-      :showClear="props.showClear ?? false"
+      :showClear="showClear"
+      :placeholder="placeholder || 'Select a Role'"
+      class="w-full"
+      :fluid="true"
+      :pt="{
+        root: { class: 'flex items-center w-full' },
+        label: { class: 'flex items-center w-full overflow-hidden' },
+        list: { class: 'p-1' },
+      }"
     >
-      <!-- Selected Value -->
       <template #value="{ value }">
-        <div v-if="selectedRole" class="flex items-center gap-2 truncate" style="width: 100%">
+        <div v-if="selectedRole" class="flex items-center gap-2 w-full overflow-hidden">
           <div
-            class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+            class="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-white text-[10px] shadow-sm"
+            :style="{ backgroundColor: selectedRole.colorCode || '#64748b' }"
           >
-            <i :class="selectedRole.iconClass || 'pi pi-shield'"></i>
+            <i :class="selectedRole.iconClass || 'pi pi-briefcase'" style="font-size: 0.6rem"></i>
           </div>
-          <span class="truncate text-sm font-medium">
+
+          <span class="truncate text-sm font-medium text-surface-900 dark:text-surface-0">
             {{ selectedRole.name }}
           </span>
         </div>
+
+        <span v-else class="text-surface-500 dark:text-surface-400 truncate">
+          {{ placeholder || 'Select a Role' }}
+        </span>
       </template>
 
-      <!-- Option Template -->
       <template #option="{ option }">
-        <div
-          class="flex cursor-pointer flex-col gap-1.5 rounded-md border p-3 transition-all duration-150"
-          style="width: 100%"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex min-w-0 items-center gap-2">
+        <div class="flex flex-col gap-1 w-0 min-w-full">
+          <div class="flex items-center justify-between w-full gap-2">
+            <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
               <div
-                class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+                class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-white shadow-sm"
+                :style="{ backgroundColor: option.colorCode || '#64748b' }"
               >
-                <i :class="option.iconClass || 'pi pi-shield'"></i>
+                <i :class="option.iconClass || 'pi pi-briefcase'" class="text-xs"></i>
               </div>
 
-              <span class="truncate text-sm font-semibold">
+              <span
+                class="truncate font-medium text-surface-900 dark:text-surface-0"
+                :title="option.name"
+              >
                 {{ option.name }}
               </span>
             </div>
 
             <Tag
-              :value="option.isSystemRole ? 'System' : option.isTemplate ? 'Template' : 'Clinic'"
-              :severity="option.isSystemRole ? 'danger' : option.isTemplate ? 'info' : 'success'"
-              class="flex-shrink-0 px-2 py-0.5 text-xs"
+              :value="getRoleLabel(option)"
+              :severity="getRoleSeverity(option)"
+              class="!text-[10px] !px-1.5 !py-0 uppercase font-bold shrink-0"
             />
           </div>
 
           <div
-            v-if="option.description"
-            class="truncate text-xs text-surface-500 dark:text-surface-400"
-            v-tooltip.top="option.description"
+            class="text-xs text-surface-500 dark:text-surface-400 truncate pl-8 opacity-80 w-full"
+            v-tooltip.bottom="option.description"
           >
-            {{ option.description }}
-          </div>
-
-          <div class="mt-1 flex items-center gap-4 text-xs text-surface-400">
-            <span
-              v-if="option.userCount"
-              class="flex items-center gap-1"
-              v-tooltip.top="`${option.userCount} assigned users`"
-            >
-              <i class="pi pi-users text-xs"></i>
-              {{ option.userCount }}
-            </span>
-
-            <span
-              v-if="option.permissionCount"
-              class="flex items-center gap-1"
-              v-tooltip.top="`${option.permissionCount} permissions`"
-            >
-              <i class="pi pi-lock text-xs"></i>
-              {{ option.permissionCount }}
-            </span>
+            {{ option.description || 'No description' }}
           </div>
         </div>
       </template>
     </Select>
 
-    <label>
-      {{ label || 'Select a Role' }}
-      <span v-if="props.required" class="text-red-500">*</span>
-    </label>
-  </FloatLabel>
+    <small v-if="invalid" class="text-red-500 text-xs mt-1 ml-1">Selection is required.</small>
+  </div>
 </template>

@@ -1,11 +1,9 @@
-// src/components/User/ChangePasswordDialog.vue
 <script setup lang="ts">
   import UserPasswordFields from '@/components/Forms/UserPasswordFields.vue';
-  import { useChangePassword } from '@/composables/query/users/useUserActions';
+  import { useUserActions } from '@/composables/query/users/useUserActions';
   import Button from 'primevue/button';
   import Dialog from 'primevue/dialog';
-  import { useToast } from 'primevue/usetoast';
-  import { ref } from 'vue';
+  import { computed, ref } from 'vue';
 
   const props = defineProps<{
     visible: boolean;
@@ -16,9 +14,10 @@
     'update:visible': [boolean];
   }>();
 
-  const toast = useToast();
-  const mutation = useChangePassword();
+  // 1. Use Actions
+  const { changePasswordMutation } = useUserActions();
 
+  // 2. State
   const passwordRef = ref<InstanceType<typeof UserPasswordFields> | null>(null);
   const passwordState = ref({
     currentPassword: '',
@@ -27,34 +26,41 @@
   });
 
   const submitted = ref(false);
-  const isLoading = ref(false);
 
-  async function onSave() {
+  // Use the mutation's loading state
+  const isSubmitting = computed(() => changePasswordMutation.isPending.value);
+
+  function onSave() {
     submitted.value = true;
 
+    // Check validity exposed by child component
     if (!passwordRef.value?.isValid) return;
 
-    isLoading.value = true;
-    try {
-      await mutation.mutateAsync({
+    // 3. Execute Mutation
+    changePasswordMutation.mutate(
+      {
         id: props.userId,
         data: {
           currentPassword: passwordState.value.currentPassword,
           newPassword: passwordState.value.newPassword,
         },
-      });
+      },
+      {
+        onSuccess: () => {
+          // Success Toast is handled in useUserActions
+          emit('update:visible', false);
 
-      toast.add({
-        severity: 'success',
-        summary: 'Password Updated',
-        detail: 'Your password has been successfully changed.',
-        life: 2000,
-      });
+          // Optional: Reset form
+          passwordState.value = { currentPassword: '', newPassword: '', confirmPassword: '' };
+          submitted.value = false;
+        },
+        // Error Toast is handled by Global Interceptor
+      },
+    );
+  }
 
-      emit('update:visible', false);
-    } finally {
-      isLoading.value = false;
-    }
+  function onClose() {
+    if (!isSubmitting.value) emit('update:visible', false);
   }
 </script>
 
@@ -65,24 +71,41 @@
     header="Change Password"
     modal
     :style="{ width: '500px' }"
+    :closable="!isSubmitting"
+    :pt="{
+      root: { class: 'rounded-xl border-0 shadow-2xl overflow-hidden' },
+      header: {
+        class:
+          'border-b border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-white dark:bg-surface-900',
+      },
+      content: { class: 'p-6 bg-white dark:bg-surface-900' },
+      footer: {
+        class:
+          'border-t border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-50 dark:bg-surface-800',
+      },
+    }"
   >
-    <UserPasswordFields
-      ref="passwordRef"
-      mode="change"
-      :loading="isLoading"
-      :submitted="submitted"
-      @update:passwords="passwordState = $event"
-    />
+    <div class="pt-5">
+      <UserPasswordFields
+        ref="passwordRef"
+        mode="change"
+        :loading="isSubmitting"
+        :submitted="submitted"
+        @update:passwords="Object.assign(passwordState, $event)"
+      />
+    </div>
 
     <template #footer>
-      <Button label="Cancel" severity="secondary" @click="emit('update:visible', false)" />
-      <Button
-        label="Change Password"
-        icon="pi pi-save"
-        :loading="isLoading"
-        :disabled="!passwordRef?.isValid"
-        @click="onSave"
-      />
+      <div class="flex justify-end gap-2 w-full pt-5">
+        <Button
+          label="Cancel"
+          severity="secondary"
+          outlined
+          :disabled="isSubmitting"
+          @click="onClose"
+        />
+        <Button label="Change Password" icon="pi pi-save" :loading="isSubmitting" @click="onSave" />
+      </div>
     </template>
   </Dialog>
 </template>

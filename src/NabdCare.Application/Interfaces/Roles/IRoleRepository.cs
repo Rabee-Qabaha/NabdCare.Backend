@@ -36,7 +36,8 @@ public interface IRoleRepository
     // ============================================
     Task<Role> CreateRoleAsync(Role role);
     Task<Role?> UpdateRoleAsync(Role role);
-    Task<Role?> DeleteRoleAsync(Guid id);
+    Task<bool> SoftDeleteRoleAsync(Guid id);
+    Task<bool> HardDeleteRoleAsync(Guid id);
     Task<Role?> RestoreRoleAsync(Guid id);
 
     // ============================================
