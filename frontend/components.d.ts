@@ -101,6 +101,7 @@ declare module 'vue' {
     TreatmentHistory: typeof import('./src/components/Patiesnt/TreatmentHistory.vue')['default']
     UserCard: typeof import('./src/components/User/UserCard.vue')['default']
     UserCardActions: typeof import('./src/components/User/UserCardActions.vue')['default']
+    UserCardSkeleton: typeof import('./src/components/User/UserCardSkeleton.vue')['default']
     UserDialog: typeof import('./src/components/User/UserDialog.vue')['default']
     UserFilters: typeof import('./src/components/User/UserFilters.vue')['default']
     UserPasswordFields: typeof import('./src/components/Forms/UserPasswordFields.vue')['default']

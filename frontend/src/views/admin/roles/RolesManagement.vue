@@ -1,27 +1,15 @@
-// src/views/admin/roles/RolesManagement.vue
 <template>
   <div class="card">
     <div class="space-y-4 p-4 md:p-6">
       <header>
         <PageHeader
-          v-if="!initialLoading"
           title="Roles Management"
           description="Manage system roles, templates, and clinic roles"
           :stats="[{ icon: 'pi pi-unlock', label: `${filteredRoles.length} Total Roles` }]"
         />
-        <div v-else class="space-y-3">
-          <Skeleton height="2rem" width="40%" />
-          <Skeleton height="1.2rem" width="60%" />
-        </div>
       </header>
 
-      <div v-if="initialLoading" class="flex items-center justify-between">
-        <Skeleton height="2.5rem" width="140px" />
-        <Skeleton height="2.5rem" width="140px" />
-      </div>
-
       <RoleToolbar
-        v-else
         :loading="isFetching"
         :include-deleted="includeDeleted"
         :can-create="canCreateRole"
@@ -33,22 +21,18 @@
       />
 
       <div>
-        <div v-if="initialLoading">
-          <Skeleton height="2.7rem" width="100%" />
-        </div>
-        <div v-else>
-          <IconField class="w-full">
-            <InputIcon><i class="pi pi-search" /></InputIcon>
-            <InputText
-              v-model="activeFilters.global"
-              placeholder="Search roles by name or description..."
-              class="w-full"
-            />
-          </IconField>
-          <small v-if="activeFilters.global" class="mt-1 block text-surface-500">
-            {{ filteredRoles.length }} result{{ filteredRoles.length !== 1 ? 's' : '' }} found
-          </small>
-        </div>
+        <IconField class="w-full">
+          <InputIcon><i class="pi pi-search" /></InputIcon>
+          <InputText
+            v-model="activeFilters.global"
+            placeholder="Search roles by name or description..."
+            class="w-full"
+          />
+        </IconField>
+
+        <small v-if="activeFilters.global && !showGridLoading" class="mt-1 block text-surface-500">
+          {{ filteredRoles.length }} result{{ filteredRoles.length !== 1 ? 's' : '' }} found
+        </small>
       </div>
 
       <div
@@ -70,14 +54,7 @@
         />
       </div>
 
-      <div
-        v-if="initialLoading"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-      >
-        <RoleCardSkeleton v-for="n in 8" :key="n" />
-      </div>
-
-      <RoleGrid v-else :roles="filteredRoles" :loading="false">
+      <RoleGrid :roles="filteredRoles" :loading="showGridLoading">
         <template #actions="{ role }">
           <div class="flex gap-1">
             <Button
@@ -183,14 +160,12 @@
 </template>
 
 <script setup lang="ts">
-  import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog.vue';
-
-  import RoleCardSkeleton from '@/components/Role/RoleCardSkeleton.vue';
   import RoleCreateEditDialog from '@/components/Role/RoleCreateEditDialog.vue';
   import RoleFilters from '@/components/Role/RoleFilters.vue';
   import RoleGrid from '@/components/Role/RoleGrid.vue';
   import RolePermissionsDialog from '@/components/Role/RolePermissionsDialog.vue';
   import RoleToolbar from '@/components/Role/RoleToolbar.vue';
+  import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog.vue';
   import PageHeader from '@/layout/PageHeader.vue';
 
   import { useRoleActions } from '@/composables/query/roles/useRoleActions';
@@ -203,14 +178,13 @@
   import IconField from 'primevue/iconfield';
   import InputIcon from 'primevue/inputicon';
   import InputText from 'primevue/inputtext';
-  import Skeleton from 'primevue/skeleton';
 
   import type { RoleResponseDto } from '@/types/backend';
   import { computed, ref } from 'vue';
 
   // 1. Data Query
   const {
-    roles,
+    roles, // kept for checking lengths internally if needed, but RoleGrid uses filteredRoles
     filteredRoles,
     activeFilters,
     resetFilters: resetLocalFilters,
@@ -221,12 +195,16 @@
     includeDeleted,
   } = useRoles();
 
-  const initialLoading = computed(() => isLoading.value && roles.value.length === 0);
   const errorMessage = computed(() =>
     error.value instanceof Error ? error.value.message : 'Failed to load roles',
   );
 
-  // 2. Permissions & Actions
+  // Combine loading states.
+  // If we are doing the initial load OR a background refetch (filtering/tab switch),
+  // we want the grid to show skeletons.
+  const showGridLoading = computed(() => isLoading.value || isFetching.value);
+
+  // 2. Permissions
   const { can: canPermission } = usePermission();
   const canViewPermissions = computed(() => canPermission('Roles.Permissions.View'));
   const isSuperAdmin = computed(() => canPermission('SuperAdmin'));
@@ -257,13 +235,9 @@
   } = useRoleDialogs();
 
   const filtersDialogVisible = ref(false);
-
-  // ✅ Added local loading state for delete actions
   const isDeleting = ref(false);
 
-  // ---------------------------------------
-  // 4. FILTER LOGIC
-  // ---------------------------------------
+  // 4. Filters & Actions
   function applyFilters(newFilters: any) {
     activeFilters.name = newFilters.name;
     activeFilters.isSystem = newFilters.isSystem;
@@ -272,7 +246,6 @@
     activeFilters.status = newFilters.status;
 
     const needsDeletedData = newFilters.status === 'deleted' || newFilters.status === 'all';
-
     if (needsDeletedData && !includeDeleted.value) {
       includeDeleted.value = true;
     } else if (!needsDeletedData && includeDeleted.value) {
@@ -295,11 +268,8 @@
     }
   }
 
-  // 5. Action Handlers
-  // ✅ Updated to handle loading state for the dialog
   async function handleDeleteRole() {
     if (!selectedRole.value) return;
-
     isDeleting.value = true;
 
     const onSuccess = () => {
@@ -307,13 +277,11 @@
       refetch();
       isDeleting.value = false;
     };
-
     const onError = () => {
       isDeleting.value = false;
     };
 
     try {
-      // Logic: If already deleted -> Hard Delete. If active -> Soft Delete.
       if (selectedRole.value.isDeleted) {
         await hardDeleteRoleAction(selectedRole.value.id, { onSuccess, onError });
       } else {
