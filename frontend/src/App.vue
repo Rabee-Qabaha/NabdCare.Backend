@@ -1,10 +1,9 @@
 // src/App.vue
 <script setup lang="ts">
-  import { computed } from 'vue';
   import { useAuthStore } from '@/stores/authStore';
   import { VueQueryDevtools } from '@tanstack/vue-query-devtools';
   import Toast from 'primevue/toast';
-  import { useToast } from 'primevue/usetoast';
+  import { computed } from 'vue';
 
   const authStore = useAuthStore();
 
@@ -16,11 +15,9 @@
     if (!authStore.isLoggedIn) return 'Guest';
     if (authStore.isSuperAdmin) return 'SuperAdmin';
     const clinic = authStore.currentUser?.clinicId || 'ClinicId';
-    const role = authStore.currentUser?.role || 'User';
+    const role = authStore.currentUser?.roleName || 'User';
     return `${role} @ ${clinic}`;
   });
-
-  const toast = useToast();
 </script>
 
 <template>

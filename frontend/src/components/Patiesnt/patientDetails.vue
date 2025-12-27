@@ -1,16 +1,12 @@
-<template>
+<!-- <template>
   <div class="card pl-4 pr-4">
-    <!-- Header -->
     <div class="mb-4 ml-4 text-xl font-semibold text-muted-color">
       {{ header }}
     </div>
 
-    <!-- Patient Details Card -->
     <div v-if="patient" class="space-y-4 rounded-lg pl-6 pr-6 pt-0">
-      <!-- Name -->
       <h2 class="m-0 text-lg font-bold">{{ patient?.name }}</h2>
 
-      <!-- Info List -->
       <div class="space-y-3 text-sm">
         <div class="flex items-center gap-3">
           <i class="pi pi-calendar text-base text-muted-color"></i>
@@ -40,7 +36,6 @@
 
       <Divider class="my-4" />
 
-      <!-- About Me Section -->
       <div class="flex items-center gap-2">
         <i class="pi pi-clipboard text-base text-muted-color"></i>
         <span class="font-medium text-muted-color">Note</span>
@@ -65,4 +60,4 @@
   }>();
 
   const { patient, header } = toRefs(props);
-</script>
+</script> -->

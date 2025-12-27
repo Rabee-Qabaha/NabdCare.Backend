@@ -23,6 +23,7 @@ public static class Permissions
         public const string Edit = "Clinics.Edit";
         public const string Delete = "Clinics.Delete";
         public const string HardDelete = "Clinics.HardDelete";
+        public const string Restore = "Clinics.Restore";
         public const string ManageStatus = "Clinics.ManageStatus";
         public const string ViewStats = "Clinics.ViewStats";
 
@@ -72,13 +73,14 @@ public static class Permissions
         public const string View = "Subscriptions.View";
         public const string Create = "Subscriptions.Create";
         public const string Edit = "Subscriptions.Edit";
-        public const string Delete = "Subscriptions.Delete";
+        public const string Cancel = "Subscriptions.Cancel";
         public const string HardDelete = "Subscriptions.HardDelete";
         public const string ChangeStatus = "Subscriptions.ChangeStatus";
         public const string Renew = "Subscriptions.Renew";
         public const string ViewActive = "Subscriptions.ViewActive";
         public const string ToggleAutoRenew = "Subscriptions.ToggleAutoRenew";
-
+        public const string PurchaseAddons = "Subscriptions.PurchaseAddons";
+        
         public static readonly Dictionary<string, string> Descriptions = new()
         {
             [View] = "View subscriptions belonging to own clinic or others (if SuperAdmin)",
@@ -86,14 +88,53 @@ public static class Permissions
             [ViewAll] = "View all subscriptions across all clinics (SuperAdmin only)",
             [Create] = "Create new subscriptions (SuperAdmin only)",
             [Edit] = "Edit existing subscriptions",
-            [Delete] = "Soft delete (cancel) a subscription",
+            [Cancel] = "Cancel a subscription",
             [HardDelete] = "Permanently delete a subscription (SuperAdmin only)",
             [ChangeStatus] = "Change subscription status (SuperAdmin only)",
             [Renew] = "Renew a subscription for a clinic (SuperAdmin only)",
-            [ToggleAutoRenew] = "Enable or disable auto-renew for a subscription"
+            [ToggleAutoRenew] = "Enable or disable auto-renew for a subscription",
+            [PurchaseAddons] = "Purchase additional users or branches for the subscription"
         };
     }
 
+    // ============================================
+    // 📦 PLANS (New)
+    // ============================================
+    [ExportTsClass(OutputDir = "constants")]
+    public static class Plans
+    {
+        public const string View = "Plans.View";
+        public const string Manage = "Plans.Manage"; // Create/Edit/Delete Plans (SuperAdmin)
+
+        public static readonly Dictionary<string, string> Descriptions = new()
+        {
+            [View] = "View available subscription plans",
+            [Manage] = "Create, edit, or delete subscription plans (SuperAdmin only)"
+        };
+    }
+
+    // ============================================
+    // 🌳 BRANCHES (New)
+    // ============================================
+    [ExportTsClass(OutputDir = "constants")]
+    public static class Branches
+    {
+        public const string View = "Branches.View";
+        public const string Create = "Branches.Create";
+        public const string Edit = "Branches.Edit";
+        public const string Delete = "Branches.Delete";
+        public const string ManageSettings = "Branches.ManageSettings"; // Branch-specific settings
+
+        public static readonly Dictionary<string, string> Descriptions = new()
+        {
+            [View] = "View clinic branches",
+            [Create] = "Create new branches (subject to subscription limits)",
+            [Edit] = "Edit branch details",
+            [Delete] = "Delete/Close branches",
+            [ManageSettings] = "Manage branch-specific configurations"
+        };
+    }
+    
     // ============================================
     // 👥 USERS
     // ============================================
@@ -304,22 +345,25 @@ public static class Permissions
         };
     }
 
+    // ============================================
+    // 🧾 INVOICES (Billing)
+    // ============================================
     [ExportTsClass(OutputDir = "constants")]
     public static class Invoices
     {
         public const string View = "Invoices.View";
-        public const string Create = "Invoices.Create";
-        public const string Edit = "Invoices.Edit";
-        public const string Send = "Invoices.Send";
-        public const string ViewReports = "Invoices.ViewReports";
+        public const string ViewAll = "Invoices.ViewAll";
+        public const string Pay = "Invoices.Pay";
+        public const string Download = "Invoices.Download";
+        public const string Void = "Invoices.Void";
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
-            [View] = "View invoices",
-            [Create] = "Create new invoices",
-            [Edit] = "Edit invoice details",
-            [Send] = "Send invoices to patients",
-            [ViewReports] = "View invoice reports"
+            [View] = "View invoices belonging to own clinic",
+            [ViewAll] = "View all invoices in the system (SuperAdmin only)",
+            [Pay] = "Process payments for invoices",
+            [Download] = "Download invoice PDF",
+            [Void] = "Void an issued invoice (Admin only)"
         };
     }
 

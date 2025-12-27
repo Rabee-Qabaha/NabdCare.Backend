@@ -1,3 +1,4 @@
+// src/components/User/UserCardSkeleton.vue
 <template>
   <div
     class="relative flex flex-col justify-between overflow-hidden rounded-xl border border-surface-200 shadow-sm bg-white dark:bg-surface-900 dark:border-surface-700"

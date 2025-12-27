@@ -186,4 +186,10 @@ public interface IUserRepository
     /// Permanently delete user (irreversible)
     /// </summary>
     Task<bool> DeleteAsync(Guid userId);
+    
+    /// <summary>
+    /// Count active users for a specific clinic.
+    /// Used for Subscription Limit enforcement.
+    /// </summary>
+    Task<int> CountByClinicIdAsync(Guid clinicId);
 }

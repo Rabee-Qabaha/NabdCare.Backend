@@ -1,3 +1,4 @@
+// src/components/User/UserProfileMenu.vue
 <script setup lang="ts">
   import Avatar from 'primevue/avatar';
   import Menu from 'primevue/menu';

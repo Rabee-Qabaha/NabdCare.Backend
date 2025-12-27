@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Domain.Entities.Clinics;
@@ -9,11 +10,6 @@ using NabdCare.Infrastructure.Utils;
 
 namespace NabdCare.Infrastructure.Repositories.Clinics;
 
-/// <summary>
-/// Production-ready clinic repository with cursor-based pagination,
-/// sorting, and filtering support. Thin data access layer - no business logic.
-/// Includes optional ABAC filter for security-aware querying.
-/// </summary>
 public class ClinicRepository : IClinicRepository
 {
     private readonly NabdCareDbContext _dbContext;
@@ -29,27 +25,78 @@ public class ClinicRepository : IClinicRepository
 
     public async Task<Clinic?> GetByIdAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            return null;
+        if (id == Guid.Empty) return null;
 
         return await _dbContext.Clinics
             .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == id);
     }
 
+    public async Task<Clinic?> GetEntityByIdAsync(Guid id)
+    {
+        return await _dbContext.Clinics
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == id);
+    }
+    
     public async Task<PaginatedResult<Clinic>> GetAllPagedAsync(
-        PaginationRequestDto pagination,
+        ClinicFilterRequestDto filters,
         Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
-        var query = BaseClinicQuery();
+        var query = BaseClinicQuery(filters.IncludeDeleted);
 
-        // ✅ Apply ABAC filter if provided
         if (abacFilter is not null)
             query = abacFilter(query);
 
-        query = ApplyFilterAndSorting(query, pagination);
-        return await PaginateAsync(query, pagination);
+        if (!string.IsNullOrWhiteSpace(filters.Search))
+        {
+            var term = filters.Search.Trim().ToLower();
+            query = query.Where(c =>
+                c.Name.ToLower().Contains(term) ||
+                (c.Email != null && c.Email.ToLower().Contains(term)) ||
+                (c.Phone != null && c.Phone.Contains(term)) ||
+                c.Slug.Contains(term)
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Name))
+            query = query.Where(c => c.Name.ToLower().Contains(filters.Name.ToLower()));
+
+        if (!string.IsNullOrWhiteSpace(filters.Email))
+            query = query.Where(c => c.Email != null && c.Email.ToLower().Contains(filters.Email.ToLower()));
+
+        if (!string.IsNullOrWhiteSpace(filters.Phone))
+            query = query.Where(c => c.Phone != null && c.Phone.Contains(filters.Phone));
+
+        if (filters.Status.HasValue)
+            query = query.Where(c => c.Status == filters.Status.Value);
+
+        if (filters.SubscriptionType.HasValue)
+        {
+            query = query.Where(c => c.Subscriptions.Any(s => 
+                !s.IsDeleted && 
+                s.Status == SubscriptionStatus.Active && 
+                s.Type == filters.SubscriptionType.Value));
+        }
+
+        if (filters.SubscriptionFee.HasValue)
+        {
+            query = query.Where(c => c.Subscriptions.Any(s => 
+                !s.IsDeleted && 
+                s.Status == SubscriptionStatus.Active && 
+                s.Fee >= filters.SubscriptionFee.Value));
+        }
+
+        if (filters.CreatedAt.HasValue)
+        {
+            var date = filters.CreatedAt.Value.Date;
+            query = query.Where(c => c.CreatedAt >= date);
+        }
+
+        query = ApplyFilterAndSorting(query, filters);
+        return await PaginateAsync(query, filters);
     }
 
     public async Task<PaginatedResult<Clinic>> GetByStatusPagedAsync(
@@ -59,8 +106,7 @@ public class ClinicRepository : IClinicRepository
     {
         var query = BaseClinicQuery().Where(c => c.Status == status);
 
-        if (abacFilter is not null)
-            query = abacFilter(query);
+        if (abacFilter is not null) query = abacFilter(query);
 
         query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
@@ -79,8 +125,7 @@ public class ClinicRepository : IClinicRepository
                     s.Status == SubscriptionStatus.Active &&
                     s.EndDate > now));
 
-        if (abacFilter is not null)
-            query = abacFilter(query);
+        if (abacFilter is not null) query = abacFilter(query);
 
         query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
@@ -103,8 +148,7 @@ public class ClinicRepository : IClinicRepository
                     s.EndDate > now &&
                     s.EndDate <= expirationDate));
 
-        if (abacFilter is not null)
-            query = abacFilter(query);
+        if (abacFilter is not null) query = abacFilter(query);
 
         query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
@@ -122,8 +166,7 @@ public class ClinicRepository : IClinicRepository
                     s.Status == SubscriptionStatus.Active &&
                     s.EndDate <= now));
 
-        if (abacFilter is not null)
-            query = abacFilter(query);
+        if (abacFilter is not null) query = abacFilter(query);
 
         query = ApplyFilterAndSorting(query, pagination);
         return await PaginateAsync(query, pagination);
@@ -132,7 +175,6 @@ public class ClinicRepository : IClinicRepository
     public async Task<IEnumerable<Clinic>> GetWithExpiredSubscriptionsAsync()
     {
         var now = DateTime.UtcNow;
-
         return await _dbContext.Clinics
             .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
             .Where(c =>
@@ -152,23 +194,16 @@ public class ClinicRepository : IClinicRepository
         Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return new PaginatedResult<Clinic>
-            {
-                Items = Enumerable.Empty<Clinic>(),
-                TotalCount = 0,
-                HasMore = false
-            };
+            return new PaginatedResult<Clinic> { Items = [], TotalCount = 0, HasMore = false };
 
         var search = query.Trim().ToLower();
-
         var dbQuery = BaseClinicQuery()
             .Where(c =>
                 c.Name.ToLower().Contains(search) ||
                 (c.Email != null && c.Email.ToLower().Contains(search)) ||
                 (c.Phone != null && c.Phone.Contains(search)));
 
-        if (abacFilter is not null)
-            dbQuery = abacFilter(dbQuery);
+        if (abacFilter is not null) dbQuery = abacFilter(dbQuery);
 
         dbQuery = ApplyFilterAndSorting(dbQuery, pagination);
         return await PaginateAsync(dbQuery, pagination);
@@ -176,29 +211,28 @@ public class ClinicRepository : IClinicRepository
 
     public async Task<bool> ExistsByNameAsync(string name, Guid? excludeId = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            return false;
-
+        if (string.IsNullOrWhiteSpace(name)) return false;
         var normalized = name.Trim().ToLower();
         var query = _dbContext.Clinics.Where(c => !c.IsDeleted && c.Name.ToLower() == normalized);
-
-        if (excludeId.HasValue)
-            query = query.Where(c => c.Id != excludeId.Value);
-
+        if (excludeId.HasValue) query = query.Where(c => c.Id != excludeId.Value);
         return await query.AnyAsync();
     }
 
     public async Task<bool> ExistsByEmailAsync(string email, Guid? excludeId = null)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            return false;
-
+        if (string.IsNullOrWhiteSpace(email)) return false;
         var normalized = email.Trim().ToLower();
         var query = _dbContext.Clinics.Where(c => !c.IsDeleted && c.Email != null && c.Email.ToLower() == normalized);
-
-        if (excludeId.HasValue)
-            query = query.Where(c => c.Id != excludeId.Value);
-
+        if (excludeId.HasValue) query = query.Where(c => c.Id != excludeId.Value);
+        return await query.AnyAsync();
+    }
+    
+    public async Task<bool> ExistsBySlugAsync(string slug, Guid? excludeId = null)
+    {
+        if (string.IsNullOrWhiteSpace(slug)) return false;
+        var normalized = slug.Trim().ToLower();
+        var query = _dbContext.Clinics.Where(c => c.Slug == normalized); 
+        if (excludeId.HasValue) query = query.Where(c => c.Id != excludeId.Value);
         return await query.AnyAsync();
     }
 
@@ -232,23 +266,40 @@ public class ClinicRepository : IClinicRepository
 
         clinic.IsDeleted = true;
         clinic.DeletedAt = DateTime.UtcNow;
+        clinic.Status = SubscriptionStatus.Suspended;
 
         _dbContext.Clinics.Update(clinic);
         await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation("Clinic {ClinicId} soft deleted", id);
+        _logger.LogInformation("Clinic {ClinicId} soft deleted and suspended", id);
         return true;
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var clinic = await _dbContext.Clinics.FirstOrDefaultAsync(c => c.Id == id);
+        var clinic = await _dbContext.Clinics.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == id);
         if (clinic == null) return false;
 
         _dbContext.Clinics.Remove(clinic);
         await _dbContext.SaveChangesAsync();
-
         _logger.LogWarning("Clinic {ClinicId} permanently deleted", id);
+        return true;
+    }
+
+    public async Task<bool> RestoreAsync(Guid id)
+    {
+        var clinic = await _dbContext.Clinics
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == id && c.IsDeleted);
+
+        if (clinic == null) return false;
+
+        clinic.IsDeleted = false;
+        clinic.DeletedAt = null;
+        clinic.DeletedBy = null;
+        clinic.Status = SubscriptionStatus.Suspended; 
+
+        _dbContext.Clinics.Update(clinic);
+        await _dbContext.SaveChangesAsync();
         return true;
     }
 
@@ -275,17 +326,26 @@ public class ClinicRepository : IClinicRepository
 
     #region PRIVATE HELPERS
 
-    private IQueryable<Clinic> BaseClinicQuery()
+    private IQueryable<Clinic> BaseClinicQuery(bool includeDeleted = false)
     {
-        return _dbContext.Clinics
+        IQueryable<Clinic> query = _dbContext.Clinics
             .AsNoTracking()
-            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
-            .Where(c => !c.IsDeleted);
+            .Include(c => c.Subscriptions.Where(s => !s.IsDeleted));
+
+        if (includeDeleted)
+        {
+            query = query.IgnoreQueryFilters().Where(c => c.IsDeleted);
+        }
+        else
+        {
+            query = query.Where(c => !c.IsDeleted);
+        }
+        
+        return query;
     }
 
     private static IQueryable<Clinic> ApplyFilterAndSorting(IQueryable<Clinic> query, PaginationRequestDto pagination)
     {
-        // ✅ Apply text filter if provided
         if (!string.IsNullOrWhiteSpace(pagination.Filter))
         {
             var filter = pagination.Filter.ToLower();
@@ -295,7 +355,6 @@ public class ClinicRepository : IClinicRepository
                 (c.Phone != null && c.Phone.Contains(filter)));
         }
 
-        // ✅ Dynamic sorting support
         if (!string.IsNullOrWhiteSpace(pagination.SortBy))
         {
             query = pagination.Descending
@@ -317,7 +376,7 @@ public class ClinicRepository : IClinicRepository
 
         if (!string.IsNullOrEmpty(pagination.Cursor) && Guid.TryParse(pagination.Cursor, out var parsed))
             cursorGuid = parsed;
-
+        
         if (cursorGuid.HasValue)
             query = query.Where(c => c.Id.CompareTo(cursorGuid.Value) > 0);
 

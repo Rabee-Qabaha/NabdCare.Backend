@@ -1,176 +1,94 @@
+// Path: src/composables/query/subscriptions/useSubscriptions.ts
 import { subscriptionsApi } from '@/api/modules/subscriptions';
-import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
-import { useToastService } from '@/composables/useToastService';
-import type {
-  CreateSubscriptionRequestDto,
-  SubscriptionStatus,
-  SubscriptionType,
-  UpdateSubscriptionRequestDto,
-} from '@/types/backend/index';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
+import { keepPreviousData, useQuery } from '@tanstack/vue-query';
 import { computed, unref, type Ref } from 'vue';
 
-/* 🔹 Cache keys */
+/* 🔹 Cache keys (Updated to accept 'string | null' for safety) */
 export const subscriptionsKeys = {
   all: ['subscriptions'] as const,
   list: (params: any) => ['subscriptions', 'list', params] as const,
-  byId: (id: string) => ['subscriptions', id] as const,
-  clinic: (clinicId: string, params: any) => ['subscriptions', 'clinic', clinicId, params] as const,
-  active: (clinicId: string) => ['subscriptions', 'clinic', clinicId, 'active'] as const,
+  byId: (id: string | null) => ['subscriptions', id] as const,
+  clinic: (clinicId: string | null, params: any) =>
+    ['subscriptions', 'clinic', clinicId, params] as const,
+  active: (clinicId: string | null) => ['subscriptions', 'clinic', clinicId, 'active'] as const,
+  plans: ['subscriptions', 'plans'] as const,
 };
 
-/* ✅ Queries */
+/* =========================================================================
+   ✅ QUERIES (Read Operations)
+   ========================================================================= */
 
+/**
+ * Fetch all subscriptions (SuperAdmin view)
+ */
 export function useAllSubscriptions(params: Ref<Record<string, any>> | Record<string, any> = {}) {
   return useQuery({
     queryKey: computed(() => subscriptionsKeys.list(unref(params))),
     queryFn: () => subscriptionsApi.getAll(unref(params)),
-    placeholderData: keepPreviousData, // Prevents table flickering
-    staleTime: 1000 * 60 * 5,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
+/**
+ * Fetch subscriptions for a specific clinic
+ * 🛠️ UPDATED: Accepts nullable ID (Ref<string | null>)
+ */
 export function useClinicSubscriptions(
-  clinicId: Ref<string> | string,
+  clinicId: Ref<string | null> | string | null,
   params: Ref<Record<string, any>> | Record<string, any> = {},
 ) {
   return useQuery({
     queryKey: computed(() => subscriptionsKeys.clinic(unref(clinicId), unref(params))),
-    queryFn: () => subscriptionsApi.getByClinicId(unref(clinicId), unref(params)),
+    queryFn: () => {
+      const id = unref(clinicId);
+      if (!id) throw new Error('Clinic ID is required');
+      return subscriptionsApi.getByClinicId(id, unref(params));
+    },
+    // Only run if we actually have an ID string
     enabled: computed(() => !!unref(clinicId)),
     placeholderData: keepPreviousData,
   });
 }
 
-export function useActiveSubscription(clinicId: Ref<string> | string) {
+/**
+ * Fetch the single ACTIVE subscription for a clinic (Summary Card)
+ * 🛠️ UPDATED: Accepts nullable ID
+ */
+export function useActiveSubscription(clinicId: Ref<string | null> | string | null) {
   return useQuery({
     queryKey: computed(() => subscriptionsKeys.active(unref(clinicId))),
-    queryFn: () => subscriptionsApi.getActiveForClinic(unref(clinicId)),
+    queryFn: async () => {
+      const id = unref(clinicId);
+      if (!id) return null; // Safe guard
+      return subscriptionsApi.getActiveForClinic(id);
+    },
     enabled: computed(() => !!unref(clinicId)),
+    staleTime: 1000 * 60 * 2,
   });
 }
 
-export function useSubscriptionById(id: Ref<string> | string) {
+/**
+ * Fetch a single subscription by ID
+ * 🛠️ UPDATED: Accepts nullable ID
+ */
+export function useSubscriptionById(id: Ref<string | null> | string | null) {
   return useQuery({
     queryKey: computed(() => subscriptionsKeys.byId(unref(id))),
-    queryFn: () => subscriptionsApi.getById(unref(id)),
+    queryFn: () => {
+      const subId = unref(id);
+      if (!subId) throw new Error('Subscription ID is required');
+      return subscriptionsApi.getById(subId);
+    },
     enabled: computed(() => !!unref(id)),
   });
 }
 
-/* ✅ Mutations (Grouped in Composable) */
-
-export function useSubscriptionActions() {
-  const toast = useToastService();
-  const queryClient = useQueryClient();
-  const { handleErrorAndNotify } = useErrorHandler();
-
-  // Helper to invalidate related queries
-  const invalidateCommon = async (id?: string, clinicId?: string) => {
-    await queryClient.invalidateQueries({ queryKey: subscriptionsKeys.all });
-    if (id) await queryClient.invalidateQueries({ queryKey: subscriptionsKeys.byId(id) });
-    if (clinicId) {
-      await queryClient.invalidateQueries({
-        queryKey: ['subscriptions', 'clinic', clinicId], // Invalidate list
-      });
-      await queryClient.invalidateQueries({ queryKey: subscriptionsKeys.active(clinicId) });
-    }
-  };
-
-  // 1. CREATE
-  const createMutation = useMutation({
-    mutationFn: (payload: CreateSubscriptionRequestDto) => subscriptionsApi.create(payload),
-    onSuccess: (_, variables) => {
-      toast.success('Subscription created successfully!');
-      invalidateCommon(undefined, variables.clinicId);
-    },
-    onError: (err) => handleErrorAndNotify(err),
+export function useSubscriptionPlans() {
+  return useQuery({
+    queryKey: subscriptionsKeys.plans,
+    queryFn: () => subscriptionsApi.getPlans(),
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours
   });
-
-  // 2. UPDATE
-  const updateMutation = useMutation({
-    mutationFn: (data: { id: string; dto: UpdateSubscriptionRequestDto }) =>
-      subscriptionsApi.update(data.id, data.dto),
-    onSuccess: (_, variables) => {
-      toast.success('Subscription updated successfully!');
-      invalidateCommon(variables.id);
-    },
-    onError: (err) => handleErrorAndNotify(err),
-  });
-
-  // 3. CHANGE STATUS
-  const changeStatusMutation = useMutation({
-    mutationFn: (data: { id: string; newStatus: SubscriptionStatus }) =>
-      subscriptionsApi.changeStatus(data.id, data.newStatus),
-    onSuccess: (_, variables) => {
-      toast.success('Subscription status updated!');
-      invalidateCommon(variables.id);
-    },
-    onError: (err) => handleErrorAndNotify(err),
-  });
-
-  // 4. RENEW
-  const renewMutation = useMutation({
-    mutationFn: (data: { id: string; type: SubscriptionType }) =>
-      subscriptionsApi.renew(data.id, data.type),
-    onSuccess: (_, variables) => {
-      toast.success('Subscription renewed successfully!');
-      invalidateCommon(variables.id);
-    },
-    onError: (err) => handleErrorAndNotify(err),
-  });
-
-  // 5. TOGGLE AUTO-RENEW
-  const toggleAutoRenewMutation = useMutation({
-    mutationFn: (data: { id: string; enable: boolean }) =>
-      subscriptionsApi.toggleAutoRenew(data.id, data.enable),
-    onSuccess: (_, variables) => {
-      toast.success(`Auto-renew ${variables.enable ? 'enabled' : 'disabled'}`);
-      queryClient.invalidateQueries({ queryKey: subscriptionsKeys.byId(variables.id) });
-    },
-    onError: (err) => handleErrorAndNotify(err),
-  });
-
-  // 6. CANCEL (Soft Delete)
-  const cancelMutation = useMutation({
-    mutationFn: (id: string) => subscriptionsApi.cancel(id),
-    onSuccess: (_, id) => {
-      toast.success('Subscription cancelled');
-      invalidateCommon(id);
-    },
-    onError: (err) => handleErrorAndNotify(err),
-  });
-
-  // 7. HARD DELETE
-  const hardDeleteMutation = useMutation({
-    mutationFn: (id: string) => subscriptionsApi.hardDelete(id),
-    onSuccess: () => {
-      toast.success('Subscription deleted permanently');
-      invalidateCommon();
-    },
-    onError: (err) => handleErrorAndNotify(err),
-  });
-
-  return {
-    // Mutations
-    createMutation,
-    updateMutation,
-    changeStatusMutation,
-    renewMutation,
-    toggleAutoRenewMutation,
-    cancelMutation,
-    hardDeleteMutation,
-
-    // Convenience Methods
-    createSubscription: createMutation.mutate,
-    updateSubscription: (id: string, dto: UpdateSubscriptionRequestDto) =>
-      updateMutation.mutate({ id, dto }),
-    changeStatus: (id: string, newStatus: SubscriptionStatus) =>
-      changeStatusMutation.mutate({ id, newStatus }),
-    renewSubscription: (id: string, type: SubscriptionType) => renewMutation.mutate({ id, type }),
-    toggleAutoRenew: (id: string, enable: boolean) =>
-      toggleAutoRenewMutation.mutate({ id, enable }),
-    cancelSubscription: cancelMutation.mutate,
-    hardDeleteSubscription: hardDeleteMutation.mutate,
-  };
 }

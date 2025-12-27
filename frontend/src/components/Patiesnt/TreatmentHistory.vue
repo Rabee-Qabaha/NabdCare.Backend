@@ -1,11 +1,9 @@
-<template>
+<!-- <template>
   <div class="card flex h-[465px] flex-col overflow-hidden">
-    <!-- Header -->
     <div class="mb-6 flex-shrink-0 text-xl font-semibold text-muted-color">
       {{ header }}
     </div>
 
-    <!-- Scrollable Timeline -->
     <ScrollPanel style="height: 100%" class="pb-14">
       <Timeline v-if="visits?.length" :value="visits">
         <template #opposite="slotProps">
@@ -27,7 +25,6 @@
         </template>
       </Timeline>
 
-      <!-- Our custom EmptyState -->
       <EmptyState
         v-else
         icon="pi pi-history"
@@ -35,10 +32,6 @@
         description="This patient has no recorded visits yet."
         containerClass="h-full"
       >
-        <!-- optional action slot -->
-        <!-- <template #action>
-                    <Button label="Add Visit" icon="pi pi-plus" class="p-button-sm" />
-                </template> -->
       </EmptyState>
     </ScrollPanel>
   </div>
@@ -62,4 +55,4 @@
   }>();
 
   const { visits, header = 'Treatment History' } = toRefs(props);
-</script>
+</script> -->

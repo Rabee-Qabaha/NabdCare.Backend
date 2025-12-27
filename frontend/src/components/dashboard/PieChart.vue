@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<!-- <script setup lang="ts">
   import { ref, watch, onMounted } from 'vue';
   import { useLayout } from '@/layout/composables/layout';
   import { formatCurrency } from '@/utils/uiHelpers';
@@ -56,4 +56,4 @@
       <Chart type="pie" :data="data" :options="chartOptions" class="h-full w-full" />
     </div>
   </div>
-</template>
+</template> -->

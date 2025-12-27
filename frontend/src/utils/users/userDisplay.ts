@@ -1,13 +1,17 @@
+// src/utils/users/userDisplay.ts
 import type { UserResponseDto } from '@/types/backend';
 import type { UserDisplayConfig } from '@/types/domain/users';
-import { detectUserStatus, detectUserRoleType } from './userHelpers';
-import { UserStatus, UserRoleType } from '@/types/domain/users';
+import { UserRoleType, UserStatus } from '@/types/domain/users';
+import { detectUserStatus } from './userHelpers';
 
 export function getUserInitials(fullName?: string): string {
   return fullName?.charAt(0).toUpperCase() || '?';
 }
 
-export function getUserStatusBadge(isActive: boolean): { value: string; severity: 'success' | 'danger' | 'warning' } {
+export function getUserStatusBadge(isActive: boolean): {
+  value: string;
+  severity: 'success' | 'danger' | 'warning';
+} {
   return {
     value: isActive ? 'Active' : 'Inactive',
     severity: isActive ? 'success' : 'danger',

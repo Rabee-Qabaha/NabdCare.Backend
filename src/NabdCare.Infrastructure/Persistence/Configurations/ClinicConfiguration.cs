@@ -20,10 +20,32 @@ public class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
             .HasMaxLength(100);
 
         builder.Property(c => c.Phone)
-            .HasMaxLength(15);
+            .HasMaxLength(20);
 
-        // Indexes
-        builder.HasIndex(c => c.Email).IsUnique(false);
+        // Branding Limits
+        builder.Property(c => c.Website).HasMaxLength(255);
+        builder.Property(c => c.TaxNumber).HasMaxLength(50);
+        builder.Property(c => c.RegistrationNumber).HasMaxLength(50);
+        builder.Property(c => c.LogoUrl).HasMaxLength(500);
+
+        // ✅ Map Settings to JSONB column (PostgreSQL)
+        builder.OwnsOne(c => c.Settings, settings =>
+        {
+            settings.ToJson(); 
+        });
+
+        // ✅ Optimization: Filtered Index for Email (Fixes the Unique constraint issue)
+        builder.HasIndex(c => c.Email)
+            .IsUnique()
+            .HasFilter("\"IsDeleted\" = false");
+
         builder.HasIndex(c => c.Name);
+        
+        builder.Property(c => c.Slug)
+            .IsRequired()
+            .HasMaxLength(60);
+
+        // ✅ UNIQUE INDEX on Slug
+        builder.HasIndex(c => c.Slug).IsUnique();
     }
 }

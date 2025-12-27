@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Roles;
+using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;

@@ -12,6 +12,7 @@ export class Clinics {
   static readonly edit: string = "Clinics.Edit";
   static readonly delete: string = "Clinics.Delete";
   static readonly hardDelete: string = "Clinics.HardDelete";
+  static readonly restore: string = "Clinics.Restore";
   static readonly manageStatus: string = "Clinics.ManageStatus";
   static readonly viewStats: string = "Clinics.ViewStats";
 }

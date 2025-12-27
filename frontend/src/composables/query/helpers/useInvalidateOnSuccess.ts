@@ -1,4 +1,5 @@
-import { useQueryClient } from "@tanstack/vue-query";
+// Path: src/composables/query/helpers/useInvalidateOnSuccess.ts
+import { useQueryClient } from '@tanstack/vue-query';
 
 /**
  * Simple helper to invalidate a list of query keys after mutation success.

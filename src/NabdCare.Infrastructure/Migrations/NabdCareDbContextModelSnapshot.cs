@@ -101,6 +101,56 @@ namespace NabdCare.Infrastructure.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Branch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMain")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClinicId");
+
+                    b.ToTable("Branches");
+                });
+
             modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Clinic", b =>
                 {
                     b.Property<Guid>("Id")
@@ -132,17 +182,34 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
                     b.Property<string>("Phone")
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RegistrationNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TaxNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -150,25 +217,42 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("Website")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Email");
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
 
                     b.ToTable("Clinics", (string)null);
                 });
 
-            modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Subscription", b =>
+            modelBuilder.Entity("NabdCare.Domain.Entities.Invoices.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("AutoRenew")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
+                    b.Property<string>("BilledToAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("BilledToName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("BilledToTaxNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uuid");
@@ -179,44 +263,79 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasDefaultValue("USD");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("EndDate")
+                    b.Property<DateTime>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("Fee")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                    b.Property<string>("HostedPaymentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
-                    b.Property<int>("GracePeriodDays")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("InvoiceNumber")
-                        .HasColumnType("text");
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("PaymentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("PreviousSubscriptionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("StartDate")
+                    b.Property<DateTime>("IssueDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("NextPaymentAttempt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("PaidDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PaymentAttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PdfUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
@@ -231,11 +350,85 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.HasIndex("ClinicId");
 
-                    b.HasIndex("PreviousSubscriptionId");
+                    b.HasIndex("Currency");
 
-                    b.HasIndex("Status");
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
 
-                    b.ToTable("Subscriptions", (string)null);
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("IssueDate");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("Invoices", (string)null);
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Invoices.InvoiceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PeriodStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("InvoiceItems", (string)null);
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Patients.Patient", b =>
@@ -372,6 +565,9 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -403,6 +599,8 @@ namespace NabdCare.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
+
+                    b.HasIndex("InvoiceId");
 
                     b.HasIndex("PatientId");
 
@@ -730,6 +928,155 @@ namespace NabdCare.Infrastructure.Migrations
                     b.ToTable("RolePermissions", (string)null);
                 });
 
+            modelBuilder.Entity("NabdCare.Domain.Entities.Subscriptions.Subscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AutoRenew")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("BillingCycleAnchor")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("BonusBranches")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("BonusUsers")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<bool>("CancelAtPeriodEnd")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasDefaultValue("USD");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExternalSubscriptionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("Fee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("GracePeriodDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("IncludedBranchesSnapshot")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("IncludedUsersSnapshot")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlanId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("STD_M");
+
+                    b.Property<Guid?>("PreviousSubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PurchasedBranches")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("PurchasedUsers")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("TrialEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CancelAtPeriodEnd");
+
+                    b.HasIndex("ClinicId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ExternalSubscriptionId");
+
+                    b.HasIndex("PreviousSubscriptionId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("ClinicId", "Status")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 5");
+
+                    b.ToTable("Subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("NabdCare.Domain.Entities.Users.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -800,21 +1147,85 @@ namespace NabdCare.Infrastructure.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
-            modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Subscription", b =>
+            modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Branch", b =>
                 {
                     b.HasOne("NabdCare.Domain.Entities.Clinics.Clinic", "Clinic")
-                        .WithMany("Subscriptions")
+                        .WithMany()
                         .HasForeignKey("ClinicId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("NabdCare.Domain.Entities.Clinics.Subscription", "PreviousSubscription")
+                    b.Navigation("Clinic");
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Clinic", b =>
+                {
+                    b.OwnsOne("NabdCare.Domain.Entities.Clinics.ClinicSettings", "Settings", b1 =>
+                        {
+                            b1.Property<Guid>("ClinicId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("DateFormat")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<bool>("EnablePatientPortal")
+                                .HasColumnType("boolean");
+
+                            b1.Property<string>("Locale")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("TimeZone")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.HasKey("ClinicId");
+
+                            b1.ToTable("Clinics");
+
+                            b1.ToJson("Settings");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ClinicId");
+                        });
+
+                    b.Navigation("Settings")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Invoices.Invoice", b =>
+                {
+                    b.HasOne("NabdCare.Domain.Entities.Clinics.Clinic", "Clinic")
                         .WithMany()
-                        .HasForeignKey("PreviousSubscriptionId");
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NabdCare.Domain.Entities.Subscriptions.Subscription", "Subscription")
+                        .WithMany("Invoices")
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Clinic");
 
-                    b.Navigation("PreviousSubscription");
+                    b.Navigation("Subscription");
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Invoices.InvoiceItem", b =>
+                {
+                    b.HasOne("NabdCare.Domain.Entities.Invoices.Invoice", "Invoice")
+                        .WithMany("Items")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Payments.ChequePaymentDetail", b =>
@@ -834,12 +1245,16 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasForeignKey("ClinicId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("NabdCare.Domain.Entities.Invoices.Invoice", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("InvoiceId");
+
                     b.HasOne("NabdCare.Domain.Entities.Patients.Patient", "Patient")
                         .WithMany()
                         .HasForeignKey("PatientId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("NabdCare.Domain.Entities.Clinics.Subscription", null)
+                    b.HasOne("NabdCare.Domain.Entities.Subscriptions.Subscription", null)
                         .WithMany("Payments")
                         .HasForeignKey("SubscriptionId");
 
@@ -911,6 +1326,23 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("NabdCare.Domain.Entities.Subscriptions.Subscription", b =>
+                {
+                    b.HasOne("NabdCare.Domain.Entities.Clinics.Clinic", "Clinic")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NabdCare.Domain.Entities.Subscriptions.Subscription", "PreviousSubscription")
+                        .WithMany()
+                        .HasForeignKey("PreviousSubscriptionId");
+
+                    b.Navigation("Clinic");
+
+                    b.Navigation("PreviousSubscription");
+                });
+
             modelBuilder.Entity("NabdCare.Domain.Entities.Users.User", b =>
                 {
                     b.HasOne("NabdCare.Domain.Entities.Clinics.Clinic", "Clinic")
@@ -941,8 +1373,10 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Navigation("Subscriptions");
                 });
 
-            modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Subscription", b =>
+            modelBuilder.Entity("NabdCare.Domain.Entities.Invoices.Invoice", b =>
                 {
+                    b.Navigation("Items");
+
                     b.Navigation("Payments");
                 });
 
@@ -963,6 +1397,13 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Navigation("RolePermissions");
 
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Subscriptions.Subscription", b =>
+                {
+                    b.Navigation("Invoices");
+
+                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Users.User", b =>

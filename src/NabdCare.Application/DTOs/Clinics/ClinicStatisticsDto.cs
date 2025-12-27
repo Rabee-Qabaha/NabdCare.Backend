@@ -1,4 +1,4 @@
-using NabdCare.Application.DTOs.Clinics.Subscriptions;
+using NabdCare.Application.DTOs.Subscriptions;
 using NabdCare.Domain.Enums;
 using TypeGen.Core.TypeAnnotations;
 

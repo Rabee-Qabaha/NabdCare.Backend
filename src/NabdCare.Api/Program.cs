@@ -32,6 +32,11 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
 // ✅ Handle FluentValidation model errors consistently
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {

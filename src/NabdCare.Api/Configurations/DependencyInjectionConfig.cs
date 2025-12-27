@@ -6,7 +6,9 @@ using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Audit;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Interfaces.Clinics;
-using NabdCare.Application.Interfaces.Clinics.Subscriptions;
+using NabdCare.Application.Interfaces.Clinics.Branches;
+using NabdCare.Application.Interfaces.Subscriptions;
+using NabdCare.Application.Interfaces.Invoices;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Application.Interfaces.Users;
@@ -14,6 +16,7 @@ using NabdCare.Application.Mappings;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Services.Clinics;
+using NabdCare.Application.Services.Invoices;
 using NabdCare.Application.Services.Permissions;
 using NabdCare.Application.Services.Permissions.Policies;
 using NabdCare.Application.Services.Roles;
@@ -24,6 +27,7 @@ using NabdCare.Infrastructure.Persistence.DataSeed;
 using NabdCare.Infrastructure.Repositories.Audit;
 using NabdCare.Infrastructure.Repositories.Auth;
 using NabdCare.Infrastructure.Repositories.Clinics;
+using NabdCare.Infrastructure.Repositories.Invoices;
 using NabdCare.Infrastructure.Repositories.Permissions;
 using NabdCare.Infrastructure.Repositories.Roles;
 using NabdCare.Infrastructure.Repositories.Users;
@@ -31,11 +35,16 @@ using NabdCare.Api.Authorization;
 using NabdCare.Application.Interfaces.Authorizations;
 using NabdCare.Application.mappings;
 using NabdCare.Application.Services.Authorizations;
+using NabdCare.Application.Services.Subscriptions;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Invoices;
 using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Roles;
+using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Entities.Users;
+using NabdCare.Infrastructure.BackgroundJobs;
 using NabdCare.Infrastructure.Repositories.Authorization;
+using NabdCare.Infrastructure.Repositories.Subscriptions;
 using NabdCare.Infrastructure.Services.Caching;
 
 namespace NabdCare.Api.Configurations;
@@ -82,44 +91,30 @@ public static class DependencyInjectionConfig
         // ===============================
         services.AddMemoryCache(options =>
         {
-            // ✅ Prevent excessive memory usage under heavy load
             options.SizeLimit = 10_000;
-
-            // ✅ Compact 20% of least-used entries when limit is hit
             options.CompactionPercentage = 0.2;
-
-            // ✅ Enable cache metrics (requires .NET 8+)
             options.TrackStatistics = true;
         });
 
-        // Used by repositories to invalidate permission-related cache entries
         services.AddScoped<IPermissionCacheInvalidator, PermissionCacheInvalidator>();
 
-        // ---------------------------------------------------------------
-        // 🧠 Caching Decorator Pattern
-        // ---------------------------------------------------------------
-        // PermissionService = core business logic (no caching)
-        // CachedPermissionService = wraps PermissionService, adds caching, version tracking
-        // IPermissionService resolves to CachedPermissionService by default
-        // ---------------------------------------------------------------
+        // Decorator Pattern for Caching
         services.AddScoped<PermissionService>();
         services.AddScoped<CachedPermissionService>();
         services.AddScoped<IPermissionService, CachedPermissionService>();
 
-        // Evaluates access dynamically via RBAC + PBAC + ABAC
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
 
         // ===============================
         // ABAC Policies
         // ===============================
         services.AddScoped<IAccessPolicy<Clinic>, ClinicPolicy>();
-        // services.AddScoped<IAccessPolicy<Patient>, PatientPolicy>();
+        services.AddScoped<IAccessPolicy<Branch>, BranchPolicy>();
         services.AddScoped<IAccessPolicy<User>, UserPolicy>();
         services.AddScoped<IAccessPolicy<Role>, RolePolicy>();
         services.AddScoped<IAccessPolicy<AppPermission>, PermissionPolicy>();
         services.AddScoped<IAccessPolicy<Subscription>, SubscriptionPolicy>();
-
-        // Default fallback for unmapped entities
+        services.AddScoped<IAccessPolicy<Invoice>, InvoicePolicy>();
         services.AddScoped(typeof(IAccessPolicy<>), typeof(DefaultPolicy<>));
         
         // ===============================
@@ -129,16 +124,25 @@ public static class DependencyInjectionConfig
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         // ===============================
-        // Clinics & Subscriptions
+        // Clinics, Branches & Subscriptions
         // ===============================
         services.AddScoped<IClinicRepository, ClinicRepository>();
         services.AddScoped<IClinicService, ClinicService>();
+
+        services.AddScoped<IBranchRepository, BranchRepository>();
+        services.AddScoped<IBranchService, BranchService>();
 
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
         // ===============================
-        // Authorization
+        // Invoices (Billing)
+        // ===============================
+        services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
+
+        // ===============================
+        // Authorization (Audit/Access)
         // ===============================
         services.AddScoped<IAuthorizationRepository, AuthorizationRepository>();
         services.AddScoped<Application.Interfaces.Authorizations.IAuthorizationService, AuthorizationService>();
@@ -154,15 +158,18 @@ public static class DependencyInjectionConfig
         services.AddAutoMapper(_ => { },
             typeof(UserProfile).Assembly,
             typeof(ClinicProfile).Assembly,
+            typeof(BranchProfile).Assembly,
             typeof(PermissionProfile).Assembly,
             typeof(SubscriptionProfile).Assembly,
             typeof(RoleProfile).Assembly,
+            typeof(InvoiceProfile).Assembly,
             typeof(AuditLogMappingProfile).Assembly
         );
 
         // ===============================
         // Validation
         // ===============================
+        // Scans assembly for all AbstractValidators
         services.AddValidatorsFromAssemblyContaining<UserValidator>();
 
         // ===============================
@@ -174,6 +181,16 @@ public static class DependencyInjectionConfig
         services.AddScoped<ISingleSeeder, RolePermissionsSeeder>();
         services.AddScoped<ISingleSeeder, SuperAdminSeeder>();
 
+        // ===============================
+        // Background Jobs
+        // ===============================
+        services.AddScoped<SubscriptionLifecycleJob>();
+
+        if (configuration["ASPNETCORE_ENVIRONMENT"] != "Testing")
+        {
+            services.AddHostedService<SubscriptionScheduler>();
+        }
+        
         return services;
     }
 }

@@ -62,7 +62,17 @@ export const superadminRoutes: RouteRecordRaw[] = [
           abacResource: null,
         },
       },
-
+      {
+        path: 'clinics',
+        name: 'superadmin-clinics',
+        component: () => import('@/views/admin/clinics/ClinicsManagement.vue'),
+        meta: {
+          title: 'Manage Clinics',
+          permission: PermissionRegistry.Clinics.viewAll,
+          // ✅ List view: ABAC happens at component level for action buttons
+          abacResource: null,
+        },
+      },
       // ==========================================
       // FUTURE: Uncomment when implementing
       // ==========================================

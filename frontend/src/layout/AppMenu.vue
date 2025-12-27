@@ -1,11 +1,11 @@
 <script setup lang="ts">
-  import { computed } from 'vue';
-  import AppMenuItem from './AppMenuItem.vue';
-  import Button from 'primevue/button';
-  import { useRouter } from 'vue-router';
-  import { useAuthStore } from '@/stores/authStore';
   import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
-  import { useToastService } from "@/composables/useToastService";
+  import { useToastService } from '@/composables/useToastService';
+  import { useAuthStore } from '@/stores/authStore';
+  import Button from 'primevue/button';
+  import { computed } from 'vue';
+  import { useRouter } from 'vue-router';
+  import AppMenuItem from './AppMenuItem.vue';
 
   const router = useRouter();
   const authStore = useAuthStore();
@@ -33,7 +33,8 @@
       items: [
         { label: 'Users', icon: 'pi pi-fw pi-users', to: '/superadmin/users' },
         { label: 'Roles', icon: 'pi pi-fw pi-shield', to: '/superadmin/roles' },
-      ]
+        { label: 'Clinics', icon: 'pi pi-fw pi-shield', to: '/superadmin/clinics' },
+      ],
     },
   ];
 
@@ -56,9 +57,7 @@
     },
   ];
 
-  const model = computed(() =>
-    authStore.isSuperAdmin ? superAdminMenu : clientMenu
-  );
+  const model = computed(() => (authStore.isSuperAdmin ? superAdminMenu : clientMenu));
 </script>
 
 <template>

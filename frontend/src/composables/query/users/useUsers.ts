@@ -4,18 +4,21 @@ import type { PaginatedResult, UserResponseDto } from '@/types/backend';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/vue-query';
 import { computed, unref, type Ref } from 'vue';
 
+// 1. Updated: Added 'limit' to arguments and implementation
 function buildParams(params: {
   search?: string;
   includeDeleted?: boolean;
   clinicId?: string | null;
   cursor?: string | null;
+  limit?: number;
 }) {
   return {
     search: params.search || undefined,
     includeDeleted: params.includeDeleted ?? false,
     clinicId: params.clinicId || undefined,
     cursor: params.cursor,
-    limit: 20,
+    // FIX: Use the passed limit, or fallback to 20
+    limit: params.limit ?? 20,
     descending: true,
   };
 }
@@ -73,12 +76,15 @@ export function useUser(userId: Ref<string | null>) {
   });
 }
 
+// 2. Updated: Added 'clinicId' to the interface
 export function useUsersPaged(options: {
   page?: number;
   limit?: number;
   search?: string;
   includeDeleted?: boolean;
+  clinicId?: string | null;
 }) {
+  // Pass options directly since we updated buildParams signature
   const normalized = computed(() => buildParams({ ...options, cursor: null }));
 
   return useQuery({

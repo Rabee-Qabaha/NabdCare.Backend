@@ -11,11 +11,11 @@ namespace NabdCare.Infrastructure.Persistence.DataSeed;
 /// 🌱 Dynamically seeds all permissions into the database by scanning
 /// <see cref="Permissions"/> and its nested classes via reflection.
 ///
-/// Supports per-permission descriptions through each nested class’s
-/// <c>Descriptions</c> dictionary (optional).
+/// It automatically picks up new classes like 'Plans' and 'Branches' 
+/// without needing manual code updates here.
 ///
 /// Author: Rabee Qabaha
-/// Updated: 2025-10-31
+/// Updated: 2025-11-09
 /// </summary>
 public class PermissionsSeeder : ISingleSeeder
 {
@@ -39,13 +39,17 @@ public class PermissionsSeeder : ISingleSeeder
         var permissions = GetAllPermissionsWithDescriptions();
         var addedCount = 0;
 
+        // Get existing permissions to avoid DB roundtrips in the loop
+        var existingNames = await _dbContext.AppPermissions
+            .IgnoreQueryFilters()
+            .Select(p => p.Name)
+            .ToListAsync();
+
+        var existingSet = new HashSet<string>(existingNames);
+
         foreach (var permission in permissions)
         {
-            bool exists = await _dbContext.AppPermissions
-                .IgnoreQueryFilters()
-                .AnyAsync(p => p.Name == permission.Name);
-
-            if (!exists)
+            if (!existingSet.Contains(permission.Name))
             {
                 permission.Id = Guid.NewGuid();
                 permission.CreatedAt = DateTime.UtcNow;
@@ -69,36 +73,23 @@ public class PermissionsSeeder : ISingleSeeder
             _logger.LogInformation("✅ All permissions already exist, skipping seeding.");
         }
 
-        // Optional: Warn if some DB permissions are not in code anymore
         await WarnAboutOrphanedPermissionsAsync(permissions.Select(p => p.Name).ToList());
     }
 
-    /// <summary>
-    /// Extracts all permission constants and descriptions from <see cref="Permissions"/>.
-    /// Each nested static class may optionally define:
-    /// <code>
-    /// public static readonly Dictionary&lt;string, string&gt; Descriptions = new()
-    /// {
-    ///     { View, "View a specific resource" },
-    ///     { Edit, "Modify an existing resource" }
-    /// };
-    /// </code>
-    /// </summary>
     private static List<AppPermission> GetAllPermissionsWithDescriptions()
     {
         var list = new List<AppPermission>();
         var parentType = typeof(Permissions);
 
+        // This picks up all nested classes (Clinics, Plans, Branches, etc.)
         foreach (var nested in parentType.GetNestedTypes(BindingFlags.Public))
         {
-            // collect constant string fields
             var constants = nested
                 .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
                 .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
                 .Select(f => (string)f.GetRawConstantValue()!)
                 .ToList();
 
-            // attempt to locate a Descriptions dictionary
             var descField = nested
                 .GetFields(BindingFlags.Public | BindingFlags.Static)
                 .FirstOrDefault(f => f.FieldType == typeof(Dictionary<string, string>));
@@ -126,10 +117,6 @@ public class PermissionsSeeder : ISingleSeeder
         return list;
     }
 
-    /// <summary>
-    /// Logs any database permissions that are not defined in the code constants.
-    /// Helps detect legacy or orphaned permissions.
-    /// </summary>
     private async Task WarnAboutOrphanedPermissionsAsync(List<string> codePermissions)
     {
         var dbPermissions = await _dbContext.AppPermissions
@@ -147,10 +134,6 @@ public class PermissionsSeeder : ISingleSeeder
             _logger.LogWarning("⚠️ {Count} permissions exist in DB but not in code: {List}",
                 orphaned.Count,
                 string.Join(", ", orphaned));
-        }
-        else
-        {
-            _logger.LogInformation("🟢 No orphaned permissions found; DB is in sync with code.");
         }
     }
 }

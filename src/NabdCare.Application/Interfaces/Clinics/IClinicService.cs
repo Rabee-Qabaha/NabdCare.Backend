@@ -22,7 +22,7 @@ public interface IClinicService
     /// <summary>
     /// Get all clinics (SuperAdmin only) - paginated
     /// </summary>
-    Task<PaginatedResult<ClinicResponseDto>> GetAllClinicsPagedAsync(PaginationRequestDto pagination);
+    Task<PaginatedResult<ClinicResponseDto>> GetAllClinicsPagedAsync(ClinicFilterRequestDto filters);
 
     /// <summary>
     /// Get clinics by subscription status (SuperAdmin only) - paginated
@@ -58,6 +58,7 @@ public interface IClinicService
     Task<ClinicResponseDto?> UpdateClinicStatusAsync(Guid id, UpdateClinicStatusDto dto);
     Task<ClinicResponseDto?> ActivateClinicAsync(Guid id);
     Task<ClinicResponseDto?> SuspendClinicAsync(Guid id);
+    Task<bool> RestoreClinicAsync(Guid id);
     Task<bool> SoftDeleteClinicAsync(Guid id);
     Task<bool> DeleteClinicAsync(Guid id);
 

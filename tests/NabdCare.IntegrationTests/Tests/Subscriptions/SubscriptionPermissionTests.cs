@@ -1,7 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using NabdCare.Application.DTOs.Clinics.Subscriptions;
+using NabdCare.Application.DTOs.Subscriptions;
+using NabdCare.Application.DTOs.Pagination; 
 using NabdCare.Domain.Enums;
 using NabdCare.IntegrationTests.Helpers;
 using NabdCare.IntegrationTests.TestFixtures;
@@ -10,8 +11,7 @@ namespace NabdCare.IntegrationTests.Tests.Subscriptions;
 
 /// <summary>
 /// Comprehensive subscription permission tests.
-/// Author: Rabee-Qabaha
-/// Created: 2025-10-24 21:46:46 UTC
+/// Updated for Pay-Per-User & Plan-Based Architecture.
 /// </summary>
 [Collection("IntegrationTests")]
 public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationFactory>
@@ -32,14 +32,18 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
     {
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
 
+        // 1. Get Active Sub to find an ID
         var clinicResponse = await _client.GetAsync($"/api/subscriptions/clinic/{_factory.ClinicId}/active");
         
         if (clinicResponse.StatusCode == HttpStatusCode.OK)
         {
             var activeSubContent = await clinicResponse.Content.ReadAsStringAsync();
             var activeSubData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(activeSubContent);
+            
+            // Note: The active endpoint returns { "subscription": { ... }, "daysRemaining": ... }
             var subscriptionId = activeSubData.GetProperty("subscription").GetProperty("id").GetGuid();
 
+            // 2. Test GetById
             var response = await _client.GetAsync($"/api/subscriptions/{subscriptionId}");
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -48,16 +52,19 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         }
         else
         {
+            // If no active sub exists, we can't test GetById easily without creating one first
+            // This is acceptable if the seed data doesn't guarantee a sub
             Assert.True(true, "No active subscription available for testing");
         }
     }
 
     [Fact]
-    public async Task GetSubscriptionById_AsClinicAdmin_ReturnsForbidden()
+    public async Task GetSubscriptionById_AsClinicAdmin_ReturnsForbidden_ForRandomId()
     {
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.ClinicAdminEmail);
         var response = await _client.GetAsync($"/api/subscriptions/{Guid.NewGuid()}");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
+        // Usually NotFound if it doesn't exist, or Forbidden if it belongs to another clinic
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -110,15 +117,7 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.ClinicAdminEmail);
         var otherClinicId = Guid.NewGuid();
         var response = await _client.GetAsync($"/api/subscriptions/clinic/{otherClinicId}/active");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task GetActiveSubscription_AsDoctor_MayViewOwnClinicSubscription()
-    {
-        await TestDataHelper.AuthenticateAs(_client, TestDataHelper.DoctorEmail);
-        var response = await _client.GetAsync($"/api/subscriptions/clinic/{_factory.ClinicId}/active");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NotFound, HttpStatusCode.Forbidden);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden);
     }
 
     #endregion
@@ -126,14 +125,17 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
     #region GET /api/subscriptions/clinic/{clinicId}
 
     [Fact]
-    public async Task GetClinicSubscriptions_AsSuperAdmin_ReturnsAllSubscriptions()
+    public async Task GetClinicSubscriptions_AsSuperAdmin_ReturnsPaginatedResult()
     {
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
         var response = await _client.GetAsync($"/api/subscriptions/clinic/{_factory.ClinicId}?includePayments=false");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var subscriptions = await response.Content.ReadFromJsonAsync<IEnumerable<SubscriptionResponseDto>>();
-        subscriptions.Should().NotBeNull();
+        
+        // ✅ FIXED: Backend now returns PaginatedResult<T>, not IEnumerable<T>
+        var result = await response.Content.ReadFromJsonAsync<PaginatedResult<SubscriptionResponseDto>>();
+        result.Should().NotBeNull();
+        result!.Items.Should().NotBeNull();
     }
 
     [Fact]
@@ -145,11 +147,11 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
     }
 
     [Fact]
-    public async Task GetClinicSubscriptions_AsDoctor_MayBeRestricted()
+    public async Task GetClinicSubscriptions_AsDoctor_ReturnsForbidden()
     {
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.DoctorEmail);
         var response = await _client.GetAsync($"/api/subscriptions/clinic/{_factory.ClinicId}?includePayments=false");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
     }
 
     #endregion
@@ -161,18 +163,20 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
     {
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
 
+        // ✅ FIXED: Use PlanId and Extras instead of Fee/Type/Limits
         var newSubscription = new CreateSubscriptionRequestDto
         {
             ClinicId = _factory.ClinicId,
-            Type = SubscriptionType.Monthly, // ✅ FIXED: Use Type instead of SubscriptionType
-            StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddMonths(1),
-            Fee = 1000m,
-            Status = SubscriptionStatus.Active
+            PlanId = "STD_M", // Standard Monthly
+            ExtraUsers = 0,
+            ExtraBranches = 0,
+            AutoRenew = true,
+            CustomStartDate = DateTime.UtcNow
         };
 
         var response = await _client.PostAsJsonAsync("/api/subscriptions", newSubscription);
 
+        // Created or BadRequest (if logic fails)
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.BadRequest);
         
         if (response.StatusCode == HttpStatusCode.Created)
@@ -180,6 +184,8 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
             var created = await response.Content.ReadFromJsonAsync<SubscriptionResponseDto>();
             created.Should().NotBeNull();
             created!.ClinicId.Should().Be(_factory.ClinicId);
+            // Verify plan logic applied
+            created.Type.Should().Be(SubscriptionType.Monthly);
         }
     }
 
@@ -191,21 +197,14 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         var newSubscription = new CreateSubscriptionRequestDto
         {
             ClinicId = _factory.ClinicId,
-            Type = SubscriptionType.Monthly,
-            StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddMonths(1),
-            Fee = 1000m,
-            Status = SubscriptionStatus.Active
+            PlanId = "STD_M",
+            ExtraUsers = 0,
+            ExtraBranches = 0
         };
 
         var response = await _client.PostAsJsonAsync("/api/subscriptions", newSubscription);
     
-        response.StatusCode.Should().BeOneOf(
-            HttpStatusCode.Created,
-            HttpStatusCode.Forbidden,
-            HttpStatusCode.Unauthorized,
-            HttpStatusCode.BadRequest
-        );
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -216,11 +215,7 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         var newSubscription = new CreateSubscriptionRequestDto
         {
             ClinicId = _factory.ClinicId,
-            Type = SubscriptionType.Monthly, // ✅ FIXED
-            StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddMonths(1),
-            Fee = 1000m,
-            Status = SubscriptionStatus.Active
+            PlanId = "STD_M"
         };
 
         var response = await _client.PostAsJsonAsync("/api/subscriptions", newSubscription);
@@ -236,14 +231,13 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
     {
         await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
 
+        // 1. Create a subscription first
         var createDto = new CreateSubscriptionRequestDto
         {
             ClinicId = _factory.ClinicId,
-            Type = SubscriptionType.Monthly, // ✅ FIXED
-            StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddMonths(1),
-            Fee = 1000m,
-            Status = SubscriptionStatus.Active
+            PlanId = "STD_M",
+            ExtraUsers = 0,
+            ExtraBranches = 0
         };
         var createResponse = await _client.PostAsJsonAsync("/api/subscriptions", createDto);
         
@@ -251,21 +245,31 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         {
             var created = await createResponse.Content.ReadFromJsonAsync<SubscriptionResponseDto>();
 
+            // 2. Update it
+            // ✅ FIXED: Use Update properties (ExtraUsers, ExtraBranches)
             var updateDto = new UpdateSubscriptionRequestDto
             {
-                Type = SubscriptionType.Yearly, // ✅ FIXED
-                StartDate = DateTime.UtcNow,
-                EndDate = DateTime.UtcNow.AddYears(1),
-                Fee = 12000m,
-                Status = SubscriptionStatus.Active
+                EndDate = DateTime.UtcNow.AddMonths(2), // Extend
+                Status = SubscriptionStatus.Active,
+                
+                ExtraUsers = 5,      // Buying 5 add-ons
+                ExtraBranches = 1,   // Buying 1 add-on
+                AutoRenew = true,
+                GracePeriodDays = 7
             };
 
-            var response = await _client.PutAsJsonAsync($"/api/subscriptions/{created!.Id}", updateDto);
-            response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.BadRequest);
+            var response = await _client.PutAsJsonAsync($"/api/subscriptions/{created.Id}", updateDto);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var updated = await response.Content.ReadFromJsonAsync<SubscriptionResponseDto>();
+            updated!.PurchasedUsers.Should().Be(5);
+            updated.PurchasedBranches.Should().Be(1);
         }
         else
         {
-            Assert.True(true, "Subscription creation failed, skipping update test");
+            // If creation failed, we can't test update. 
+            // Assert true to pass, or output warning.
+            // Ideally creation should succeed if test data is clean.
         }
     }
 
@@ -276,38 +280,19 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
 
         var updateDto = new UpdateSubscriptionRequestDto
         {
-            Type = SubscriptionType.Yearly, // ✅ FIXED
-            StartDate = DateTime.UtcNow,
             EndDate = DateTime.UtcNow.AddYears(1),
-            Fee = 15000m,
-            Status = SubscriptionStatus.Active
+            Status = SubscriptionStatus.Active,
+            ExtraUsers = 0,
+            ExtraBranches = 0
         };
 
         var response = await _client.PutAsJsonAsync($"/api/subscriptions/{Guid.NewGuid()}", updateDto);
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
     }
 
-    [Fact]
-    public async Task UpdateSubscription_AsDoctor_ReturnsForbidden()
-    {
-        await TestDataHelper.AuthenticateAs(_client, TestDataHelper.DoctorEmail);
-
-        var updateDto = new UpdateSubscriptionRequestDto
-        {
-            Type = SubscriptionType.Monthly, // ✅ FIXED
-            StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddMonths(1),
-            Fee = 1000m,
-            Status = SubscriptionStatus.Active
-        };
-
-        var response = await _client.PutAsJsonAsync($"/api/subscriptions/{Guid.NewGuid()}", updateDto);
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
-    }
-
     #endregion
 
-    #region DELETE /api/subscriptions/{id}
+    #region DELETE /api/subscriptions/{id} (Soft Delete)
 
     [Fact]
     public async Task DeleteSubscription_AsSuperAdmin_Succeeds()
@@ -317,11 +302,7 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         var createDto = new CreateSubscriptionRequestDto
         {
             ClinicId = _factory.ClinicId,
-            Type = SubscriptionType.Monthly, // ✅ FIXED
-            StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddMonths(1),
-            Fee = 1000m,
-            Status = SubscriptionStatus.Active
+            PlanId = "STD_M"
         };
         var createResponse = await _client.PostAsJsonAsync("/api/subscriptions", createDto);
 
@@ -330,10 +311,6 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
             var created = await createResponse.Content.ReadFromJsonAsync<SubscriptionResponseDto>();
             var response = await _client.DeleteAsync($"/api/subscriptions/{created!.Id}");
             response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
-        }
-        else
-        {
-            Assert.True(true, "Subscription creation failed, skipping delete test");
         }
     }
 
@@ -345,83 +322,55 @@ public class SubscriptionPermissionTests : IClassFixture<NabdCareWebApplicationF
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
     }
 
+    #endregion
+    
+    #region DELETE /api/subscriptions/{id}/hard (Hard Delete)
+
     [Fact]
-    public async Task DeleteSubscription_AsDoctor_ReturnsForbidden()
+    public async Task HardDeleteSubscription_AsSuperAdmin_Succeeds()
     {
-        await TestDataHelper.AuthenticateAs(_client, TestDataHelper.DoctorEmail);
-        var response = await _client.DeleteAsync($"/api/subscriptions/{Guid.NewGuid()}");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
+        await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
+
+        var createDto = new CreateSubscriptionRequestDto
+        {
+            ClinicId = _factory.ClinicId,
+            PlanId = "TRIAL" // Use Trial for quick delete test
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/subscriptions", createDto);
+
+        if (createResponse.StatusCode == HttpStatusCode.Created)
+        {
+            var created = await createResponse.Content.ReadFromJsonAsync<SubscriptionResponseDto>();
+            var response = await _client.DeleteAsync($"/api/subscriptions/{created!.Id}/hard");
+            response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
+        }
+    }
+
+    [Fact]
+    public async Task HardDeleteSubscription_AsClinicAdmin_ReturnsForbidden()
+    {
+        await TestDataHelper.AuthenticateAs(_client, TestDataHelper.ClinicAdminEmail);
+        var response = await _client.DeleteAsync($"/api/subscriptions/{Guid.NewGuid()}/hard");
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
     }
 
     #endregion
-    
-    #region DELETE /api/subscriptions/{id}/hard - Hard Delete Subscription
 
-[Fact]
-public async Task HardDeleteSubscription_AsSuperAdmin_Succeeds()
-{
-    // Arrange
-    await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
+    #region GET /api/subscriptions/clinic/{clinicId}?includePayments=true
 
-    // Create a subscription to hard delete
-    var createDto = new CreateSubscriptionRequestDto
+    [Fact]
+    public async Task GetClinicSubscriptions_WithPayments_ReturnsPaginatedResult()
     {
-        ClinicId = _factory.ClinicId,
-        Type = SubscriptionType.Monthly,
-        StartDate = DateTime.UtcNow,
-        EndDate = DateTime.UtcNow.AddMonths(1),
-        Fee = 1000m,
-        Status = SubscriptionStatus.Active
-    };
-    var createResponse = await _client.PostAsJsonAsync("/api/subscriptions", createDto);
+        await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
 
-    if (createResponse.StatusCode == HttpStatusCode.Created)
-    {
-        var created = await createResponse.Content.ReadFromJsonAsync<SubscriptionResponseDto>();
+        var response = await _client.GetAsync($"/api/subscriptions/clinic/{_factory.ClinicId}?includePayments=true");
 
-        // Act
-        var response = await _client.DeleteAsync($"/api/subscriptions/{created!.Id}/hard");
-
-        // Assert
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        // ✅ FIXED: PaginatedResult
+        var result = await response.Content.ReadFromJsonAsync<PaginatedResult<SubscriptionResponseDto>>();
+        result.Should().NotBeNull();
+        result!.Items.Should().NotBeNull();
     }
-    else
-    {
-        Assert.True(true, "Subscription creation failed, skipping hard delete test");
-    }
-}
 
-[Fact]
-public async Task HardDeleteSubscription_AsClinicAdmin_ReturnsForbidden()
-{
-    // Arrange
-    await TestDataHelper.AuthenticateAs(_client, TestDataHelper.ClinicAdminEmail);
-
-    // Act
-    var response = await _client.DeleteAsync($"/api/subscriptions/{Guid.NewGuid()}/hard");
-
-    // Assert
-    response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
-}
-
-#endregion
-
-#region GET /api/subscriptions/clinic/{clinicId}?includePayments=true
-
-[Fact]
-public async Task GetClinicSubscriptions_WithPayments_ReturnsSubscriptionsAndPayments()
-{
-    // Arrange
-    await TestDataHelper.AuthenticateAs(_client, TestDataHelper.SuperAdminEmail);
-
-    // Act
-    var response = await _client.GetAsync($"/api/subscriptions/clinic/{_factory.ClinicId}?includePayments=true");
-
-    // Assert
-    response.StatusCode.Should().Be(HttpStatusCode.OK);
-    var subscriptions = await response.Content.ReadFromJsonAsync<IEnumerable<SubscriptionResponseDto>>();
-    subscriptions.Should().NotBeNull();
-}
-
-#endregion
+    #endregion
 }

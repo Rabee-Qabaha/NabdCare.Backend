@@ -1,3 +1,4 @@
+// src/composables/query/queryClient.ts
 import {
   focusManager,
   onlineManager,

@@ -5,6 +5,8 @@ using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Roles;
+using NabdCare.Domain.Entities.Invoices;
+using NabdCare.Domain.Entities.Subscriptions;
 
 namespace NabdCare.Application.Services.Permissions;
 
@@ -321,6 +323,55 @@ public class PermissionEvaluator : IPermissionEvaluator
         }
 
         _logger.LogDebug("Resource type {ResourceType} is not Subscription - returning unfiltered query", 
+            typeof(TResource).Name);
+        return query;
+    }
+
+    // ✅ ADDED: Invoice Filtering (ABAC)
+    public IQueryable<TResource> FilterInvoices<TResource>(
+        IQueryable<TResource> query,
+        string permission,
+        IUserContext userContext)
+    {
+        if (query == null)
+            throw new ArgumentNullException($"Query cannot be null. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(query));
+
+        if (string.IsNullOrWhiteSpace(permission))
+        {
+            _logger.LogWarning("Empty permission provided to FilterInvoices. Error code: {ErrorCode}",
+                ErrorCodes.INVALID_ARGUMENT);
+            throw new ArgumentException($"Permission cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(permission));
+        }
+
+        _logger.LogDebug("Filtering invoices for user with permission {Permission}", permission);
+
+        if (_tenant.IsSuperAdmin)
+        {
+            _logger.LogDebug("SuperAdmin accessing all invoices - no filtering applied");
+            return query;
+        }
+
+        if (typeof(TResource) == typeof(Invoice))
+        {
+            var clinicId = _tenant.ClinicId;
+
+            if (!clinicId.HasValue)
+            {
+                _logger.LogWarning("Non-SuperAdmin user has no clinic context - returning empty result. Error code: {ErrorCode}",
+                    ErrorCodes.FORBIDDEN);
+                return Enumerable.Empty<TResource>().AsQueryable();
+            }
+
+            _logger.LogDebug("Applying clinic filter to invoices query. Clinic: {ClinicId}", clinicId);
+
+            var filtered = query.Cast<Invoice>()
+                .Where(i => i.ClinicId == clinicId.Value)
+                .Cast<TResource>();
+
+            return filtered;
+        }
+
+        _logger.LogDebug("Resource type {ResourceType} is not Invoice - returning unfiltered query", 
             typeof(TResource).Name);
         return query;
     }

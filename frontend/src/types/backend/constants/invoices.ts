@@ -4,10 +4,10 @@
  */
 
 export class Invoices {
-  static readonly descriptions: { [key: string]: string; } = {"Invoices.View":"View invoices","Invoices.Create":"Create new invoices","Invoices.Edit":"Edit invoice details","Invoices.Send":"Send invoices to patients","Invoices.ViewReports":"View invoice reports"};
+  static readonly descriptions: { [key: string]: string; } = {"Invoices.View":"View invoices belonging to own clinic","Invoices.ViewAll":"View all invoices in the system (SuperAdmin only)","Invoices.Pay":"Process payments for invoices","Invoices.Download":"Download invoice PDF","Invoices.Void":"Void an issued invoice (Admin only)"};
   static readonly view: string = "Invoices.View";
-  static readonly create: string = "Invoices.Create";
-  static readonly edit: string = "Invoices.Edit";
-  static readonly send: string = "Invoices.Send";
-  static readonly viewReports: string = "Invoices.ViewReports";
+  static readonly viewAll: string = "Invoices.ViewAll";
+  static readonly pay: string = "Invoices.Pay";
+  static readonly download: string = "Invoices.Download";
+  static readonly void: string = "Invoices.Void";
 }

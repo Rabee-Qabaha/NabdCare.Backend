@@ -6,22 +6,38 @@
 import { Clinic } from "./clinic";
 import { SubscriptionType } from "./subscription-type";
 import { SubscriptionStatus } from "./subscription-status";
+import { Invoice } from "./invoice";
 import { Payment } from "./payment";
 
 export class Subscription {
   clinicId: string;
   clinic: Clinic;
+  planId: string = "";
+  externalSubscriptionId: string;
   startDate: Date;
   endDate: Date;
+  billingCycleAnchor: Date;
+  trialEndsAt: Date;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: Date;
+  cancellationReason: string;
   type: SubscriptionType;
+  currency: string = "USD";
   fee: number;
   status: SubscriptionStatus;
-  previousSubscriptionId: string;
-  previousSubscription: Subscription;
-  paymentId: string;
-  invoiceNumber: string;
-  autoRenew: boolean;
+  purchasedBranches: number;
+  includedBranchesSnapshot: number = 1;
+  bonusBranches: number;
+  maxBranches: number = 1;
+  purchasedUsers: number;
+  includedUsersSnapshot: number = 1;
+  bonusUsers: number;
+  maxUsers: number = 1;
+  autoRenew: boolean = true;
   gracePeriodDays: number = 7;
   notes: string;
+  previousSubscriptionId: string;
+  previousSubscription: Subscription;
+  invoices: Invoice[] = [];
   payments: Payment[] = [];
 }

@@ -1,3 +1,4 @@
+// src/composables/useInfiniteScrollObserver.ts
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 /**

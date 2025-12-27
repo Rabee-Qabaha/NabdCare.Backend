@@ -5,29 +5,6 @@ using NabdCare.Application.DTOs.Common;
 
 namespace NabdCare.Api.Middleware;
 
-/// <summary>
-/// Global exception handling middleware.
-/// 
-/// Responsibilities:
-/// - Catches all unhandled exceptions
-/// - Maps exceptions to HTTP status codes
-/// - Returns consistent error response format
-/// - Logs errors for debugging
-/// - Hides sensitive info in production
-/// 
-/// Error Response Format:
-/// {
-///   "error": {
-///     "message": "...",
-///     "code": "ERROR_CODE",
-///     "type": "ExceptionType",
-///     "statusCode": 500,
-///     "traceId": "...",
-///     "details": null,
-///     "stackTrace": null
-///   }
-/// }
-/// </summary>
 public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
@@ -47,42 +24,37 @@ public class ErrorHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, 
-                "Unhandled exception: {ExceptionType} - {Message}", 
-                ex.GetType().Name, ex.Message);
-            
+            _logger.LogError(ex, "Unhandled exception: {ExceptionType} - {Message}", ex.GetType().Name, ex.Message);
             await HandleExceptionAsync(context, ex);
         }
     }
 
-    /// <summary>
-    /// Converts exception to standardized error response.
-    /// </summary>
     private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
-
-        var traceId = Guid.NewGuid().ToString("N");
+        
+        // Generate Trace ID for debugging
+        var traceId = context.TraceIdentifier ?? Guid.NewGuid().ToString("N");
         context.Response.Headers["X-Trace-Id"] = traceId;
 
-        var isDevelopment = 
-            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        // Check environment
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-        // ✅ Map exception to error details
-        var errorDetails = MapExceptionToErrorDetails(exception, isDevelopment);
+        // Map Exception
+        var (statusCode, message, code, type) = MapException(exception);
 
-        context.Response.StatusCode = errorDetails.StatusCode;
+        context.Response.StatusCode = statusCode;
 
-        var errorResponse = new ApiErrorResponse
+        var response = new ApiErrorResponse
         {
             Error = new ErrorResponseDto
             {
-                Message = errorDetails.Message,
-                Code = errorDetails.Code,
-                Type = errorDetails.Type,
-                StatusCode = errorDetails.StatusCode,
+                Message = message,
+                Code = code,
+                Type = type,
+                StatusCode = statusCode,
                 TraceId = traceId,
-                Details = isDevelopment ? errorDetails.Details : null,
+                // Only show StackTrace in Dev; 'Details' can be used for specific validation errors if needed
                 StackTrace = isDevelopment ? exception.StackTrace : null
             }
         };
@@ -90,87 +62,63 @@ public class ErrorHandlingMiddleware
         var options = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = isDevelopment
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        await context.Response.WriteAsJsonAsync(errorResponse, options);
+        await context.Response.WriteAsJsonAsync(response, options);
     }
 
-    /// <summary>
-    /// Maps exception types to appropriate error details.
-    /// 
-    /// Add more exception types here as needed.
-    /// </summary>
-    private static (int StatusCode, string Message, string Code, string Type, object? Details) 
-        MapExceptionToErrorDetails(Exception exception, bool isDevelopment)
+    private static (int StatusCode, string Message, string Code, string Type) MapException(Exception exception)
     {
         return exception switch
         {
-            // ============================================
-            // UNAUTHORIZED (401)
-            // ============================================
+            // 401: Authentication Issues
             UnauthorizedAccessException => (
                 StatusCodes.Status401Unauthorized,
-                "Authentication failed. Please log in.",
+                "Authentication failed. You do not have permission to access this resource.",
                 ErrorCodes.UNAUTHORIZED,
-                "UnauthorizedAccess",
-                isDevelopment ? new { OriginalMessage = exception.Message } : null
+                "Unauthorized"
             ),
 
-            // ============================================
-            // VALIDATION / BAD REQUEST (400)
-            // ============================================
-            ArgumentException => (
-                StatusCodes.Status400BadRequest,
-                "Invalid request. Please check your input.",
-                ErrorCodes.INVALID_ARGUMENT,
-                "BadRequest",
-                isDevelopment ? new { OriginalMessage = exception.Message } : null
-            ),
-
-            // ============================================
-            // NOT FOUND (404)
-            // ============================================
+            // 404: Not Found
             KeyNotFoundException => (
                 StatusCodes.Status404NotFound,
-                "The requested resource was not found.",
+                exception.Message, // Safe to show "User not found", "Clinic not found"
                 ErrorCodes.NOT_FOUND,
-                "NotFound",
-                isDevelopment ? new { OriginalMessage = exception.Message } : null
+                "NotFound"
             ),
 
-            // ============================================
-            // CONFLICT (409)
-            // ============================================
+            // 409: Conflicts (Duplicates)
             InvalidOperationException when exception.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) => (
                 StatusCodes.Status409Conflict,
-                "This resource already exists.",
+                exception.Message, // Show "Email already exists"
                 ErrorCodes.DUPLICATE_RESOURCE,
-                "Conflict",
-                isDevelopment ? new { OriginalMessage = exception.Message } : null
+                "Conflict"
             ),
 
-            // ============================================
-            // GENERIC INVALID OPERATION (500)
-            // ============================================
+            // ✅ 400: Business Rule Violations (Subscription Limits, Logic Errors)
+            // We change this from 500 -> 400 because these are logic checks the user can fix/understand.
             InvalidOperationException => (
-                StatusCodes.Status500InternalServerError,
-                "An error occurred processing your request.",
+                StatusCodes.Status400BadRequest,
+                exception.Message,
                 ErrorCodes.INVALID_OPERATION,
-                "InvalidOperation",
-                isDevelopment ? new { OriginalMessage = exception.Message } : null
+                "BusinessRuleViolation"
             ),
 
-            // ============================================
-            // DEFAULT: INTERNAL SERVER ERROR (500)
-            // ============================================
+            // 400: Bad Arguments
+            ArgumentException => (
+                StatusCodes.Status400BadRequest,
+                exception.Message,
+                ErrorCodes.INVALID_ARGUMENT,
+                "BadRequest"
+            ),
+
+            // 500: Everything else (Database crashes, NullReference, etc.)
             _ => (
                 StatusCodes.Status500InternalServerError,
-                "An unexpected error occurred. Please try again later.",
+                "An unexpected error occurred. Please try again later.", // Hide internal details
                 ErrorCodes.INTERNAL_ERROR,
-                exception.GetType().Name,
-                isDevelopment ? new { OriginalMessage = exception.Message } : null
+                "InternalServerError"
             )
         };
     }

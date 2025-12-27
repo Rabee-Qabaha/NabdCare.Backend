@@ -2,9 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Domain.Entities.Audits;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Invoices;
 using NabdCare.Domain.Entities.Payments;
 using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Roles;
+using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Domain.Interfaces;
 
@@ -38,6 +40,7 @@ public class NabdCareDbContext : DbContext
     public DbSet<User> Users { get; set; } = default!;
     public DbSet<Clinic> Clinics { get; set; } = default!;
     public DbSet<Subscription> Subscriptions { get; set; } = default!;
+    public DbSet<Branch> Branches { get; set; } = default!;
     public DbSet<Payment> Payments { get; set; } = default!;
     public DbSet<ChequePaymentDetail> ChequePaymentDetails { get; set; } = default!;
     public DbSet<AppPermission> AppPermissions { get; set; } = default!;
@@ -46,13 +49,16 @@ public class NabdCareDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens { get; set; } = default!;
     public DbSet<Role> Roles { get; set; } = default!;
     public DbSet<AuditLog> AuditLogs { get; set; } = default!;
+    
+    public DbSet<Invoice> Invoices { get; set; } = default!;
+    public DbSet<InvoiceItem> InvoiceItems { get; set; } = default!;
 
     // ================================================================
     // MODEL CONFIGURATION
     // ================================================================
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // ✅ Apply entity configurations
+        // ✅ Apply entity configurations (includes InvoiceConfiguration, etc.)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NabdCareDbContext).Assembly);
 
         // ============================================================
@@ -68,6 +74,15 @@ public class NabdCareDbContext : DbContext
             (IsSuperAdminUser || (TenantId.HasValue && s.ClinicId == TenantId))
         );
 
+        // ✅ Branch filter
+        modelBuilder.Entity<Branch>().HasQueryFilter(b =>
+            !b.IsDeleted &&
+            (
+                IsSuperAdminUser || 
+                (TenantId.HasValue && b.ClinicId == TenantId)
+            )
+        );
+        
         // ✅ Role filter
         modelBuilder.Entity<Role>().HasQueryFilter(r =>
             !r.IsDeleted &&
@@ -97,6 +112,19 @@ public class NabdCareDbContext : DbContext
             (IsSuperAdminUser || (TenantId.HasValue && cd.Payment.ClinicId == TenantId))
         );
 
+        // ✅ Invoice filter (ADDED)
+        modelBuilder.Entity<Invoice>().HasQueryFilter(i =>
+            !i.IsDeleted &&
+            (IsSuperAdminUser || (TenantId.HasValue && i.ClinicId == TenantId))
+        );
+
+        // ✅ InvoiceItem filter (ADDED)
+        modelBuilder.Entity<InvoiceItem>().HasQueryFilter(ii =>
+            !ii.IsDeleted &&
+            !ii.Invoice.IsDeleted &&
+            (IsSuperAdminUser || (TenantId.HasValue && ii.Invoice.ClinicId == TenantId))
+        );
+
         // ✅ RolePermission filter
         modelBuilder.Entity<RolePermission>().HasQueryFilter(rp =>
             !rp.IsDeleted &&
@@ -112,7 +140,7 @@ public class NabdCareDbContext : DbContext
             )
         );
 
-        // ✅ UserPermission filter (FIXED)
+        // ✅ UserPermission filter
         modelBuilder.Entity<UserPermission>().HasQueryFilter(up =>
             !up.IsDeleted &&
             (

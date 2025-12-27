@@ -33,5 +33,11 @@ public enum SubscriptionStatus
     /// <summary>
     /// Trial period subscription
     /// </summary>
-    Trial = 4
+    Trial = 4,
+    
+    /// <summary>
+    /// Future subscription
+    /// </summary>
+    Future = 5,
+    PastDue = 6
 }

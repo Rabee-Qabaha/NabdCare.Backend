@@ -1,30 +1,46 @@
-// src/composables/useDropdownData.ts
 import { clinicsApi } from '@/api/modules/clinics';
 import { rolesApi } from '@/api/modules/roles';
-import type { ClinicResponseDto, RoleResponseDto } from '@/types/backend';
+import { subscriptionsApi } from '@/api/modules/subscriptions';
+import type { ClinicResponseDto, PlanDefinition, RoleResponseDto } from '@/types/backend';
 import { useQuery } from '@tanstack/vue-query';
 
 /**
- * Fetch grouped roles (system / clinic / template)
- * Uses rolesApi.getGrouped() which aggregates client-side.
+ * 🆕 Fetch Subscription Plans
+ */
+export function usePlans() {
+  return useQuery<PlanDefinition[]>({
+    queryKey: ['dropdown', 'plans'],
+    queryFn: async () => {
+      return await subscriptionsApi.getPlans();
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour
+    retry: 2,
+  });
+}
+
+/**
+ * Fetch grouped roles
  */
 export function useGroupedRoles() {
-  return useQuery({
+  return useQuery<RoleResponseDto[]>({
     queryKey: ['dropdown', 'roles', 'grouped'],
-    queryFn: () => rolesApi.getGrouped(),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryFn: async () => {
+      const { data } = await rolesApi.getAll({});
+      return data;
+    },
+    staleTime: 1000 * 60 * 5,
     retry: 1,
   });
 }
 
 /**
- * Fetch all roles (flat list)
+ * Fetch all roles
  */
 export function useRoles() {
   return useQuery<RoleResponseDto[]>({
     queryKey: ['dropdown', 'roles', 'all'],
     queryFn: async () => {
-      const response = await rolesApi.getAll();
+      const response = await rolesApi.getAll({});
       return response.data;
     },
     staleTime: 1000 * 60 * 5,
@@ -34,19 +50,31 @@ export function useRoles() {
 
 /**
  * Fetch clinics for dropdowns
- * NOTE: clinicsApi.getAll returns PaginatedResult<ClinicResponseDto>
- * We normalize to simple array here.
  */
 export function useClinics() {
   return useQuery<ClinicResponseDto[]>({
     queryKey: ['dropdown', 'clinics'],
     queryFn: async () => {
-      const result = await clinicsApi.getAll({
+      // ✅ FIX: Cast to 'any' or ignore TS for optional enum filters if generated DTO is strict
+      const result = await clinicsApi.getAllPaged({
         limit: 200,
+        cursor: '',
+        sortBy: 'Name',
         descending: false,
-        cursor: null as any,
-        sortBy: '',
         filter: '',
+
+        search: '',
+        name: undefined,
+        email: undefined,
+        phone: undefined,
+
+        // ⚠️ Force these to undefined/null even if TS complains, because Backend accepts null
+        status: null as any,
+        subscriptionType: null as any,
+
+        subscriptionFee: undefined,
+        createdAt: undefined,
+        includeDeleted: false,
       });
 
       return result.items ?? [];
@@ -64,12 +92,26 @@ export function useSearchClinics(query: string) {
     queryKey: ['dropdown', 'clinics', query],
     enabled: !!query,
     queryFn: async () => {
-      const result = await clinicsApi.search(query, {
+      const result = await clinicsApi.getAllPaged({
+        search: query,
+        filter: query,
+
         limit: 50,
+        cursor: '',
+        sortBy: 'Name',
         descending: false,
-        cursor: null as any,
-        sortBy: '',
-        filter: '',
+
+        name: undefined,
+        email: undefined,
+        phone: undefined,
+
+        // ⚠️ Force null/undefined
+        status: null as any,
+        subscriptionType: null as any,
+
+        subscriptionFee: undefined,
+        createdAt: undefined,
+        includeDeleted: false,
       });
 
       return result.items ?? [];
@@ -80,14 +122,13 @@ export function useSearchClinics(query: string) {
 
 /**
  * Search roles dynamically
- * No dedicated backend endpoint => filter client-side
  */
 export function useSearchRoles(query: string) {
   return useQuery<RoleResponseDto[]>({
     queryKey: ['dropdown', 'roles', 'search', query],
     enabled: !!query,
     queryFn: async () => {
-      const response = await rolesApi.getAll();
+      const response = await rolesApi.getAll({});
       const roles = response.data;
       const q = query.trim().toLowerCase();
 
@@ -105,29 +146,21 @@ export function useSearchRoles(query: string) {
 
 /**
  * RoleSelect Smart Query
- * mode:
- *   - "admin"  → system + templates + all clinic roles
- *   - "clinic" → templates + roles of the given clinic
  */
 export function useRoleSelectData(mode: 'admin' | 'clinic', clinicId?: string) {
   return useQuery<RoleResponseDto[]>({
     queryKey: ['dropdown', 'roles', 'select', mode, clinicId],
     queryFn: async () => {
       if (mode === 'admin') {
-        // Get ALL roles the user can view
-        const res = await rolesApi.getAll();
-        return res.data; // Already includes system + clinic + template
+        const res = await rolesApi.getAll({});
+        return res.data;
       }
 
-      // mode === "clinic"
       if (!clinicId) return [];
 
-      const [templates, clinicRoles] = await Promise.all([
-        rolesApi.getTemplates().then((r) => r.data),
-        rolesApi.getClinicRoles(clinicId).then((r) => r.data),
-      ]);
-
-      return [...templates, ...clinicRoles];
+      const clinicRolesReq = rolesApi.getAll({ clinicId: clinicId });
+      const res = await clinicRolesReq;
+      return res.data;
     },
     enabled: mode === 'admin' || (!!clinicId && mode === 'clinic'),
     staleTime: 1000 * 60 * 5,

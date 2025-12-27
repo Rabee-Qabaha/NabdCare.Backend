@@ -1,3 +1,4 @@
+// Path: src/types/errors.ts
 /**
  * Error Types
  * Location: src/types/errors.ts

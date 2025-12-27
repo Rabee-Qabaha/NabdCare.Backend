@@ -1,3 +1,4 @@
+using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Enums;
@@ -15,12 +16,14 @@ namespace NabdCare.Application.Interfaces.Clinics
         // ============================================
 
         Task<Clinic?> GetByIdAsync(Guid id);
+        
+        Task<Clinic?> GetEntityByIdAsync(Guid id);
 
         /// <summary>
         /// Get all clinics (SuperAdmin only) with pagination, sorting, and filtering
         /// </summary>
         Task<PaginatedResult<Clinic>> GetAllPagedAsync(
-            PaginationRequestDto pagination,
+            ClinicFilterRequestDto filters,
             Func<IQueryable<Clinic>, IQueryable<Clinic>>? abacFilter = null);
 
         Task<PaginatedResult<Clinic>> GetByStatusPagedAsync(
@@ -50,6 +53,9 @@ namespace NabdCare.Application.Interfaces.Clinics
 
         Task<bool> ExistsByNameAsync(string name, Guid? excludeId = null);
         Task<bool> ExistsByEmailAsync(string email, Guid? excludeId = null);
+        
+        Task<bool> ExistsBySlugAsync(string slug, Guid? excludeId = null);
+        
         Task<bool> ExistsAsync(Guid id);
 
         // ============================================
@@ -60,6 +66,7 @@ namespace NabdCare.Application.Interfaces.Clinics
         Task<Clinic> UpdateAsync(Clinic clinic);
         Task<bool> SoftDeleteAsync(Guid id);
         Task<bool> DeleteAsync(Guid id);
+        Task<bool> RestoreAsync(Guid id);
 
         // ============================================
         // STATISTICS

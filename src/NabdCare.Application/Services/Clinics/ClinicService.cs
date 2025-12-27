@@ -3,11 +3,12 @@ using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Clinics;
-using NabdCare.Application.DTOs.Clinics.Subscriptions;
+using NabdCare.Application.DTOs.Subscriptions;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Services.Clinics;
@@ -37,6 +38,10 @@ public class ClinicService : IClinicService
         _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
     }
 
+    // ============================================
+    // QUERY METHODS
+    // ============================================
+
     public async Task<ClinicResponseDto?> GetClinicByIdAsync(Guid id)
     {
         if (id == Guid.Empty)
@@ -63,147 +68,119 @@ public class ClinicService : IClinicService
         return _mapper.Map<ClinicResponseDto>(clinic);
     }
 
-    public async Task<PaginatedResult<ClinicResponseDto>> GetAllClinicsPagedAsync(PaginationRequestDto pagination)
+    public async Task<PaginatedResult<ClinicResponseDto>> GetAllClinicsPagedAsync(ClinicFilterRequestDto filters)
     {
-        if (pagination == null)
-            throw new ArgumentNullException(nameof(pagination));
+        if (filters == null) throw new ArgumentNullException(nameof(filters));
 
         var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} retrieving paginated clinics (Limit={Limit})", currentUserId, pagination.Limit);
+    
+        // Security Check: Only SuperAdmin should see deleted clinics
+        // We modify the DTO property directly if the user is unauthorized
+        if (filters.IncludeDeleted && !_tenantContext.IsSuperAdmin)
+        {
+            filters.IncludeDeleted = false;
+        }
 
+        _logger.LogInformation("User {UserId} retrieving clinics (Limit={Limit}, IncludeDeleted={Inc})", 
+            currentUserId, filters.Limit, filters.IncludeDeleted);
+
+        // Apply ABAC (Attribute-Based Access Control) filters
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(query =>
             _permissionEvaluator.FilterClinics(query, "Clinics.View", _userContext));
 
-        var result = await _clinicRepository.GetAllPagedAsync(pagination, abacFilter);
+        // Pass the single DTO object to the repository
+        var result = await _clinicRepository.GetAllPagedAsync(filters, abacFilter);
 
-        _logger.LogInformation("User {UserId} retrieved {Count} clinics (HasMore={HasMore}, TotalCount={TotalCount})",
-            currentUserId, result.Items.Count(), result.HasMore, result.TotalCount);
-
-        return MapPaginated(result);
+        return result.ToPaginatedDto<Clinic, ClinicResponseDto>(_mapper);
     }
 
     public async Task<PaginatedResult<ClinicResponseDto>> GetClinicsByStatusPagedAsync(
         SubscriptionStatus status, PaginationRequestDto pagination)
     {
-        if (pagination == null)
-            throw new ArgumentNullException(nameof(pagination));
-
-        var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} retrieving clinics by status {Status} (Limit={Limit})",
-            currentUserId, status, pagination.Limit);
+        if (pagination == null) throw new ArgumentNullException(nameof(pagination));
 
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(query =>
             _permissionEvaluator.FilterClinics(query, "Clinics.View", _userContext));
 
         var result = await _clinicRepository.GetByStatusPagedAsync(status, pagination, abacFilter);
-
-        _logger.LogInformation("Retrieved {Count} clinics with status {Status}", result.Items.Count(), status);
-
-        return MapPaginated(result);
+        return result.ToPaginatedDto<Clinic, ClinicResponseDto>(_mapper);
     }
 
     public async Task<PaginatedResult<ClinicResponseDto>> GetActiveClinicsPagedAsync(PaginationRequestDto pagination)
     {
-        if (pagination == null)
-            throw new ArgumentNullException(nameof(pagination));
-
-        var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} retrieving active clinics (Limit={Limit})", currentUserId, pagination.Limit);
+        if (pagination == null) throw new ArgumentNullException(nameof(pagination));
 
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(query =>
             _permissionEvaluator.FilterClinics(query, "Clinics.View", _userContext));
 
         var result = await _clinicRepository.GetActiveWithValidSubscriptionPagedAsync(pagination, abacFilter);
-
-        _logger.LogInformation("Retrieved {Count} active clinics with valid subscriptions", result.Items.Count());
-
-        return MapPaginated(result);
+        return result.ToPaginatedDto<Clinic, ClinicResponseDto>(_mapper);
     }
 
     public async Task<PaginatedResult<ClinicResponseDto>> GetClinicsWithExpiringSubscriptionsPagedAsync(
         int withinDays, PaginationRequestDto pagination)
     {
-        if (pagination == null)
-            throw new ArgumentNullException(nameof(pagination));
-
+        if (pagination == null) throw new ArgumentNullException(nameof(pagination));
         if (withinDays < 1 || withinDays > 365)
-            throw new ArgumentException($"Days must be between 1 and 365. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(withinDays));
-
-        var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} retrieving clinics with subscriptions expiring within {Days} days",
-            currentUserId, withinDays);
+            throw new ArgumentException("Days must be between 1 and 365.", nameof(withinDays));
 
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(query =>
             _permissionEvaluator.FilterClinics(query, "Clinics.View", _userContext));
 
         var result = await _clinicRepository.GetWithExpiringSubscriptionsPagedAsync(withinDays, pagination, abacFilter);
-
-        _logger.LogInformation("Retrieved {Count} clinics with expiring subscriptions", result.Items.Count());
-
-        return MapPaginated(result);
+        return result.ToPaginatedDto<Clinic, ClinicResponseDto>(_mapper);
     }
 
     public async Task<PaginatedResult<ClinicResponseDto>> GetClinicsWithExpiredSubscriptionsPagedAsync(PaginationRequestDto pagination)
     {
-        if (pagination == null)
-            throw new ArgumentNullException(nameof(pagination));
-
-        var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} retrieving clinics with expired subscriptions", currentUserId);
+        if (pagination == null) throw new ArgumentNullException(nameof(pagination));
 
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(query =>
             _permissionEvaluator.FilterClinics(query, "Clinics.View", _userContext));
 
         var result = await _clinicRepository.GetWithExpiredSubscriptionsPagedAsync(pagination, abacFilter);
-
-        _logger.LogInformation("Retrieved {Count} clinics with expired subscriptions", result.Items.Count());
-
-        return MapPaginated(result);
+        return result.ToPaginatedDto<Clinic, ClinicResponseDto>(_mapper);
     }
 
     public async Task<PaginatedResult<ClinicResponseDto>> SearchClinicsPagedAsync(string query, PaginationRequestDto pagination)
     {
         if (string.IsNullOrWhiteSpace(query))
-            throw new ArgumentException($"Search query cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(query));
-
-        if (pagination == null)
-            throw new ArgumentNullException(nameof(pagination));
-
-        var currentUserId = _userContext.GetCurrentUserId();
-        _logger.LogInformation("User {UserId} searching clinics with query '{Query}'", currentUserId, query);
+            throw new ArgumentException("Search query cannot be empty.", nameof(query));
+        if (pagination == null) throw new ArgumentNullException(nameof(pagination));
 
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(q =>
             _permissionEvaluator.FilterClinics(q, "Clinics.View", _userContext));
 
         var result = await _clinicRepository.SearchPagedAsync(query, pagination, abacFilter);
-
-        _logger.LogInformation("Search returned {Count} clinics matching '{Query}'", result.Items.Count(), query);
-
-        return MapPaginated(result);
+        return result.ToPaginatedDto<Clinic, ClinicResponseDto>(_mapper);
     }
+
+    // ============================================
+    // COMMAND METHODS
+    // ============================================
 
     public async Task<ClinicResponseDto> CreateClinicAsync(CreateClinicRequestDto dto)
     {
-        if (dto == null)
-            throw new ArgumentNullException(nameof(dto));
-
-        ValidateCreateClinicDto(dto);
+        if (dto == null) throw new ArgumentNullException(nameof(dto));
 
         var currentUserId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {CurrentUserId} creating clinic {ClinicName}", currentUserId, dto.Name);
 
+        // ✅ Business Rule 1: Check Name/Email Duplicates
         if (await _clinicRepository.ExistsByNameAsync(dto.Name))
         {
-            _logger.LogWarning("Clinic name {ClinicName} already exists. Error code: {ErrorCode}",
-                dto.Name, ErrorCodes.DUPLICATE_RESOURCE);
             throw new InvalidOperationException($"A clinic with name '{dto.Name}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
         }
 
         if (!string.IsNullOrWhiteSpace(dto.Email) && await _clinicRepository.ExistsByEmailAsync(dto.Email))
         {
-            _logger.LogWarning("Clinic email {Email} already exists. Error code: {ErrorCode}",
-                dto.Email, ErrorCodes.DUPLICATE_RESOURCE);
             throw new InvalidOperationException($"A clinic with email '{dto.Email}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
+        }
+        
+        // ✅ Business Rule 2: Check Slug (Subdomain) Uniqueness
+        if (await _clinicRepository.ExistsBySlugAsync(dto.Slug))
+        {
+            throw new InvalidOperationException($"The subdomain '{dto.Slug}' is already taken. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
         }
 
         var clinic = _mapper.Map<Clinic>(dto);
@@ -213,6 +190,7 @@ public class ClinicService : IClinicService
         clinic.CreatedBy = currentUserId;
         clinic.IsDeleted = false;
 
+        // Create initial subscription
         clinic.Subscriptions = new List<Subscription>
         {
             new Subscription
@@ -232,270 +210,200 @@ public class ClinicService : IClinicService
 
         var created = await _clinicRepository.CreateAsync(clinic);
 
-        _logger.LogInformation("User {CurrentUserId} created clinic {ClinicId} with name {ClinicName}",
-            currentUserId, created.Id, created.Name);
-
+        _logger.LogInformation("User {CurrentUserId} created clinic {ClinicId}", currentUserId, created.Id);
         return _mapper.Map<ClinicResponseDto>(created);
     }
 
     public async Task<ClinicResponseDto?> UpdateClinicAsync(Guid id, UpdateClinicRequestDto dto)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
-
-        if (dto == null)
-            throw new ArgumentNullException(nameof(dto));
-
-        ValidateUpdateClinicDto(dto);
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
+        if (dto == null) throw new ArgumentNullException(nameof(dto));
 
         var currentUserId = _userContext.GetCurrentUserId();
         _logger.LogInformation("User {CurrentUserId} updating clinic {ClinicId}", currentUserId, id);
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for update. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return null;
-        }
+        if (clinic == null) return null;
 
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != id)
-        {
-            _logger.LogWarning("User {CurrentUserId} attempted to update clinic {ClinicId} without permission. Error code: {ErrorCode}",
-                currentUserId, id, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"You can only update your own clinic. Error code: {ErrorCodes.FORBIDDEN}");
-        }
+            throw new UnauthorizedAccessException("You can only update your own clinic.");
 
+        // ✅ Business Rule: Check Duplicates (excluding self)
         if (await _clinicRepository.ExistsByNameAsync(dto.Name, id))
-        {
-            _logger.LogWarning("Clinic name {ClinicName} already exists. Error code: {ErrorCode}",
-                dto.Name, ErrorCodes.DUPLICATE_RESOURCE);
-            throw new InvalidOperationException($"A clinic with name '{dto.Name}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
-        }
+            throw new InvalidOperationException($"Clinic name '{dto.Name}' already exists.");
 
         if (!string.IsNullOrWhiteSpace(dto.Email) && await _clinicRepository.ExistsByEmailAsync(dto.Email, id))
-        {
-            _logger.LogWarning("Clinic email {Email} already exists. Error code: {ErrorCode}",
-                dto.Email, ErrorCodes.DUPLICATE_RESOURCE);
-            throw new InvalidOperationException($"A clinic with email '{dto.Email}' already exists. Error code: {ErrorCodes.DUPLICATE_RESOURCE}");
-        }
+            throw new InvalidOperationException($"Clinic email '{dto.Email}' already exists.");
+            
+        if (await _clinicRepository.ExistsBySlugAsync(dto.Slug, id))
+            throw new InvalidOperationException($"Subdomain '{dto.Slug}' is already taken.");
 
+        // =========================================================
+        // UPDATE FIELDS
+        // =========================================================
         clinic.Name = dto.Name.Trim();
+        clinic.Slug = dto.Slug.Trim(); // Update Subdomain
         clinic.Email = dto.Email.Trim();
         clinic.Phone = dto.Phone?.Trim();
         clinic.Address = dto.Address?.Trim();
         clinic.BranchCount = dto.BranchCount;
         clinic.Status = dto.Status;
+        
+        // Branding & Legal
+        clinic.LogoUrl = dto.LogoUrl?.Trim();
+        clinic.Website = dto.Website?.Trim();
+        clinic.TaxNumber = dto.TaxNumber?.Trim();
+        clinic.RegistrationNumber = dto.RegistrationNumber?.Trim();
+
+        // Settings (JSONB)
+        if (dto.Settings != null)
+        {
+            clinic.Settings = _mapper.Map<ClinicSettings>(dto.Settings);
+        }
+
         clinic.UpdatedAt = DateTime.UtcNow;
         clinic.UpdatedBy = currentUserId;
 
-        var latestSubscription = clinic.Subscriptions?
-            .Where(s => !s.IsDeleted)
-            .OrderByDescending(s => s.StartDate)
-            .FirstOrDefault();
+        // =========================================================
+        // UPDATE SUBSCRIPTION (Safe Logic)
+        // =========================================================
+        var targetSubscription = GetCurrentOrLatestSubscription(clinic);
 
-        if (latestSubscription != null)
+        if (targetSubscription != null)
         {
-            latestSubscription.StartDate = dto.SubscriptionStartDate;
-            latestSubscription.EndDate = dto.SubscriptionEndDate;
-            latestSubscription.Fee = dto.SubscriptionFee;
-            latestSubscription.Type = dto.SubscriptionType;
-            latestSubscription.Status = dto.Status;
-            latestSubscription.UpdatedAt = DateTime.UtcNow;
-            latestSubscription.UpdatedBy = currentUserId;
+            targetSubscription.StartDate = dto.SubscriptionStartDate;
+            targetSubscription.EndDate = dto.SubscriptionEndDate;
+            targetSubscription.Fee = dto.SubscriptionFee;
+            targetSubscription.Type = dto.SubscriptionType;
+            targetSubscription.Status = dto.Status;
+            targetSubscription.UpdatedAt = DateTime.UtcNow;
+            targetSubscription.UpdatedBy = currentUserId;
         }
 
         var updated = await _clinicRepository.UpdateAsync(clinic);
-
-        _logger.LogInformation("User {CurrentUserId} updated clinic {ClinicId}", currentUserId, id);
-
         return _mapper.Map<ClinicResponseDto>(updated);
     }
 
     public async Task<ClinicResponseDto?> UpdateClinicStatusAsync(Guid id, UpdateClinicStatusDto dto)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
-
-        if (dto == null)
-            throw new ArgumentNullException(nameof(dto));
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
+        if (dto == null) throw new ArgumentNullException(nameof(dto));
 
         var currentUserId = _userContext.GetCurrentUserId();
 
         if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to update clinic status. Error code: {ErrorCode}",
-                currentUserId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can update clinic status. Error code: {ErrorCodes.FORBIDDEN}");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} updating clinic {ClinicId} status to {Status}",
-            currentUserId, id, dto.Status);
+            throw new UnauthorizedAccessException("Only SuperAdmin can update clinic status.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for status update. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return null;
-        }
+        if (clinic == null) return null;
 
         clinic.Status = dto.Status;
         clinic.UpdatedAt = DateTime.UtcNow;
         clinic.UpdatedBy = currentUserId;
 
-        var latestSubscription = clinic.Subscriptions?
-            .Where(s => !s.IsDeleted)
-            .OrderByDescending(s => s.StartDate)
-            .FirstOrDefault();
-
-        if (latestSubscription != null)
+        // Update active subscription too
+        var targetSubscription = GetCurrentOrLatestSubscription(clinic);
+        if (targetSubscription != null)
         {
-            latestSubscription.Status = dto.Status;
-            latestSubscription.UpdatedAt = DateTime.UtcNow;
-            latestSubscription.UpdatedBy = currentUserId;
+            targetSubscription.Status = dto.Status;
+            targetSubscription.UpdatedAt = DateTime.UtcNow;
+            targetSubscription.UpdatedBy = currentUserId;
         }
 
         var updated = await _clinicRepository.UpdateAsync(clinic);
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} updated clinic {ClinicId} status to {Status}",
-            currentUserId, id, dto.Status);
-
         return _mapper.Map<ClinicResponseDto>(updated);
     }
 
     public async Task<ClinicResponseDto?> ActivateClinicAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
-
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
+        
         var currentUserId = _userContext.GetCurrentUserId();
-
         if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to activate clinic. Error code: {ErrorCode}",
-                currentUserId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can activate clinics. Error code: {ErrorCodes.FORBIDDEN}");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} activating clinic {ClinicId}", currentUserId, id);
+            throw new UnauthorizedAccessException("Only SuperAdmin can activate clinics.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for activation. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return null;
-        }
-
-        if (clinic.Status == SubscriptionStatus.Active)
-        {
-            _logger.LogInformation("Clinic {ClinicId} is already active", id);
-            return _mapper.Map<ClinicResponseDto>(clinic);
-        }
+        if (clinic == null) return null;
 
         clinic.Status = SubscriptionStatus.Active;
         clinic.UpdatedAt = DateTime.UtcNow;
         clinic.UpdatedBy = currentUserId;
 
-        var latestSubscription = clinic.Subscriptions?
-            .Where(s => !s.IsDeleted)
-            .OrderByDescending(s => s.StartDate)
-            .FirstOrDefault();
-
-        if (latestSubscription != null)
+        var targetSubscription = GetCurrentOrLatestSubscription(clinic);
+        if (targetSubscription != null)
         {
-            latestSubscription.Status = SubscriptionStatus.Active;
-            latestSubscription.UpdatedAt = DateTime.UtcNow;
-            latestSubscription.UpdatedBy = currentUserId;
+            targetSubscription.Status = SubscriptionStatus.Active;
+            targetSubscription.UpdatedAt = DateTime.UtcNow;
+            targetSubscription.UpdatedBy = currentUserId;
         }
 
         var updated = await _clinicRepository.UpdateAsync(clinic);
-
         _logger.LogInformation("SuperAdmin {CurrentUserId} activated clinic {ClinicId}", currentUserId, id);
-
         return _mapper.Map<ClinicResponseDto>(updated);
     }
 
     public async Task<ClinicResponseDto?> SuspendClinicAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
 
         var currentUserId = _userContext.GetCurrentUserId();
-
         if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to suspend clinic. Error code: {ErrorCode}",
-                currentUserId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can suspend clinics. Error code: {ErrorCodes.FORBIDDEN}");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} suspending clinic {ClinicId}", currentUserId, id);
+            throw new UnauthorizedAccessException("Only SuperAdmin can suspend clinics.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for suspension. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return null;
-        }
-
-        if (clinic.Status == SubscriptionStatus.Suspended)
-        {
-            _logger.LogInformation("Clinic {ClinicId} is already suspended", id);
-            return _mapper.Map<ClinicResponseDto>(clinic);
-        }
+        if (clinic == null) return null;
 
         clinic.Status = SubscriptionStatus.Suspended;
         clinic.UpdatedAt = DateTime.UtcNow;
         clinic.UpdatedBy = currentUserId;
 
-        var latestSubscription = clinic.Subscriptions?
-            .Where(s => !s.IsDeleted)
-            .OrderByDescending(s => s.StartDate)
-            .FirstOrDefault();
-
-        if (latestSubscription != null)
+        var targetSubscription = GetCurrentOrLatestSubscription(clinic);
+        if (targetSubscription != null)
         {
-            latestSubscription.Status = SubscriptionStatus.Suspended;
-            latestSubscription.UpdatedAt = DateTime.UtcNow;
-            latestSubscription.UpdatedBy = currentUserId;
+            targetSubscription.Status = SubscriptionStatus.Suspended;
+            targetSubscription.UpdatedAt = DateTime.UtcNow;
+            targetSubscription.UpdatedBy = currentUserId;
         }
 
         var updated = await _clinicRepository.UpdateAsync(clinic);
-
         _logger.LogInformation("SuperAdmin {CurrentUserId} suspended clinic {ClinicId}", currentUserId, id);
-
         return _mapper.Map<ClinicResponseDto>(updated);
     }
 
-    public async Task<bool> SoftDeleteClinicAsync(Guid id)
+    public async Task<bool> RestoreClinicAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
 
         var currentUserId = _userContext.GetCurrentUserId();
 
         if (!_tenantContext.IsSuperAdmin)
         {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to soft delete clinic. Error code: {ErrorCode}",
-                currentUserId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can delete clinics. Error code: {ErrorCodes.FORBIDDEN}");
+            _logger.LogWarning("User {UserId} attempted to restore clinic without permission.", currentUserId);
+            throw new UnauthorizedAccessException("Only SuperAdmin can restore deleted clinics.");
         }
 
-        _logger.LogInformation("SuperAdmin {CurrentUserId} soft deleting clinic {ClinicId}", currentUserId, id);
+        var success = await _clinicRepository.RestoreAsync(id);
+
+        if (success)
+            _logger.LogInformation("SuperAdmin {UserId} restored clinic {ClinicId}", currentUserId, id);
+        else
+            _logger.LogWarning("Failed to restore clinic {ClinicId} (Not found or not deleted)", id);
+
+        return success;
+    }
+    
+    public async Task<bool> SoftDeleteClinicAsync(Guid id)
+    {
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
+        var currentUserId = _userContext.GetCurrentUserId();
+
+        if (!_tenantContext.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only SuperAdmin can delete clinics.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for soft deletion. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return false;
-        }
+        if (clinic == null) return false;
 
         var result = await _clinicRepository.SoftDeleteAsync(id);
-
         if (result)
             _logger.LogInformation("SuperAdmin {CurrentUserId} soft deleted clinic {ClinicId}", currentUserId, id);
 
@@ -504,63 +412,40 @@ public class ClinicService : IClinicService
 
     public async Task<bool> DeleteClinicAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
-
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
         var currentUserId = _userContext.GetCurrentUserId();
 
         if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to permanently delete clinic. Error code: {ErrorCode}",
-                currentUserId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can permanently delete clinics. Error code: {ErrorCodes.FORBIDDEN}");
-        }
-
-        _logger.LogWarning("SuperAdmin {CurrentUserId} permanently deleting clinic {ClinicId}", currentUserId, id);
+            throw new UnauthorizedAccessException("Only SuperAdmin can permanently delete clinics.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for permanent deletion. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return false;
-        }
+        if (clinic == null) return false;
 
         var result = await _clinicRepository.DeleteAsync(id);
-
         if (result)
             _logger.LogWarning("SuperAdmin {CurrentUserId} permanently deleted clinic {ClinicId}", currentUserId, id);
 
         return result;
     }
 
+    // ============================================
+    // STATISTICS
+    // ============================================
+
     public async Task<ClinicStatisticsDto?> GetClinicStatisticsAsync(Guid id)
     {
-        if (id == Guid.Empty)
-            throw new ArgumentException($"Clinic ID cannot be empty. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(id));
-
+        if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
         var currentUserId = _userContext.GetCurrentUserId();
 
         if (!_tenantContext.IsSuperAdmin)
-        {
-            _logger.LogWarning("Non-SuperAdmin user {CurrentUserId} attempted to view clinic statistics. Error code: {ErrorCode}",
-                currentUserId, ErrorCodes.FORBIDDEN);
-            throw new UnauthorizedAccessException($"Only SuperAdmin can view clinic statistics. Error code: {ErrorCodes.FORBIDDEN}");
-        }
-
-        _logger.LogInformation("SuperAdmin {CurrentUserId} retrieving statistics for clinic {ClinicId}", currentUserId, id);
+            throw new UnauthorizedAccessException("Only SuperAdmin can view clinic statistics.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null)
-        {
-            _logger.LogWarning("Clinic {ClinicId} not found for statistics. Error code: {ErrorCode}",
-                id, ErrorCodes.NOT_FOUND);
-            return null;
-        }
+        if (clinic == null) return null;
 
         var now = DateTime.UtcNow;
         var latestSubscription = clinic.Subscriptions?
-            .Where(s => !s.IsDeleted)
+            .Where(s => !s.IsDeleted && s.StartDate <= DateTime.UtcNow && s.EndDate >= DateTime.UtcNow)
             .OrderByDescending(s => s.StartDate)
             .FirstOrDefault();
 
@@ -586,50 +471,33 @@ public class ClinicService : IClinicService
             CreatedAt = clinic.CreatedAt
         };
 
-        _logger.LogInformation("Retrieved statistics for clinic {ClinicId}: Status={Status}, DaysUntilExpiration={Days}",
-            id, clinic.Status, daysUntilExpiration);
-
         return statistics;
     }
 
-    private static void ValidateCreateClinicDto(CreateClinicRequestDto dto)
+    // ============================================
+    // PRIVATE HELPERS
+    // ============================================
+
+    /// <summary>
+    /// Smartly resolves the subscription to modify.
+    /// Prioritizes the currently active one (covering NOW).
+    /// If none, falls back to the latest future one.
+    /// </summary>
+    private Subscription? GetCurrentOrLatestSubscription(Clinic clinic)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            throw new ArgumentException($"Clinic name is required. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.Name));
+        if (clinic.Subscriptions == null || !clinic.Subscriptions.Any())
+            return null;
 
-        if (dto.SubscriptionStartDate >= dto.SubscriptionEndDate)
-            throw new ArgumentException($"Subscription start date must be before end date. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.SubscriptionStartDate));
+        var now = DateTime.UtcNow;
+        var activeSubscriptions = clinic.Subscriptions.Where(s => !s.IsDeleted).ToList();
 
-        if (dto.SubscriptionFee < 0)
-            throw new ArgumentException($"Subscription fee cannot be negative. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.SubscriptionFee));
+        // 1. Try to find the one actually running right now
+        var current = activeSubscriptions
+            .FirstOrDefault(s => s.StartDate <= now && s.EndDate >= now);
 
-        if (dto.BranchCount < 1)
-            throw new ArgumentException($"Branch count must be at least 1. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.BranchCount));
-    }
+        if (current != null) return current;
 
-    private void ValidateUpdateClinicDto(UpdateClinicRequestDto dto)
-    {
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            throw new ArgumentException($"Clinic name is required. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.Name));
-
-        if (dto.SubscriptionStartDate >= dto.SubscriptionEndDate)
-            throw new ArgumentException($"Subscription start date must be before end date. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.SubscriptionStartDate));
-
-        if (dto.SubscriptionFee < 0)
-            throw new ArgumentException($"Subscription fee cannot be negative. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.SubscriptionFee));
-
-        if (dto.BranchCount < 1)
-            throw new ArgumentException($"Branch count must be at least 1. Error code: {ErrorCodes.INVALID_ARGUMENT}", nameof(dto.BranchCount));
-    }
-
-    private PaginatedResult<ClinicResponseDto> MapPaginated(PaginatedResult<Clinic> result)
-    {
-        return new PaginatedResult<ClinicResponseDto>
-        {
-            Items = _mapper.Map<IEnumerable<ClinicResponseDto>>(result.Items),
-            HasMore = result.HasMore,
-            NextCursor = result.NextCursor,
-            TotalCount = result.TotalCount
-        };
+        // 2. If no current one, maybe we are setting up a future one? Get the latest.
+        return activeSubscriptions.OrderByDescending(s => s.StartDate).FirstOrDefault();
     }
 }

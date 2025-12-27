@@ -449,6 +449,13 @@ public class UserRepository : IUserRepository
         _logger.LogWarning("🚨 PERMANENT DELETE: User {UserId} permanently deleted", userId);
         return true;
     }
+    
+    public async Task<int> CountByClinicIdAsync(Guid clinicId)
+    {
+        return await _dbContext.Users
+            .AsNoTracking()
+            .CountAsync(u => u.ClinicId == clinicId && !u.IsDeleted);
+    }
 
     #endregion
 

@@ -1,3 +1,4 @@
+// src/views/admin/users/UsersManagement.vue
 <template>
   <div class="card">
     <div class="space-y-4 p-4 md:p-6">

@@ -1,3 +1,4 @@
+// src/components/User/UserCard.vue
 <template>
   <div
     class="group relative flex flex-col justify-between overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"

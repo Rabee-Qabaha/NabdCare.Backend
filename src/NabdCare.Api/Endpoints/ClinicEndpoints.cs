@@ -125,12 +125,14 @@ public static class ClinicEndpoints
         // GET ALL CLINICS (SuperAdmin Only, Paginated)
         // ============================================
         group.MapGet("/", async (
-            [AsParameters] PaginationRequestDto pagination,
-            [FromServices] IClinicService service) =>
-        {
-            var result = await service.GetAllClinicsPagedAsync(pagination);
-            return Results.Ok(result);
-        })
+                [AsParameters] ClinicFilterRequestDto filters,
+                [FromQuery] bool? deleted,
+                [FromServices] IClinicService service) =>
+            {
+                var includeDeleted = deleted ?? false;
+                var result = await service.GetAllClinicsPagedAsync(filters);
+                return Results.Ok(result);
+            })
         .RequireAuthorization()
         .RequirePermission(Permissions.Clinics.ViewAll)
         .WithAbac<Clinic>(Permissions.Clinics.ViewAll, "list", r => r as Clinic)
@@ -343,6 +345,26 @@ public static class ClinicEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
 
+        // ============================================
+        // RESTORE CLINIC (SuperAdmin Only)
+        // ============================================
+        group.MapPut("/{id:guid}/restore", async (
+                Guid id,
+                [FromServices] IClinicService service) =>
+            {
+                var success = await service.RestoreClinicAsync(id);
+                return success
+                    ? Results.Ok(new { Message = $"Clinic {id} restored successfully" })
+                    : Results.NotFound(new { Error = $"Clinic {id} not found in recycle bin" });
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.Clinics.Restore)
+            .WithName("RestoreClinic")
+            .WithSummary("Restore a clinic (SuperAdmin only)")
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+        
         // ============================================
         // SOFT DELETE CLINIC (SuperAdmin Only)
         // ============================================

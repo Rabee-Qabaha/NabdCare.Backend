@@ -1,12 +1,13 @@
+// src/api/apiClient.ts
+import type { ErrorResponseDto } from '@/types/backend/error-response-dto';
+import { handleError } from '@/utils/errorHandler';
+import { tokenManager } from '@/utils/tokenManager';
 import axios, {
-  type AxiosInstance,
   AxiosError,
-  type InternalAxiosRequestConfig,
+  type AxiosInstance,
   type AxiosResponse,
-} from "axios";
-import { tokenManager } from "@/utils/tokenManager";
-import type { ErrorResponseDto } from "@/types/backend/error-response-dto";
-import { handleError } from "@/utils/errorHandler";
+  type InternalAxiosRequestConfig,
+} from 'axios';
 
 let isRefreshing = false;
 let queue: Array<{ resolve: (t: string) => void; reject: (e: unknown) => void }> = [];
@@ -17,8 +18,8 @@ function processQueue(error: unknown, token: string | null) {
 }
 
 export const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5175/api",
-  headers: { "Content-Type": "application/json" },
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5175/api',
+  headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
   timeout: 20000,
 });
@@ -27,8 +28,7 @@ export const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = tokenManager.getAccessToken();
-    if (token && config.headers)
-      config.headers.Authorization = `Bearer ${token}`;
+    if (token && config.headers) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (err) => Promise.reject(err),
@@ -56,11 +56,10 @@ api.interceptors.response.use(
 
       try {
         const newToken = await tokenManager.refreshAccessToken();
-        if (!newToken) throw new Error("Token refresh failed");
+        if (!newToken) throw new Error('Token refresh failed');
 
         processQueue(null, newToken);
-        if (original.headers)
-          original.headers.Authorization = `Bearer ${newToken}`;
+        if (original.headers) original.headers.Authorization = `Bearer ${newToken}`;
 
         return api(original);
       } catch (err) {

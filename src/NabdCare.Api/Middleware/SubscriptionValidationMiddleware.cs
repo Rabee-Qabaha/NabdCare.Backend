@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using NabdCare.Application.Common;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Domain.Enums;
@@ -19,61 +18,74 @@ public class SubscriptionValidationMiddleware
         ITenantContext tenantContext,
         IClinicRepository clinicRepository)
     {
-        // ✅ Allow requests authenticated via JWT Bearer header (Swagger usage)
-        var hasJwtHeader = context.Request.Headers["Authorization"]
-            .Any(h => h.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase));
-
-        if (hasJwtHeader)
+        // 1. Skip checks for Public endpoints
+        if (context.Request.Path.StartsWithSegments("/api/auth") || 
+            context.Request.Path.StartsWithSegments("/api/webhooks"))
         {
             await _next(context);
             return;
         }
 
-        // ✅ Skip for SuperAdmin (always allowed)
+        // 2. Skip for SuperAdmin
         if (tenantContext.IsSuperAdmin)
         {
             await _next(context);
             return;
         }
 
-        // ✅ Skip checks for login/refresh/etc.
-        if (context.Request.Path.StartsWithSegments("/api/auth"))
-        {
-            await _next(context);
-            return;
-        }
-
+        // 3. CHECK SUBSCRIPTION
         if (tenantContext.ClinicId.HasValue)
         {
+            // Optimization: Cache this in Redis in production!
             var clinic = await clinicRepository.GetByIdAsync(tenantContext.ClinicId.Value);
 
-            if (clinic == null ||
-                clinic.Status is SubscriptionStatus.Expired or
-                SubscriptionStatus.Suspended or
-                SubscriptionStatus.Cancelled)
+            if (clinic == null || IsAccessRestricted(clinic.Status))
             {
-                context.Response.StatusCode = 403;
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new
                 {
-                    Error = "Clinic subscription is not active",
-                    Status = clinic?.Status.ToString() ?? "Unknown",
+                    Error = "ACCESS_DENIED",
+                    Code = GetErrorCode(clinic?.Status),
                     Message = GetStatusMessage(clinic?.Status)
                 });
-                return;
+                return; 
             }
         }
 
         await _next(context);
     }
 
+    private static bool IsAccessRestricted(SubscriptionStatus status)
+    {
+        // ✅ Allow ACTIVE and TRIAL
+        if (status == SubscriptionStatus.Active || status == SubscriptionStatus.Trial)
+            return false;
+
+        // 🛑 Block EVERYTHING else (Expired, Suspended, Cancelled, Future)
+        return true;
+    }
+
+    private static string GetErrorCode(SubscriptionStatus? status)
+    {
+        return status switch
+        {
+            SubscriptionStatus.Expired => "SUBSCRIPTION_EXPIRED",
+            SubscriptionStatus.Suspended => "ACCOUNT_SUSPENDED",
+            SubscriptionStatus.Cancelled => "SUBSCRIPTION_CANCELLED",
+            SubscriptionStatus.Future => "SUBSCRIPTION_FUTURE_NOT_STARTED",
+            _ => "SUBSCRIPTION_INACTIVE"
+        };
+    }
+
     private static string GetStatusMessage(SubscriptionStatus? status)
     {
         return status switch
         {
-            SubscriptionStatus.Expired => "Your subscription has expired. Please contact support to renew.",
-            SubscriptionStatus.Suspended => "Your clinic has been suspended. Please contact support.",
+            SubscriptionStatus.Expired => "Your subscription has expired. Please renew to continue.",
+            SubscriptionStatus.Suspended => "Your account is suspended. Please contact support.",
             SubscriptionStatus.Cancelled => "Your subscription has been cancelled.",
-            _ => "Your clinic is not active."
+            SubscriptionStatus.Future => "Your subscription start date has not arrived yet.",
+            _ => "Service unavailable. No active subscription found."
         };
     }
 }
