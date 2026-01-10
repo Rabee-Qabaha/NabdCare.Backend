@@ -1,4 +1,5 @@
-﻿using NabdCare.Application.DTOs.Pagination;
+﻿using Microsoft.EntityFrameworkCore.Storage;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Subscriptions;
 
 namespace NabdCare.Application.Interfaces.Subscriptions;
@@ -10,6 +11,8 @@ public interface ISubscriptionRepository
     // Lifecycle Queries
     Task<Subscription?> GetActiveByClinicIdAsync(Guid clinicId);
     Task<bool> HasFutureSubscriptionAsync(Guid clinicId, DateTime afterDate);
+    
+    Task<IDbContextTransaction> BeginTransactionAsync();
     
     // Batch Queries for Background Jobs
     Task<List<Subscription>> GetAutoRenewCandidatesAsync(DateTime nowUtc);

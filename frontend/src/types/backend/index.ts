@@ -3,7 +3,6 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-export * from './update-branch-request-dto';
 export * from './change-password-request-dto';
 export * from './create-user-request-dto';
 export * from './reset-password-request-dto';
@@ -39,6 +38,7 @@ export * from './update-clinic-request-dto';
 export * from './update-clinic-status-dto';
 export * from './branch-response-dto';
 export * from './create-branch-request-dto';
+export * from './update-branch-request-dto';
 export * from './authorization-check-request-dto';
 export * from './authorization-result-dto';
 export * from './auth-response-dto';
@@ -82,6 +82,7 @@ export * from './invoice-item';
 export * from './payment';
 export * from './patient';
 export * from './cheque-payment-detail';
+export * from './branch';
 export * from './role';
 export * from './role-permission';
 export * from './app-permission';

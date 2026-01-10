@@ -28,15 +28,18 @@ public class ClinicRepository : IClinicRepository
         if (id == Guid.Empty) return null;
 
         return await _dbContext.Clinics
+            .Include(c => c.Branches.Where(b => !b.IsDeleted)) // ✅ CRITICAL: Load branches for sync/update
             .Include(c => c.Subscriptions.Where(s => !s.IsDeleted))
             .AsNoTracking()
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
     }
 
     public async Task<Clinic?> GetEntityByIdAsync(Guid id)
     {
+        // Used for heavy updates - ensuring graph is loaded
         return await _dbContext.Clinics
+            .Include(c => c.Branches) 
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Id == id);
     }

@@ -37,45 +37,37 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-// ✅ Handle FluentValidation model errors consistently
+// ✅ Handle FluentValidation / ModelState errors consistently
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
+        // 1. Capture Validation Errors
+        // We use ToDictionary to match the ErrorResponseDto.Details structure
         var errors = context.ModelState
             .Where(e => e.Value?.Errors.Count > 0)
             .ToDictionary(
-                e => e.Key,
-                e => e.Value!.Errors
-                    .Select(x => x.ErrorMessage)
-                    .ToArray()
+                // Convert "User.Email" -> "email" (CamelCase) for frontend consistency
+                kvp => JsonNamingPolicy.CamelCase.ConvertName(kvp.Key),
+                kvp => kvp.Value!.Errors.Select(x => x.ErrorMessage).ToArray()
             );
 
-        var traceId = Guid.NewGuid().ToString("N");
+        var traceId = context.HttpContext.TraceIdentifier ?? Guid.NewGuid().ToString("N");
         context.HttpContext.Response.Headers["X-Trace-Id"] = traceId;
 
-        var isDevelopment = context.HttpContext.RequestServices
-            .GetRequiredService<IWebHostEnvironment>()
-            .IsDevelopment();
-
+        // 2. Build Standard Response
         var errorResponse = new ApiErrorResponse
         {
             Error = new ErrorResponseDto
             {
-                Message = "Validation failed. Please check your input.",
+                Message = "One or more validation errors occurred.",
                 Code = ErrorCodes.VALIDATION_ERROR,
-                Type = "BadRequest",
+                Type = "ValidationError",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = traceId,
-                Details = isDevelopment ? new { validationErrors = errors } : null
+                Details = errors, 
+                StackTrace = null 
             }
-        };
-
-        var jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = isDevelopment
         };
 
         return new BadRequestObjectResult(errorResponse);
@@ -120,6 +112,9 @@ if (!builder.Environment.IsEnvironment("Testing"))
 
 var app = builder.Build();
 
+// ✅ CORS + Security Headers (CSP, XSS etc)
+app.UseCors("AllowFrontend");
+
 // ✅ Global exception handling FIRST
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
@@ -141,8 +136,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
-// ✅ CORS + Security Headers (CSP, XSS etc)
-app.UseCors("AllowFrontend");
+// ✅ Security Headers (CSP, XSS etc)
 app.UseSecurityHeaders();
 
 // ✅ Authentication must run before authorization

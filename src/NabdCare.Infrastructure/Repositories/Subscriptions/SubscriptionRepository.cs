@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Subscriptions;
@@ -38,6 +39,11 @@ public class SubscriptionRepository : ISubscriptionRepository
                         && s.EndDate >= now)
             .OrderByDescending(s => s.EndDate)
             .FirstOrDefaultAsync();
+    }
+    
+    public async Task<IDbContextTransaction> BeginTransactionAsync()
+    {
+        return await _db.Database.BeginTransactionAsync();
     }
 
     public async Task<List<Subscription>> GetAutoRenewCandidatesAsync(DateTime nowUtc)

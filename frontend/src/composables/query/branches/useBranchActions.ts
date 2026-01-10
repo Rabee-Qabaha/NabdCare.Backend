@@ -1,4 +1,3 @@
-// src/composables/query/branches/useBranchActions.ts
 import { branchesApi } from '@/api/modules/branches';
 import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
 import { usePermission } from '@/composables/usePermission';
@@ -12,11 +11,19 @@ export function useBranchActions() {
   const { can } = usePermission();
   const { handleErrorAndNotify } = useErrorHandler();
 
+  const invalidate = (clinicId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ['branches'] });
+    if (clinicId) {
+      // Also refresh clinic details to update "BranchCount" if shown elsewhere
+      queryClient.invalidateQueries({ queryKey: ['clinics', 'id', clinicId] });
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: CreateBranchRequestDto) => branchesApi.create(data),
-    onSuccess: (_, vars) => {
+    onSuccess: (data) => {
       toast.success('Branch created successfully');
-      queryClient.invalidateQueries({ queryKey: ['branches', 'list', vars.clinicId] });
+      invalidate(data.clinicId);
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -24,9 +31,19 @@ export function useBranchActions() {
   const updateMutation = useMutation({
     mutationFn: (data: { id: string; dto: UpdateBranchRequestDto }) =>
       branchesApi.update(data.id, data.dto),
-    onSuccess: (_, vars) => {
+    onSuccess: (data) => {
       toast.success('Branch updated');
-      queryClient.invalidateQueries({ queryKey: ['branches'] }); // Broad invalidation to update lists
+      invalidate(data.clinicId);
+    },
+    onError: (err) => handleErrorAndNotify(err),
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: (id: string) => branchesApi.toggleStatus(id),
+    onSuccess: (data) => {
+      const status = data.isActive ? 'activated' : 'deactivated';
+      toast.success(`Branch ${status}`);
+      invalidate(data.clinicId);
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -35,7 +52,7 @@ export function useBranchActions() {
     mutationFn: (id: string) => branchesApi.delete(id),
     onSuccess: () => {
       toast.success('Branch deleted');
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      invalidate();
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -44,8 +61,13 @@ export function useBranchActions() {
     createMutation,
     updateMutation,
     deleteMutation,
+    toggleStatusMutation,
+
+    // Permissions
     canCreate: can('Branches.Create'),
     canEdit: can('Branches.Edit'),
     canDelete: can('Branches.Delete'),
+    canToggleStatus: can('Branches.ToggleStatus'),
+    canSetMain: can('Branches.SetMain'),
   };
 }

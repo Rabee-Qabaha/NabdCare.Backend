@@ -16,6 +16,11 @@ public enum SubscriptionStatus
     Active = 0,
     
     /// <summary>
+    /// Subscription is Inactive and clinic can't operate normally
+    /// </summary>
+    Inactive = 7,
+    
+    /// <summary>
     /// Subscription has expired (EndDate passed)
     /// </summary>
     Expired = 1,

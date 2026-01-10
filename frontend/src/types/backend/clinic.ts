@@ -6,6 +6,7 @@
 import { ClinicSettings } from "./clinic-settings";
 import { SubscriptionStatus } from "./subscription-status";
 import { Subscription } from "./subscription";
+import { Branch } from "./branch";
 
 export class Clinic {
   name: string = "";
@@ -18,7 +19,8 @@ export class Clinic {
   taxNumber: string;
   registrationNumber: string;
   settings: ClinicSettings = {"timeZone":"UTC","currency":"USD","dateFormat":"dd/MM/yyyy","locale":"en-US","enablePatientPortal":true};
+  branchCount: number = 1;
   status: SubscriptionStatus;
   subscriptions: Subscription[] = [];
-  branchCount: number = 1;
+  branches: Branch[] = [];
 }

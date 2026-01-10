@@ -267,7 +267,7 @@ public static class SubscriptionEndpoints
                 : Results.NotFound();
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Subscriptions.Cancel) // ✅ Correct Permission
+        .RequirePermission(Permissions.Subscriptions.Cancel)
         .WithName("CancelSubscription")
         .WithSummary("Cancel a subscription (stops renewal, marks as cancelled)");
 

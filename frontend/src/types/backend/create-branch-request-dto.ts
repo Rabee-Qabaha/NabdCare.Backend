@@ -8,5 +8,7 @@ export class CreateBranchRequestDto {
   name: string = "";
   address: string;
   phone: string;
+  email: string;
+  isActive: boolean = true;
   isMain: boolean;
 }

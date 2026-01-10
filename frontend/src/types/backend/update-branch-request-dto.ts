@@ -3,9 +3,8 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-export class UpdateBranchRequestDto {
-  name: string = "";
-  address: string;
-  phone: string;
-  isMain: boolean;
+import { CreateBranchRequestDto } from "./create-branch-request-dto";
+
+export class UpdateBranchRequestDto extends CreateBranchRequestDto {
+
 }

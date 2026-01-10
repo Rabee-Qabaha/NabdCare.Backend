@@ -1,7 +1,5 @@
-// src/components/Subscription/SubscriptionDialog.vue
 <script setup lang="ts">
   import { useActiveSubscription } from '@/composables/query/subscriptions/useSubscriptions';
-  import type { ClinicResponseDto } from '@/types/backend';
   import { SubscriptionStatus } from '@/types/backend';
   import Button from 'primevue/button';
   import Dialog from 'primevue/dialog';
@@ -20,13 +18,17 @@
 
   const props = defineProps<{
     visible: boolean;
-    clinic: ClinicResponseDto | null;
+    clinicId: string | null;
+    clinicName?: string; // Optional: nice to show in header
   }>();
 
-  const emit = defineEmits(['update:visible']);
+  const emit = defineEmits(['update:visible', 'saved']);
   const router = useRouter();
 
   // -- State --
+  // 'dashboard' = View existing plan
+  // 'create' = Initial setup or re-subscribing
+  // 'edit' = Modify add-ons
   const viewState = ref<'dashboard' | 'edit' | 'create'>('dashboard');
 
   // -- Data Fetching --
@@ -34,12 +36,13 @@
     data: activeSubData,
     isLoading: isLoadingActive,
     refetch: refreshActive,
-  } = useActiveSubscription(computed(() => props.clinic?.id || ''));
+  } = useActiveSubscription(computed(() => props.clinicId));
 
   // -- Computed --
   const activeSub = computed(() => {
     const raw = activeSubData.value;
     if (!raw) return null;
+    // Handle both raw DTO and the wrapper { subscription: Dto, ... } response format
     return (raw as any).subscription || raw;
   });
 
@@ -49,6 +52,31 @@
     return s === SubscriptionStatus.Active || s === SubscriptionStatus.Trial || s === 0;
   });
 
+  // -- Watchers --
+  // Reset state when dialog opens
+  watch(
+    () => props.visible,
+    (isOpen) => {
+      if (isOpen) {
+        // If we have an active sub, show dashboard.
+        // If we have NO sub (new clinic), default to 'create' mode immediately.
+        if (!isLoadingActive.value && !hasActive.value) {
+          viewState.value = 'create';
+        } else {
+          viewState.value = 'dashboard';
+        }
+        refreshActive();
+      }
+    },
+  );
+
+  // Watch loading state to auto-switch to 'create' if empty
+  watch([isLoadingActive, hasActive], ([loading, active]) => {
+    if (!loading && !active && props.visible && viewState.value === 'dashboard') {
+      viewState.value = 'create';
+    }
+  });
+
   // -- Actions --
   const handleOpenCreate = () => {
     viewState.value = 'create';
@@ -56,26 +84,26 @@
   const handleOpenEdit = () => {
     viewState.value = 'edit';
   };
+
   const handleBackToDashboard = () => {
     viewState.value = 'dashboard';
     refreshActive();
   };
 
+  const handleSuccess = () => {
+    refreshActive();
+    viewState.value = 'dashboard';
+    emit('saved'); // Notify parent (ClinicsManagement) to refresh list
+  };
+
   const openFullInvoicePage = () => {
-    if (!props.clinic?.id) return;
+    if (!props.clinicId) return;
     const routeData = router.resolve({
       name: 'invoices',
-      query: { clinicId: props.clinic.id },
+      query: { clinicId: props.clinicId },
     });
     window.open(routeData.href, '_blank');
   };
-
-  watch(
-    () => props.visible,
-    (val) => {
-      if (val) viewState.value = 'dashboard';
-    },
-  );
 </script>
 
 <template>
@@ -106,29 +134,34 @@
           <div
             class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center text-lg font-bold border border-primary-100 dark:border-primary-800 shrink-0"
           >
-            {{ clinic?.name?.charAt(0).toUpperCase() }}
+            <i class="pi pi-briefcase"></i>
           </div>
-          <div class="overflow-hidden">
-            <h2
-              class="text-lg font-bold text-surface-900 dark:text-surface-0 m-0 leading-none truncate"
-            >
-              {{ clinic?.name }}
+          <div>
+            <h2 class="text-lg font-bold text-surface-900 dark:text-surface-0 m-0 leading-none">
+              Subscription Manager
             </h2>
-            <span class="text-sm text-surface-500 block truncate">
-              {{ clinic?.slug }}.nabd.care
+            <span v-if="clinicName" class="text-sm text-surface-500 block mt-1">
+              For: {{ clinicName }}
             </span>
           </div>
         </div>
+
         <div class="flex gap-2 items-center self-start sm:self-auto">
           <template v-if="!isLoadingActive">
             <Tag
               v-if="hasActive"
               severity="success"
-              value="Active"
+              value="Active Plan"
               icon="pi pi-check-circle"
               rounded
             />
-            <Tag v-else severity="danger" value="No Plan" icon="pi pi-exclamation-circle" rounded />
+            <Tag
+              v-else
+              severity="warning"
+              value="Not Subscribed"
+              icon="pi pi-exclamation-triangle"
+              rounded
+            />
           </template>
           <Skeleton v-else width="100px" height="28px" borderRadius="16px" />
         </div>
@@ -149,7 +182,7 @@
       >
         <div v-if="hasActive && activeSub" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <CurrentPlanCard :subscription="activeSub" />
-          <ResourceUtilizationCard :subscription="activeSub" :clinic-id="clinic?.id" />
+          <ResourceUtilizationCard :subscription="activeSub" :clinic-id="clinicId!" />
         </div>
 
         <div v-if="hasActive && activeSub">
@@ -160,8 +193,8 @@
           />
         </div>
 
-        <div v-if="clinic?.id && hasActive" class="mt-2">
-          <InvoiceHistory :clinic-id="clinic.id" @view-all="openFullInvoicePage" />
+        <div v-if="clinicId && hasActive" class="mt-2">
+          <InvoiceHistory :clinic-id="clinicId" @view-all="openFullInvoicePage" />
         </div>
 
         <div
@@ -177,22 +210,22 @@
           <p class="text-surface-500 mb-6 px-4">
             This clinic does not have an active subscription.
           </p>
-          <Button label="Subscribe Now" icon="pi pi-sparkles" @click="handleOpenCreate" />
+          <Button label="Select Plan" icon="pi pi-sparkles" @click="handleOpenCreate" />
         </div>
       </div>
 
       <SubscriptionCreateForm
-        v-if="viewState === 'create' && clinic"
-        :clinic-id="clinic.id"
-        @cancel="handleBackToDashboard"
-        @success="handleBackToDashboard"
+        v-if="viewState === 'create' && clinicId"
+        :clinic-id="clinicId"
+        @cancel="hasActive ? handleBackToDashboard() : emit('update:visible', false)"
+        @success="handleSuccess"
       />
 
       <SubscriptionAddonForm
         v-if="viewState === 'edit' && activeSub"
         :subscription="activeSub"
         @cancel="handleBackToDashboard"
-        @success="handleBackToDashboard"
+        @success="handleSuccess"
       />
     </div>
   </Dialog>

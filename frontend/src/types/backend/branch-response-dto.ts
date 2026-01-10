@@ -9,5 +9,7 @@ export class BranchResponseDto {
   name: string = "";
   address: string;
   phone: string;
+  email: string;
+  isActive: boolean;
   isMain: boolean;
 }

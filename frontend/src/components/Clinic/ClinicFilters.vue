@@ -1,3 +1,4 @@
+// src/components/Clinic/ClinicFilters.vue
 <template>
   <Drawer
     v-model:visible="visible"
@@ -136,6 +137,7 @@
   // Options
   const statusOptions = [
     { label: 'Active', value: SubscriptionStatus.Active, severity: 'success' },
+    { label: 'Inactive', value: SubscriptionStatus.Inactive, severity: 'warn' },
     { label: 'Suspended', value: SubscriptionStatus.Suspended, severity: 'warn' },
     { label: 'Expired', value: SubscriptionStatus.Expired, severity: 'danger' },
     { label: 'Trial', value: SubscriptionStatus.Trial, severity: 'info' },

@@ -1,4 +1,3 @@
-// src/api/modules/branches.ts
 import { api } from '@/api/apiClient';
 import type {
   BranchResponseDto,
@@ -28,6 +27,12 @@ export const branchesApi = {
   /** 🔹 Update branch */
   async update(id: string, payload: UpdateBranchRequestDto) {
     const { data } = await api.put<BranchResponseDto>(`/branches/${id}`, payload);
+    return data;
+  },
+
+  // 🔹 Toggle Status (Open/Close)
+  async toggleStatus(id: string) {
+    const { data } = await api.patch<BranchResponseDto>(`/branches/${id}/toggle-status`);
     return data;
   },
 

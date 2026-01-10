@@ -3,7 +3,7 @@
     v-model:visible="isVisible"
     modal
     :dismissableMask="!saving"
-    :style="{ width: '800px', maxWidth: '95vw' }"
+    :style="{ width: '750px', maxWidth: '95vw' }"
     :pt="{
       root: {
         class:
@@ -13,7 +13,7 @@
         class:
           'border-b border-surface-200 dark:border-surface-700 py-4 px-6 bg-surface-50 dark:bg-surface-800',
       },
-      content: { class: 'p-0 h-full' },
+      content: { class: 'p-6 bg-surface-0 dark:bg-surface-900' },
       footer: {
         class:
           'border-t border-surface-200 dark:border-surface-700 py-4 px-6 bg-surface-50 dark:bg-surface-800',
@@ -22,7 +22,7 @@
     @hide="onClose"
   >
     <template #header>
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 text-left">
         <div
           class="flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shrink-0 border border-primary-200 dark:border-primary-700/50"
         >
@@ -30,306 +30,205 @@
         </div>
         <div class="flex flex-col">
           <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight">
-            {{ isEditMode ? 'Edit Clinic Profile' : 'Register New Clinic' }}
+            {{ isEditMode ? 'Clinic Settings' : 'Register Clinic' }}
           </h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-            Identity and Subscription Management.
+            Define the clinic's identity and contact details.
           </p>
         </div>
       </div>
     </template>
 
-    <div class="flex flex-col max-h-[65vh] overflow-hidden">
-      <Tabs v-model:value="activeTab">
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left overflow-y-auto max-h-[60vh] custom-scrollbar px-1"
+    >
+      <div
+        v-if="errors.global"
+        class="md:col-span-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg text-sm flex items-center gap-2"
+      >
+        <i class="pi pi-exclamation-circle"></i>
+        {{ errors.global }}
+      </div>
+
+      <div class="md:col-span-2 mt-2">
+        <h4 class="text-xs font-bold text-surface-400 uppercase tracking-wider">
+          Identity & Branding
+        </h4>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">
+          Clinic Name
+          <span class="text-red-500">*</span>
+        </label>
+        <InputText
+          v-model="name"
+          :invalid="submitted && !!errors.name"
+          @input="errors.name = ''"
+          placeholder="e.g. Nabd Medical Center"
+          class="w-full"
+        />
+        <small v-if="submitted && errors.name" class="text-red-500 text-xs">
+          {{ errors.name }}
+        </small>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">
+          Subdomain
+          <span class="text-red-500">*</span>
+        </label>
+        <InputGroup>
+          <InputGroupAddon><i class="pi pi-globe"></i></InputGroupAddon>
+          <InputText
+            v-model="slug"
+            :invalid="submitted && !!errors.slug"
+            @input="onSlugInputChange"
+            placeholder="clinic-name"
+          />
+          <InputGroupAddon class="text-xs">.nabd.care</InputGroupAddon>
+        </InputGroup>
+        <small v-if="submitted && errors.slug" class="text-red-500 text-xs">
+          {{ errors.slug }}
+        </small>
+      </div>
+
+      <div
+        class="md:col-span-2 flex items-center gap-4 p-4 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700"
+      >
         <div
-          class="px-6 py-3 bg-surface-0 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700"
+          class="w-16 h-16 rounded-lg bg-white dark:bg-surface-900 border flex items-center justify-center overflow-hidden shrink-0"
         >
-          <TabList class="flex gap-2 border-none bg-transparent">
-            <Tab value="0" class="tab-item">
-              <div class="flex items-center gap-4 py-1">
-                <i class="pi pi-id-card text-lg shrink-0"></i>
-                <span class="font-semibold text-sm">General</span>
-                <i
-                  v-if="hasGeneralErrors"
-                  class="pi pi-exclamation-circle text-red-500 text-[10px] -ml-2"
-                ></i>
-              </div>
-            </Tab>
-            <Tab value="1" class="tab-item">
-              <div class="flex items-center gap-4 py-1">
-                <i class="pi pi-palette text-lg shrink-0"></i>
-                <span class="font-semibold text-sm">Branding</span>
-                <i
-                  v-if="hasBrandingErrors"
-                  class="pi pi-exclamation-circle text-red-500 text-[10px] -ml-2"
-                ></i>
-              </div>
-            </Tab>
-            <Tab value="2" class="tab-item">
-              <div class="flex items-center gap-4 py-1">
-                <i class="pi pi-star-fill text-lg shrink-0"></i>
-                <span class="font-semibold text-sm">Subscription</span>
-                <i
-                  v-if="hasSubscriptionErrors"
-                  class="pi pi-exclamation-circle text-red-500 text-[10px] -ml-2"
-                ></i>
-              </div>
-            </Tab>
-          </TabList>
+          <img v-if="logoUrl" :src="logoUrl" class="w-full h-full object-cover" />
+          <i v-else class="pi pi-image text-2xl text-surface-300"></i>
         </div>
+        <div class="flex-grow flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-surface-500 uppercase">Logo URL</label>
+          <InputText
+            v-model="logoUrl"
+            :invalid="submitted && !!errors.logoUrl"
+            @input="errors.logoUrl = ''"
+            placeholder="https://..."
+            class="w-full p-inputtext-sm"
+          />
+          <small v-if="submitted && errors.logoUrl" class="text-red-500 text-xs">
+            {{ errors.logoUrl }}
+          </small>
+        </div>
+      </div>
 
-        <TabPanels
-          class="!p-0 overflow-y-auto h-full bg-surface-0 dark:bg-surface-900 custom-scrollbar"
-        >
-          <TabPanel value="0" class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">
-                  Clinic Name
-                  <span class="text-red-500">*</span>
-                </label>
-                <InputText
-                  v-model="name"
-                  :invalid="!!errors.name"
-                  placeholder="e.g. Nabd Medical"
-                  class="w-full"
-                />
-                <small v-if="errors.name" class="text-red-500 text-xs">{{ errors.name }}</small>
-              </div>
+      <div class="md:col-span-2 mt-4">
+        <h4 class="text-xs font-bold text-surface-400 uppercase tracking-wider">
+          Contact Information
+        </h4>
+      </div>
 
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">
-                  Subdomain
-                  <span class="text-red-500">*</span>
-                </label>
-                <InputGroup>
-                  <InputGroupAddon><i class="pi pi-globe"></i></InputGroupAddon>
-                  <InputText
-                    v-model="slug"
-                    :invalid="!!errors.slug"
-                    placeholder="slug"
-                    @input="onSlugInput"
-                  />
-                  <InputGroupAddon class="text-xs">.nabd.care</InputGroupAddon>
-                </InputGroup>
-                <small v-if="errors.slug" class="text-red-500 text-xs">{{ errors.slug }}</small>
-              </div>
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">
+          Official Email
+          <span class="text-red-500">*</span>
+        </label>
+        <InputText
+          v-model="email"
+          :invalid="submitted && !!errors.email"
+          @input="errors.email = ''"
+          type="email"
+          placeholder="admin@clinic.com"
+          class="w-full"
+        />
+        <small v-if="submitted && errors.email" class="text-red-500 text-xs">
+          {{ errors.email }}
+        </small>
+      </div>
 
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">
-                  Email
-                  <span class="text-red-500">*</span>
-                </label>
-                <InputText v-model="email" :invalid="!!errors.email" type="email" class="w-full" />
-                <small v-if="errors.email" class="text-red-500 text-xs">{{ errors.email }}</small>
-              </div>
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">
+          Phone Number
+          <span class="text-red-500">*</span>
+        </label>
+        <InputText
+          v-model="phone"
+          :invalid="submitted && !!errors.phone"
+          @input="errors.phone = ''"
+          placeholder="+970 ..."
+          class="w-full"
+        />
+        <small v-if="submitted && errors.phone" class="text-red-500 text-xs">
+          {{ errors.phone }}
+        </small>
+      </div>
 
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">
-                  Phone
-                  <span class="text-red-500">*</span>
-                </label>
-                <InputText v-model="phone" :invalid="!!errors.phone" class="w-full" />
-                <small v-if="errors.phone" class="text-red-500 text-xs">{{ errors.phone }}</small>
-              </div>
+      <div
+        class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-surface-100 dark:border-surface-700"
+      >
+        <div class="md:col-span-2 flex flex-col gap-2">
+          <label class="text-xs font-bold text-surface-500 uppercase">
+            Street / Building
+            <span class="text-red-500">*</span>
+          </label>
+          <InputText
+            v-model="splitStreet"
+            :invalid="submitted && !!errors.address"
+            @input="errors.address = ''"
+            placeholder="Street"
+            class="w-full"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-surface-500 uppercase">
+            City
+            <span class="text-red-500">*</span>
+          </label>
+          <InputText
+            v-model="splitCity"
+            @input="errors.address = ''"
+            placeholder="City"
+            class="w-full"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-surface-500 uppercase">Postal Code</label>
+          <InputText v-model="splitPostalCode" placeholder="Code" class="w-full" />
+        </div>
+        <div class="flex flex-col gap-2 md:col-span-4">
+          <label class="text-xs font-bold text-surface-500 uppercase">
+            Country
+            <span class="text-red-500">*</span>
+          </label>
+          <CountrySelect
+            v-model="splitCountry"
+            @change="errors.address = ''"
+            :class="{ 'p-invalid': submitted && !!errors.address }"
+          />
+        </div>
+        <small v-if="submitted && errors.address" class="text-red-500 text-xs col-span-4">
+          {{ errors.address }}
+        </small>
+      </div>
 
-              <div
-                class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-surface-100 dark:border-surface-700"
-              >
-                <div class="md:col-span-2 flex flex-col gap-2">
-                  <label class="text-xs font-bold text-surface-500 uppercase">
-                    Street
-                    <span class="text-red-500">*</span>
-                  </label>
-                  <InputText v-model="splitStreet" :invalid="!!errors.splitStreet" class="w-full" />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label class="text-xs font-bold text-surface-500 uppercase">
-                    City
-                    <span class="text-red-500">*</span>
-                  </label>
-                  <InputText v-model="splitCity" :invalid="!!errors.splitCity" class="w-full" />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label class="text-xs font-bold text-surface-500 uppercase">Postal Code</label>
-                  <InputText v-model="splitPostalCode" class="w-full" />
-                </div>
-                <div class="flex flex-col gap-2 md:col-span-2 lg:col-span-4">
-                  <label class="text-xs font-bold text-surface-500 uppercase">
-                    Country
-                    <span class="text-red-500">*</span>
-                  </label>
-                  <CountrySelect v-model="splitCountry" :invalid="!!errors.splitCountry" />
-                </div>
-              </div>
-            </div>
-          </TabPanel>
-
-          <TabPanel value="1" class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div
-                class="md:col-span-2 flex items-start gap-6 p-4 border border-dashed border-surface-300 rounded-xl bg-surface-50 dark:bg-surface-800/50"
-              >
-                <div
-                  class="w-20 h-20 rounded-full bg-white dark:bg-surface-700 shadow-sm border flex items-center justify-center overflow-hidden shrink-0"
-                >
-                  <img v-if="logoUrl" :src="logoUrl" class="w-full h-full object-cover" />
-                  <i v-else class="pi pi-image text-3xl text-surface-400"></i>
-                </div>
-                <div class="flex-grow flex flex-col gap-2">
-                  <label class="text-sm font-medium">Logo URL</label>
-                  <InputText v-model="logoUrl" :invalid="!!errors.logoUrl" class="w-full" />
-                  <small v-if="errors.logoUrl" class="text-red-500 text-xs">
-                    {{ errors.logoUrl }}
-                  </small>
-                </div>
-              </div>
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">Website</label>
-                <InputText v-model="website" :invalid="!!errors.website" class="w-full" />
-              </div>
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">Currency</label>
-                <InputText v-model="currency" :invalid="!!errors.currency" class="w-full" />
-              </div>
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">Timezone</label>
-                <Select v-model="timeZone" :options="['Asia/Hebron', 'UTC']" class="w-full" />
-              </div>
-            </div>
-          </TabPanel>
-
-          <TabPanel value="2" class="p-6">
-            <div class="space-y-6 max-w-xl mx-auto">
-              <div
-                v-if="isEditMode"
-                class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 p-4 rounded-lg flex gap-3"
-              >
-                <i class="pi pi-info-circle text-blue-600 mt-0.5"></i>
-                <span class="text-sm text-blue-800">
-                  Subscription is locked in edit mode. Use Subscription Manager for changes.
-                </span>
-              </div>
-
-              <div class="flex flex-col gap-3" :class="{ 'opacity-60': isEditMode }">
-                <h4 class="text-sm font-bold flex items-center gap-2">
-                  <i class="pi pi-star text-primary-500"></i>
-                  1. Select Base Plan
-                </h4>
-                <PlanSelect
-                  v-model="selectedPlanId"
-                  :disabled="isEditMode"
-                  :invalid="!!errors.selectedPlanId"
-                  @plan-selected="onPlanChanged"
-                />
-                <small v-if="errors.selectedPlanId" class="text-red-500 text-xs">
-                  {{ errors.selectedPlanId }}
-                </small>
-              </div>
-
-              <div v-if="!isEditMode && selectedPlanId" class="space-y-4 animate-fade-in">
-                <h4 class="text-sm font-bold flex items-center gap-2">
-                  <i class="pi pi-shopping-cart text-purple-500"></i>
-                  2. Paid Add-ons
-                </h4>
-                <div class="grid grid-cols-2 gap-4">
-                  <div class="flex flex-col gap-1">
-                    <label class="text-xs font-bold text-surface-600">Extra Users</label>
-                    <InputNumber
-                      v-model="extraUsers"
-                      showButtons
-                      :min="0"
-                      inputClass="text-center"
-                    />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-xs font-bold text-surface-600">Extra Branches</label>
-                    <InputNumber
-                      v-model="extraBranches"
-                      showButtons
-                      :min="0"
-                      inputClass="text-center"
-                    />
-                  </div>
-                </div>
-
-                <div class="pt-4 border-t border-surface-100">
-                  <div
-                    class="flex items-center justify-between cursor-pointer"
-                    @click="showDealMode = !showDealMode"
-                  >
-                    <span class="text-xs font-bold text-green-600 flex items-center gap-1">
-                      <i class="pi pi-gift"></i>
-                      Deal-Maker Bonuses
-                    </span>
-                    <i
-                      class="pi pi-chevron-down text-xs transition-transform"
-                      :class="{ 'rotate-180': showDealMode }"
-                    ></i>
-                  </div>
-                  <div
-                    v-if="showDealMode"
-                    class="grid grid-cols-2 gap-4 mt-3 bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-100"
-                  >
-                    <div>
-                      <label class="text-[10px] font-bold text-green-800 block mb-1">
-                        Free Users
-                      </label>
-                      <InputNumber
-                        v-model="bonusUsers"
-                        class="w-full"
-                        inputClass="text-center"
-                        :min="0"
-                      />
-                    </div>
-                    <div>
-                      <label class="text-[10px] font-bold text-green-800 block mb-1">
-                        Free Branches
-                      </label>
-                      <InputNumber
-                        v-model="bonusBranches"
-                        class="w-full"
-                        inputClass="text-center"
-                        :min="0"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  class="bg-surface-50 dark:bg-surface-800 p-4 rounded-xl border border-surface-200"
-                >
-                  <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs text-surface-500 uppercase font-bold">
-                      Total Initial Fee
-                    </span>
-                    <span class="text-lg font-bold text-primary-600">
-                      {{ formatMoney(computedFee) }}
-                    </span>
-                  </div>
-                  <div class="flex justify-between items-center text-xs text-surface-500">
-                    <span>Start Date</span>
-                    <DatePicker
-                      v-model="subscriptionStartDate"
-                      showIcon
-                      fluid
-                      dateFormat="dd/mm/yy"
-                      class="w-32 scale-90"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+      <div
+        class="md:col-span-2 mt-4 pt-4 border-t border-surface-100 dark:border-surface-700 grid grid-cols-2 gap-4"
+      >
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-surface-500 uppercase">Currency</label>
+          <InputText v-model="currency" placeholder="USD" class="w-full" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-surface-500 uppercase">Timezone</label>
+          <Select
+            v-model="timeZone"
+            :options="['Asia/Hebron', 'Asia/Jerusalem', 'UTC']"
+            class="w-full"
+          />
+        </div>
+      </div>
     </div>
 
     <template #footer>
       <div class="flex justify-end gap-2 w-full mt-2">
         <Button label="Cancel" severity="secondary" text @click="onClose" :disabled="saving" />
         <Button
-          :label="isEditMode ? 'Save Changes' : 'Register Clinic'"
+          :label="isEditMode ? 'Update Profile' : 'Create Clinic'"
           icon="pi pi-check"
           @click="onSave"
           :loading="saving"
@@ -340,45 +239,48 @@
 </template>
 
 <script setup lang="ts">
-  import { useClinicForm } from '@/composables/clinic/useClinicForm';
-  import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
-  import type { ClinicResponseDto } from '@/types/backend';
-  import { formatClinicCurrency } from '@/utils/uiHelpers';
   import { computed, ref, watch } from 'vue';
 
+  // 1. Logic & State Management
+  import { useClinicForm } from '@/composables/clinic/useClinicForm';
+  import { useClinicActions } from '@/composables/query/clinics/useClinicActions';
+  import type { ClinicResponseDto } from '@/types/backend';
+
+  // 2. Error & Notification Handling
+  import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
+  import { useToastService } from '@/composables/useToastService';
+  import { getFieldErrors } from '@/utils/errorHandler'; // ✅ The bridge between API error -> Form fields
+
+  // 3. UI Components
   import CountrySelect from '@/components/Dropdowns/CountrySelect.vue';
-  import PlanSelect from '@/components/Dropdowns/PlanSelect.vue';
   import Button from 'primevue/button';
-  import DatePicker from 'primevue/datepicker';
   import Dialog from 'primevue/dialog';
   import InputGroup from 'primevue/inputgroup';
   import InputGroupAddon from 'primevue/inputgroupaddon';
-  import InputNumber from 'primevue/inputnumber';
   import InputText from 'primevue/inputtext';
   import Select from 'primevue/select';
-  import Tab from 'primevue/tab';
-  import TabList from 'primevue/tablist';
-  import TabPanel from 'primevue/tabpanel';
-  import TabPanels from 'primevue/tabpanels';
-  import Tabs from 'primevue/tabs';
 
   const props = defineProps<{ visible: boolean; clinic?: ClinicResponseDto | null }>();
-  const emit = defineEmits(['update:visible', 'save']);
+  const emit = defineEmits(['update:visible', 'saved']);
 
-  const { getValidationErrors, handleErrorAndNotify } = useErrorHandler();
+  // Composable setup
+  const toast = useToastService();
+  const { handleErrorAndNotify } = useErrorHandler();
+  const { createClinicMutation, updateClinicMutation } = useClinicActions();
+
   const isVisible = computed({ get: () => props.visible, set: (v) => emit('update:visible', v) });
   const isEditMode = computed(() => !!props.clinic?.id);
 
   const localClinic = ref<Partial<ClinicResponseDto>>({});
   const saving = ref(false);
-  const activeTab = ref('0');
-  const errors = ref<Record<string, string>>({});
-  const showDealMode = ref(false);
+  const submitted = ref(false);
+  const errors = ref<Record<string, string>>({}); // Maps field names to error messages
 
+  // Address Construction
   const splitStreet = ref('');
   const splitCity = ref('');
   const splitPostalCode = ref('');
-  const splitCountry = ref('');
+  const splitCountry = ref<string | { name: string; code: string } | null>('');
 
   const {
     name,
@@ -386,108 +288,85 @@
     email,
     phone,
     address,
-    website,
     logoUrl,
-    timeZone,
     currency,
+    timeZone,
     initForm,
     getFormData,
-    subscriptionStartDate,
-    selectedPlanId,
-    selectedPlan,
-    extraUsers,
-    extraBranches,
-    bonusUsers,
-    bonusBranches,
-    computedFee,
-    computedEndDate,
+    validate,
   } = useClinicForm(localClinic);
 
-  const formatMoney = (val: number) =>
-    formatClinicCurrency(val, { currency: currency.value, locale: 'en-US' } as any);
-  const onPlanChanged = (plan: any) => {
-    selectedPlan.value = plan;
-  };
-  const onSlugInput = (e: any) => {
+  // ✅ Clear Slug Error on Typing
+  const onSlugInputChange = (e: any) => {
     slug.value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (errors.value.slug) {
+      errors.value.slug = '';
+    }
   };
 
-  const hasGeneralErrors = computed(
-    () =>
-      !!(
-        errors.value.name ||
-        errors.value.slug ||
-        errors.value.email ||
-        errors.value.phone ||
-        errors.value.splitStreet ||
-        errors.value.splitCity ||
-        errors.value.splitCountry
-      ),
-  );
-  const hasBrandingErrors = computed(
-    () => !!(errors.value.website || errors.value.logoUrl || errors.value.currency),
-  );
-  const hasSubscriptionErrors = computed(() => !isEditMode.value && !!errors.value.selectedPlanId);
-
-  const autoSwitchTab = () => {
-    if (hasGeneralErrors.value) activeTab.value = '0';
-    else if (hasBrandingErrors.value) activeTab.value = '1';
-    else if (hasSubscriptionErrors.value) activeTab.value = '2';
-  };
-
+  // ============================================
+  // 💾 SAVE HANDLER (Core Logic)
+  // ============================================
   async function onSave() {
-    errors.value = {};
-    let clientErrors = false;
+    submitted.value = true;
+    errors.value = {}; // Reset previous errors
 
-    if (!name.value?.trim()) {
-      errors.value.name = 'Required';
-      clientErrors = true;
-    }
-    if (!slug.value?.trim()) {
-      errors.value.slug = 'Required';
-      clientErrors = true;
-    }
-    if (!email.value?.trim()) {
-      errors.value.email = 'Required';
-      clientErrors = true;
-    }
-    if (!phone.value?.trim()) {
-      errors.value.phone = 'Required';
-      clientErrors = true;
-    }
-    if (!splitStreet.value?.trim()) {
-      errors.value.splitStreet = 'Required';
-      clientErrors = true;
-    }
-    if (!splitCity.value?.trim()) {
-      errors.value.splitCity = 'Required';
-      clientErrors = true;
-    }
-    if (!splitCountry.value?.trim()) {
-      errors.value.splitCountry = 'Required';
-      clientErrors = true;
-    }
-    if (!isEditMode.value && !selectedPlanId.value) {
-      errors.value.selectedPlanId = 'Plan required';
-      clientErrors = true;
+    // 1. Handle Address Object/String Safety
+    let countryName = '';
+    if (
+      splitCountry.value &&
+      typeof splitCountry.value === 'object' &&
+      'name' in splitCountry.value
+    ) {
+      countryName = splitCountry.value.name;
+    } else if (typeof splitCountry.value === 'string') {
+      countryName = splitCountry.value;
     }
 
-    if (clientErrors) {
-      autoSwitchTab();
+    address.value = [splitStreet.value, splitCity.value, splitPostalCode.value, countryName]
+      .filter((p) => p && p.trim() !== '')
+      .join(', ');
+
+    // 2. Frontend Validation Check
+    const validation = validate();
+    if (!validation.isValid) {
+      errors.value = validation.errors;
+      toast.error('Please fix the highlighted errors.');
       return;
     }
 
     saving.value = true;
-    address.value = [splitStreet.value, splitCity.value, splitPostalCode.value, splitCountry.value]
-      .filter(Boolean)
-      .join(', ');
 
     try {
-      await emit('save', { id: props.clinic?.id, ...getFormData() });
+      const payload = getFormData();
+
+      // 3. Execute Mutation (await allows us to catch errors locally)
+      if (isEditMode.value && props.clinic?.id) {
+        await updateClinicMutation.mutateAsync({
+          id: props.clinic.id,
+          data: payload,
+        });
+        toast.success('Clinic updated successfully');
+      } else {
+        await createClinicMutation.mutateAsync(payload);
+        toast.success('Clinic created successfully');
+      }
+
+      emit('saved'); // Notify parent
+      onClose();
     } catch (err: any) {
-      errors.value = getValidationErrors(err);
-      autoSwitchTab();
-      handleErrorAndNotify(err);
+      // 4. Backend Error Mapping logic
+      const serverErrors = getFieldErrors(err);
+
+      if (Object.keys(serverErrors).length > 0) {
+        // ✅ Case A: Field Validation Errors found
+        // Assign errors to UI to turn fields red. No generic toast needed.
+        errors.value = serverErrors;
+      } else {
+        // ✅ Case B: General Error (Auth, 500, Network)
+        // Delegate to global handler for Toast/Redirect
+        handleErrorAndNotify(err);
+      }
     } finally {
       saving.value = false;
     }
@@ -497,72 +376,48 @@
     if (!saving.value) isVisible.value = false;
   }
 
+  // ============================================
+  // 👁️ WATCHERS (Init Form)
+  // ============================================
   watch(
     () => props.visible,
     (val) => {
       if (val) {
+        submitted.value = false;
         initForm(props.clinic);
-        if (props.clinic) {
-          const parts = (address.value || '').split(',').map((p) => p.trim());
-          if (parts.length > 0) {
-            if (parts.length >= 1) splitCountry.value = parts.pop() || '';
-            if (parts.length >= 1) {
-              const part = parts.pop() || '';
-              if (/^[\d\w\s-]{3,10}$/.test(part) && parts.length > 0) {
-                splitPostalCode.value = part;
-                if (parts.length >= 1) splitCity.value = parts.pop() || '';
-              } else {
-                splitCity.value = part;
-              }
-            }
-            if (parts.length >= 1) splitStreet.value = parts.join(', ');
-          }
+
+        // Parse Address String into fields
+        if (props.clinic?.address) {
+          const parts = props.clinic.address.split(',').map((p) => p.trim());
+
+          // Simple right-to-left parsing assumption
+          if (parts.length >= 1) splitPostalCode.value = parts.pop() || '';
+          if (parts.length >= 1) splitCountry.value = parts.pop() || '';
+          if (parts.length >= 1) splitCity.value = parts.pop() || '';
+          if (parts.length >= 1) splitStreet.value = parts.join(', ');
+        } else {
+          splitStreet.value = '';
+          splitCity.value = '';
+          splitPostalCode.value = '';
+          splitCountry.value = '';
         }
       } else {
         initForm(null);
         errors.value = {};
-        showDealMode.value = false;
-        splitStreet.value = '';
-        splitCity.value = '';
-        splitPostalCode.value = '';
-        splitCountry.value = '';
-        activeTab.value = '0';
       }
     },
   );
 </script>
 
 <style scoped>
-  .modern-tablist {
-    display: flex;
-    gap: 8px;
-    border: none !important;
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
   }
-  .tab-item {
-    border: none !important;
-    background: transparent !important;
-    padding: 10px 16px !important;
-    border-radius: 8px !important;
-    color: #64748b !important;
-    font-weight: 600;
-    cursor: pointer;
-    position: relative;
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
   }
-  .tab-item.p-tab-active {
-    background: rgba(var(--primary-500-rgb), 0.1) !important;
-    color: var(--primary-600) !important;
-  }
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
-  }
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--p-surface-300);
+    border-radius: 10px;
   }
 </style>

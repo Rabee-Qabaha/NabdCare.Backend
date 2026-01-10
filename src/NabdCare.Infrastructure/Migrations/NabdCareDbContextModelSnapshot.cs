@@ -108,7 +108,8 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Address")
-                        .HasColumnType("text");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uuid");
@@ -125,6 +126,13 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -133,10 +141,12 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Phone")
-                        .HasColumnType("text");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -146,9 +156,11 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicId");
+                    b.HasIndex("ClinicId")
+                        .IsUnique()
+                        .HasFilter("\"IsMain\" = true AND \"IsDeleted\" = false");
 
-                    b.ToTable("Branches");
+                    b.ToTable("Branches", (string)null);
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Clinic", b =>
@@ -1150,7 +1162,7 @@ namespace NabdCare.Infrastructure.Migrations
             modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Branch", b =>
                 {
                     b.HasOne("NabdCare.Domain.Entities.Clinics.Clinic", "Clinic")
-                        .WithMany()
+                        .WithMany("Branches")
                         .HasForeignKey("ClinicId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1203,13 +1215,13 @@ namespace NabdCare.Infrastructure.Migrations
                     b.HasOne("NabdCare.Domain.Entities.Clinics.Clinic", "Clinic")
                         .WithMany()
                         .HasForeignKey("ClinicId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("NabdCare.Domain.Entities.Subscriptions.Subscription", "Subscription")
                         .WithMany("Invoices")
                         .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Clinic");
@@ -1370,6 +1382,8 @@ namespace NabdCare.Infrastructure.Migrations
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Clinics.Clinic", b =>
                 {
+                    b.Navigation("Branches");
+
                     b.Navigation("Subscriptions");
                 });
 

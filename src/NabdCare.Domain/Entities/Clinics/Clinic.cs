@@ -25,9 +25,9 @@ public class Clinic : BaseEntity
     // ⚙️ Configuration (New - Mapped to JSONB)
     // ==========================================
     public ClinicSettings Settings { get; set; } = new();
+    public int BranchCount { get; set; } = 1;
 
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
     public ICollection<Subscription>? Subscriptions { get; set; } = new List<Subscription>();
-
-    public int BranchCount { get; set; } = 1;
+    public virtual ICollection<Branch> Branches { get; set; } = new List<Branch>();
 }

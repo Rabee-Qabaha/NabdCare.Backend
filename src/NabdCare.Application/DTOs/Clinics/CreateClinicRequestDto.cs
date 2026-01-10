@@ -1,4 +1,4 @@
-using NabdCare.Domain.Enums;
+using NabdCare.Application.DTOs.Clinics;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Clinics;
@@ -6,11 +6,13 @@ namespace NabdCare.Application.DTOs.Clinics;
 [ExportTsClass]
 public class CreateClinicRequestDto
 {
+    // ==========================================
+    // 🆔 Identity
+    // ==========================================
     public string Name { get; set; } = string.Empty;
     
     /// <summary>
-    /// Unique URL-safe identifier for the clinic (e.g., 'ramallah-clinic').
-    /// Used for subdomains: ramallah-clinic.nabdcare.com
+    /// Unique URL-safe identifier (e.g., 'ramallah-clinic').
     /// </summary>
     public string Slug { get; set; } = string.Empty;
 
@@ -30,14 +32,4 @@ public class CreateClinicRequestDto
     // ⚙️ Configuration
     // ==========================================
     public ClinicSettingsDto? Settings { get; set; }
-
-    // ==========================================
-    // 💳 Subscription (Initial)
-    // ==========================================
-    public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
-    public DateTime SubscriptionStartDate { get; set; }
-    public DateTime SubscriptionEndDate { get; set; }
-    public SubscriptionType SubscriptionType { get; set; }
-    public decimal SubscriptionFee { get; set; }
-    public int BranchCount { get; set; } = 1;
 }

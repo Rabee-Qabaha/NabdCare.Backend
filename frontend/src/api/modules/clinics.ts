@@ -1,3 +1,4 @@
+// src/api/modules/clinics.ts
 import { api } from '@/api/apiClient';
 import type {
   // ✅ Import the generated DTO

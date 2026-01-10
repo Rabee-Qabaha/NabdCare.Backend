@@ -50,10 +50,12 @@
 
       <ClinicDialog v-model:visible="dialogVisible" :clinic="selectedClinic" @save="handleSave" />
 
-      <SubscriptionDialog
-        v-if="selectedClinic"
+      <SubscriptionManagerDialog
+        v-if="showSubscriptionDialog"
         v-model:visible="showSubscriptionDialog"
-        :clinic="selectedClinic"
+        :clinic-id="targetClinicId"
+        :clinic-name="targetClinicName"
+        @saved="refresh"
       />
 
       <BranchManagerDialog
@@ -70,18 +72,18 @@
 <script setup lang="ts">
   import { useClinicActions } from '@/composables/query/clinics/useClinicActions';
   import { useClinicsTable } from '@/composables/query/clinics/useClinicsTable';
-  // ✅ 1. Import Enum for Type-Safe Comparisons
   import { SubscriptionStatus, type ClinicResponseDto } from '@/types/backend';
   import { useConfirm } from 'primevue/useconfirm';
+  import { useToast } from 'primevue/usetoast';
   import { ref } from 'vue';
 
   // Components
-  import BranchManagerDialog from '@/components/Clinic/BranchManagerDialog.vue';
+  import BranchManagerDialog from '@/components/Branches/BranchManagerDialog.vue';
   import ClinicDialog from '@/components/Clinic/ClinicDialog.vue';
   import ClinicFilters from '@/components/Clinic/ClinicFilters.vue';
   import ClinicTable from '@/components/Clinic/ClinicTable.vue';
   import ClinicToolbar from '@/components/Clinic/ClinicToolbar.vue';
-  import SubscriptionDialog from '@/components/Subscription/SubscriptionDialog.vue';
+  import SubscriptionManagerDialog from '@/components/Subscription/SubscriptionManagerDialog.vue';
   import PageHeader from '@/layout/PageHeader.vue';
 
   import ConfirmDialog from 'primevue/confirmdialog';
@@ -93,12 +95,14 @@
   const includeDeleted = ref(false);
   const dialogVisible = ref(false);
   const showFilters = ref(false);
-
-  // ✅ New Dialog States
   const showSubscriptionDialog = ref(false);
   const showBranchDialog = ref(false);
 
   const selectedClinic = ref<ClinicResponseDto | null>(null);
+
+  // ✅ New Refs for Subscription context (Decouples Wizard flow from Table selection)
+  const targetClinicId = ref<string | null>(null);
+  const targetClinicName = ref<string>('');
 
   // Virtual Table Composable
   const {
@@ -126,6 +130,7 @@
   } = useClinicActions();
 
   const confirm = useConfirm();
+  const toast = useToast();
 
   // --- Handlers ---
 
@@ -144,18 +149,45 @@
     refresh();
   }
 
+  // ✅ THE WIZARD LOGIC
   async function handleSave(payload: any) {
-    if (payload.id) {
-      await updateClinicMutation.mutateAsync({ id: payload.id, data: payload });
-    } else {
-      await createClinicMutation.mutateAsync(payload);
+    try {
+      if (payload.id) {
+        // --- EDIT MODE ---
+        await updateClinicMutation.mutateAsync({ id: payload.id, data: payload });
+        dialogVisible.value = false;
+        refresh();
+      } else {
+        // --- CREATE MODE (Wizard Step 1) ---
+        // 1. Create Identity
+        const newClinic = await createClinicMutation.mutateAsync(payload);
+
+        // 2. Close Step 1
+        dialogVisible.value = false;
+
+        // 3. Prep Step 2
+        targetClinicId.value = newClinic.id;
+        targetClinicName.value = newClinic.name;
+
+        // 4. Open Step 2 (Subscription)
+        showSubscriptionDialog.value = true;
+
+        // 5. Notify & Refresh Background
+        toast.add({
+          severity: 'success',
+          summary: 'Identity Created',
+          detail: 'Please configure the subscription plan now.',
+          life: 5000,
+        });
+        refresh();
+      }
+    } catch (error) {
+      console.error('Save failed', error);
+      // Errors handled globally by mutation, but catch here to stop flow
     }
-    dialogVisible.value = false;
-    refresh();
   }
 
   function toggleStatus(clinic: ClinicResponseDto) {
-    // ✅ 2. Use Enum for Comparison (No magic numbers)
     if (clinic.status === SubscriptionStatus.Active) {
       suspendMutation.mutate(clinic.id, { onSuccess: () => refresh() });
     } else {
@@ -187,11 +219,11 @@
     });
   }
 
-  // ✅ Centralized Action Handler
+  // Centralized Action Handler
   function handleTableAction(event: { type: string; clinic: ClinicResponseDto }) {
     const { type, clinic } = event;
 
-    // Set context for whatever action we take
+    // Set context
     selectedClinic.value = clinic;
 
     switch (type) {
@@ -199,12 +231,13 @@
         openEditDialog(clinic);
         break;
 
-      // 💳 Subscription Management
       case 'manage-subscription':
+        // ✅ Populate target refs for existing clinics
+        targetClinicId.value = clinic.id;
+        targetClinicName.value = clinic.name;
         showSubscriptionDialog.value = true;
         break;
 
-      // 🌳 Branch Management
       case 'manage-branches':
         showBranchDialog.value = true;
         break;

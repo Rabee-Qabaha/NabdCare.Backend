@@ -1,40 +1,52 @@
 using FluentValidation;
 using NabdCare.Application.DTOs.Clinics;
+using NabdCare.Application.Interfaces.Clinics;
 
 namespace NabdCare.Application.Validator.clinics;
 
 public class UpdateClinicValidator : AbstractValidator<UpdateClinicRequestDto>
 {
-    public UpdateClinicValidator()
+    private readonly IClinicRepository _clinicRepository;
+
+    public UpdateClinicValidator(IClinicRepository clinicRepository)
     {
+        _clinicRepository = clinicRepository;
+
+        // ==========================================
+        // 🆔 Identity Validation
+        // ==========================================
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Clinic name is required.")
             .MaximumLength(255);
 
-        // ✅ Slug Validation (Format Only)
-        // DB Uniqueness is handled in ClinicService.UpdateClinicAsync to exclude self
         RuleFor(x => x.Slug)
             .NotEmpty().WithMessage("Subdomain is required.")
             .Length(3, 60).WithMessage("Subdomain must be between 3 and 60 characters.")
-            .Matches("^[a-z0-9-]+$").WithMessage("Subdomain can only contain lowercase letters, numbers, and hyphens.")
-            .Must(slug => !IsReservedWord(slug)).WithMessage("This subdomain is reserved and cannot be used.");
+            .Matches("^[a-z0-9-]+$").WithMessage("Subdomain: lowercase letters, numbers, and hyphens only.")
+            .Must(slug => !IsReservedWord(slug)).WithMessage("This subdomain is reserved.")
+            // Async DB Check: Ensure unique, but exclude current clinic ID is handled in Service 
+            // (Validator focuses on format here, Service handles ID exclusion logic)
+            .MustAsync(async (slug, _) => !await _clinicRepository.ExistsBySlugAsync(slug))
+            .When(x => false); // ⚠️ NOTE: Unique check excluding Self is usually best done in Service or using custom Validator context. 
+                               // For simplicity in this architecture, we let the Service handle the "Exclude Self" DB check 
+                               // and keep the Validator focused on format.
 
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email is required.")
             .EmailAddress().WithMessage("Invalid email format.")
             .MaximumLength(100);
 
-        // ✅ Phone is now REQUIRED
         RuleFor(x => x.Phone)
             .NotEmpty().WithMessage("Phone number is required.")
-            .MaximumLength(20).WithMessage("Phone number cannot exceed 20 characters.");
+            .MaximumLength(20);
 
-        // ✅ Address is now REQUIRED
         RuleFor(x => x.Address)
             .NotEmpty().WithMessage("Address is required.")
-            .MaximumLength(500).WithMessage("Address cannot exceed 500 characters.");
+            .MaximumLength(500);
 
-        // ✅ Validate URLs
+        // ==========================================
+        // 🎨 Branding Validation
+        // ==========================================
         RuleFor(x => x.Website)
             .Must(uri => Uri.TryCreate(uri, UriKind.Absolute, out _))
             .When(x => !string.IsNullOrEmpty(x.Website))
@@ -47,27 +59,12 @@ public class UpdateClinicValidator : AbstractValidator<UpdateClinicRequestDto>
             .WithMessage("Logo URL must be a valid URL.")
             .MaximumLength(500);
 
-        RuleFor(x => x.TaxNumber)
-            .MaximumLength(50);
+        RuleFor(x => x.TaxNumber).MaximumLength(50);
+        RuleFor(x => x.RegistrationNumber).MaximumLength(50);
 
-        RuleFor(x => x.RegistrationNumber)
-            .MaximumLength(50);
-
-        // Subscription Validation
-        RuleFor(x => x.SubscriptionStartDate)
-            .LessThan(x => x.SubscriptionEndDate)
-            .WithMessage("Subscription start date must be before end date.");
-
-        RuleFor(x => x.SubscriptionFee)
-            .GreaterThanOrEqualTo(0).WithMessage("Subscription fee must be non-negative.");
-        
-        RuleFor(x => x.SubscriptionType)
-            .IsInEnum().WithMessage("Invalid subscription type specified.");
-
-        RuleFor(x => x.BranchCount)
-            .GreaterThan(0).WithMessage("Branch count must be greater than zero.");
-            
-        // ✅ Validate Settings Object
+        // ==========================================
+        // ⚙️ Settings Validation
+        // ==========================================
         RuleFor(x => x.Settings).ChildRules(settings => {
             settings.RuleFor(s => s.Currency)
                 .Length(3).WithMessage("Currency must be a 3-letter ISO code (e.g. USD).")

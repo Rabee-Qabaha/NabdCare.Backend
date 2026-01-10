@@ -6,7 +6,7 @@ const SYSTEM_CURRENCY = 'USD'; // Fallback only
 
 export function formatCurrency(
   value: number | undefined | null,
-  currency: string = SYSTEM_CURRENCY, // Now respects API response currency
+  currency: string = SYSTEM_CURRENCY,
   locale: string = SYSTEM_LOCALE,
 ): string {
   if (value === undefined || value === null) return '-';
@@ -46,7 +46,11 @@ export function formatDate(
   }
 }
 
-export function formatClinicCurrency(value: number, settings?: ClinicSettingsDto | null): string {
+// ✅ UPDATED: Allow null/undefined for value
+export function formatClinicCurrency(
+  value: number | undefined | null,
+  settings?: ClinicSettingsDto | null,
+): string {
   return formatCurrency(
     value,
     settings?.currency || SYSTEM_CURRENCY,
@@ -54,7 +58,11 @@ export function formatClinicCurrency(value: number, settings?: ClinicSettingsDto
   );
 }
 
-export function formatClinicDate(date: string | Date, settings?: ClinicSettingsDto | null): string {
+// ✅ UPDATED: Allow null/undefined for date
+export function formatClinicDate(
+  date: string | Date | undefined | null,
+  settings?: ClinicSettingsDto | null,
+): string {
   return formatDate(date, settings?.locale || SYSTEM_LOCALE);
 }
 

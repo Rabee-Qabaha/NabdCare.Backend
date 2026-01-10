@@ -189,11 +189,6 @@ public async Task UpdateClinicStatus_WithInvalidClinicId_ReturnsNotFoundOrError(
             Email = "harddelete@test.com",
             Phone = "+1234567890",
             Address = "Hard Delete Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
         var createResponse = await _client.PostAsJsonAsync("/api/clinics", newClinic);
         

@@ -118,18 +118,32 @@ function mapHttpStatusToCode(status: number | undefined): string {
  * Useful for form validation
  */
 export function getFieldErrors(error: any): Record<string, string> {
-  if (!isAxiosError(error)) return {};
+  // 🔍 LOG: Debug what we received
+  console.log('🔍 [getFieldErrors] Analyzing:', error);
 
-  const details = error.response?.data?.error?.details;
-  if (!details || typeof details !== 'object') return {};
+  let details: Record<string, any> | undefined;
+
+  // CASE 1: It's a pre-processed UIError (This is what your logs show)
+  if (error && typeof error === 'object' && 'details' in error) {
+    details = error.details;
+  }
+  // CASE 2: It's a raw Axios Error (Fallback)
+  else if (isAxiosError(error)) {
+    details = error.response?.data?.error?.details;
+  }
+
+  // If no details found, return empty
+  if (!details || typeof details !== 'object') {
+    return {};
+  }
 
   const fieldErrors: Record<string, string> = {};
 
-  for (const [field, value] of Object.entries(details)) {
-    if (typeof value === 'string') {
-      fieldErrors[field] = value;
-    } else if (Array.isArray(value) && value.length > 0) {
-      fieldErrors[field] = String(value[0]);
+  for (const [key, value] of Object.entries(details)) {
+    if (Array.isArray(value) && value.length > 0) {
+      // Force camelCase (Slug -> slug)
+      const fieldName = key.charAt(0).toLowerCase() + key.slice(1);
+      fieldErrors[fieldName] = String(value[0]);
     }
   }
 

@@ -4,17 +4,6 @@ namespace NabdCare.Application.Common.Constants;
 
 /// <summary>
 /// Standard error codes used throughout the API.
-/// These help clients handle errors programmatically.
-/// 
-/// Usage:
-/// - Frontend uses these codes to show localized messages
-/// - API uses these codes to categorize errors
-/// - Logging uses these codes for filtering/searching
-/// 
-/// Example:
-/// if (response.error.code === ErrorCodes.DUPLICATE_EMAIL) {
-///   showAlert("This email is already registered");
-/// }
 /// </summary>
 [ExportTsClass(OutputDir = "constants")]
 public static class ErrorCodes
@@ -69,6 +58,8 @@ public static class ErrorCodes
     public const string DUPLICATE_RESOURCE = "DUPLICATE_RESOURCE";
     public const string RESOURCE_ALREADY_EXISTS = "RESOURCE_ALREADY_EXISTS";
     public const string CONSTRAINT_VIOLATION = "CONSTRAINT_VIOLATION";
+    public const string DUPLICATE_NAME = "DUPLICATE_NAME";
+    public const string DUPLICATE_SLUG = "DUPLICATE_SLUG";
 
     // ============================================
     // Rate Limiting (429)
@@ -83,4 +74,13 @@ public static class ErrorCodes
     public const string INVALID_OPERATION = "INVALID_OPERATION";
     public const string DATABASE_ERROR = "DATABASE_ERROR";
     public const string OPERATION_FAILED = "OPERATION_FAILED";
+    
+    // ============================================
+    // 💼 Business Logic / Subscription Rules
+    // ============================================
+    public const string SUBSCRIPTION_REQUIRED = "SUBSCRIPTION_REQUIRED";
+    public const string LIMIT_EXCEEDED = "LIMIT_EXCEEDED";
+    public const string SUBSCRIPTION_EXPIRED = "SUBSCRIPTION_EXPIRED";
+    public const string FEATURE_NOT_ENABLED = "FEATURE_NOT_ENABLED";
+    public const string ACCOUNT_SUSPENDED = "ACCOUNT_SUSPENDED";
 }

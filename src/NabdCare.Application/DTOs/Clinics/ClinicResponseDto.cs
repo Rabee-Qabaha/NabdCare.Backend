@@ -19,15 +19,19 @@ public class ClinicResponseDto
     public string? TaxNumber { get; set; }
     public string? RegistrationNumber { get; set; }
     
-    // Settings
     public ClinicSettingsDto Settings { get; set; } = new();
 
-    // Subscription
-    public SubscriptionStatus Status { get; set; }
-    public DateTime SubscriptionStartDate { get; set; }
-    public DateTime SubscriptionEndDate { get; set; }
-    public SubscriptionType SubscriptionType { get; set; }
-    public decimal SubscriptionFee { get; set; }
+    // ==========================================
+    // ⚠️ CRITICAL UPDATE: Nullable Subscription Data
+    // ==========================================
+    public SubscriptionStatus Status { get; set; } // Enum defaults to 0, which is usually 'Pending' or 'Inactive'
+    
+    // These must be nullable to correctly represent "No Subscription yet"
+    public DateTime? SubscriptionStartDate { get; set; }
+    public DateTime? SubscriptionEndDate { get; set; }
+    public SubscriptionType? SubscriptionType { get; set; }
+    public decimal? SubscriptionFee { get; set; }
+    
     public int BranchCount { get; set; }
 
     // Audit
@@ -36,7 +40,6 @@ public class ClinicResponseDto
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
     
-    // Soft Delete Info (For Recycle Bin)
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
     public string? DeletedBy { get; set; }

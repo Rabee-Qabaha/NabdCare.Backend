@@ -83,8 +83,8 @@ public class RolePermissionsSeeder : ISingleSeeder
                 // Plans & Financials (System View)
                 Permissions.Plans.View,
                 Permissions.Plans.Manage,
-                Permissions.Invoices.ViewAll, // ✅ Can see all invoices
-                Permissions.Invoices.Void,    // ✅ Can void invoices
+                Permissions.Invoices.ViewAll,
+                Permissions.Invoices.Void,
                 Permissions.Invoices.Download,
 
                 Permissions.AppPermissions.View,
@@ -120,11 +120,11 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Payments.Refund,
                 Permissions.Payments.ViewReports,
                 
-                // Invoices (Full Control)
+                // Invoices
                 Permissions.Invoices.ViewAll,
                 Permissions.Invoices.Pay,
                 Permissions.Invoices.Download,
-                Permissions.Invoices.Void, // Can void if needed
+                Permissions.Invoices.Void,
                 
                 Permissions.Reports.ViewFinancialReports
             });
@@ -141,14 +141,14 @@ public class RolePermissionsSeeder : ISingleSeeder
                 // Clinic Management
                 Permissions.Clinic.View,
                 Permissions.Clinic.Edit,
-                Permissions.Clinic.ManageBranches,
 
-                // Branches
+                // 🌳 BRANCHES (Updated with new Actions)
                 Permissions.Branches.View,
                 Permissions.Branches.Create, 
                 Permissions.Branches.Edit,
                 Permissions.Branches.Delete,
-                Permissions.Branches.ManageSettings,
+                Permissions.Branches.ToggleStatus, // ✅ NEW
+                Permissions.Branches.SetMain,      // ✅ NEW
 
                 // Subscriptions & Billing
                 Permissions.Subscriptions.View,
@@ -157,9 +157,9 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Plans.View, 
                 
                 // Invoices (Own Clinic)
-                Permissions.Invoices.View,     // ✅ Can view own
-                Permissions.Invoices.Pay,      // ✅ Can pay own
-                Permissions.Invoices.Download, // ✅ Can download own
+                Permissions.Invoices.View,
+                Permissions.Invoices.Pay,
+                Permissions.Invoices.Download,
 
                 // Users
                 Permissions.Users.View,
@@ -180,7 +180,7 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Appointments.View,
                 Permissions.Appointments.Create,
                 
-                // Payments (Patient Payments)
+                // Payments
                 Permissions.Payments.View,
                 Permissions.Payments.Create,
                 Permissions.Reports.ViewDashboard
@@ -223,8 +223,6 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Patients.View,
                 Permissions.Patients.Create,
                 Permissions.Patients.Edit,
-                
-                // Payments (Front Desk often takes co-pays)
                 Permissions.Payments.View,
                 Permissions.Payments.Create,
                 Permissions.Payments.Process

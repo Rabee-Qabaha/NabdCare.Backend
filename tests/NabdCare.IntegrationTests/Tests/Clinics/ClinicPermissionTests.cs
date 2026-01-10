@@ -147,12 +147,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "newclinic@test.com",
             Phone = "+1234567890",
             Address = "123 New Street",
-            // ✅ ADDED: Required fields
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
 
         var response = await _client.PostAsJsonAsync("/api/clinics", newClinic);
@@ -170,11 +164,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "unauthorized@test.com",
             Phone = "+1234567890",
             Address = "Unauthorized Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
 
         var response = await _client.PostAsJsonAsync("/api/clinics", newClinic);
@@ -192,11 +181,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "doctor@test.com",
             Phone = "+1234567890",
             Address = "Doctor Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
 
         var response = await _client.PostAsJsonAsync("/api/clinics", newClinic);
@@ -218,12 +202,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "updated@test.com",
             Phone = "+9876543210",
             Address = "Updated Address",
-            // ✅ ADDED: Required fields
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 15000m,
-            BranchCount = 2
         };
 
         var response = await _client.PutAsJsonAsync($"/api/clinics/{_factory.ClinicId}", updateDto);
@@ -241,11 +219,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "clinicadmin@test.com",
             Phone = "+1111111111",
             Address = "Admin Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 2
         };
 
         var response = await _client.PutAsJsonAsync($"/api/clinics/{_factory.ClinicId}", updateDto);
@@ -263,11 +236,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "hacked@test.com",
             Phone = "+0000000000",
             Address = "Hacked Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
 
         var response = await _client.PutAsJsonAsync($"/api/clinics/{_factory.ClinicId}", updateDto);
@@ -290,11 +258,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "todelete@test.com",
             Phone = "+1234567890",
             Address = "Delete Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
         var createResponse = await _client.PostAsJsonAsync("/api/clinics", newClinic);
         var created = await createResponse.Content.ReadFromJsonAsync<ClinicResponseDto>();
@@ -356,11 +319,6 @@ public class ClinicPermissionTests : IClassFixture<NabdCareWebApplicationFactory
             Email = "tosuspend@test.com",
             Phone = "+1234567890",
             Address = "Suspend Address",
-            SubscriptionStartDate = DateTime.UtcNow,
-            SubscriptionEndDate = DateTime.UtcNow.AddYears(1),
-            SubscriptionType = SubscriptionType.Yearly,
-            SubscriptionFee = 12000m,
-            BranchCount = 1
         };
         var createResponse = await _client.PostAsJsonAsync("/api/clinics", newClinic);
         var created = await createResponse.Content.ReadFromJsonAsync<ClinicResponseDto>();

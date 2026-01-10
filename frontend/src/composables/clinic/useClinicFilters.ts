@@ -1,3 +1,4 @@
+// src/composables/clinic/useClinicFilters.ts
 import type { ClinicResponseDto } from '@/types/backend';
 import { computed, reactive, type Ref } from 'vue';
 

@@ -1,3 +1,4 @@
+// src/api/modules/subscriptions.ts
 import { api } from '@/api/apiClient';
 import type {
   CreateSubscriptionRequestDto,

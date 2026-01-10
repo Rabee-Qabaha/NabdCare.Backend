@@ -37,4 +37,9 @@ export class ErrorCodes {
   static readonly iNVALID_OPERATION: string = "INVALID_OPERATION";
   static readonly dATABASE_ERROR: string = "DATABASE_ERROR";
   static readonly oPERATION_FAILED: string = "OPERATION_FAILED";
+  static readonly sUBSCRIPTION_REQUIRED: string = "SUBSCRIPTION_REQUIRED";
+  static readonly lIMIT_EXCEEDED: string = "LIMIT_EXCEEDED";
+  static readonly sUBSCRIPTION_EXPIRED: string = "SUBSCRIPTION_EXPIRED";
+  static readonly fEATURE_NOT_ENABLED: string = "FEATURE_NOT_ENABLED";
+  static readonly aCCOUNT_SUSPENDED: string = "ACCOUNT_SUSPENDED";
 }

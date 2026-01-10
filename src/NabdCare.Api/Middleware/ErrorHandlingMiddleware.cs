@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using FluentValidation; // Needed for ValidationException
 using NabdCare.Application.Common.Constants;
+using NabdCare.Application.Common.Exceptions; // Needed for DomainException
 using NabdCare.Application.DTOs.Common;
 
 namespace NabdCare.Api.Middleware;
@@ -24,7 +26,16 @@ public class ErrorHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception: {ExceptionType} - {Message}", ex.GetType().Name, ex.Message);
+            // Only log 500s as Errors. Business logic errors (400) are Warnings/Info.
+            if (ex is DomainException || ex is ValidationException)
+            {
+                _logger.LogWarning("Business Rule Exception: {Message}", ex.Message);
+            }
+            else
+            {
+                _logger.LogError(ex, "Unhandled exception: {ExceptionType} - {Message}", ex.GetType().Name, ex.Message);
+            }
+            
             await HandleExceptionAsync(context, ex);
         }
     }
@@ -33,28 +44,26 @@ public class ErrorHandlingMiddleware
     {
         context.Response.ContentType = "application/json";
         
-        // Generate Trace ID for debugging
         var traceId = context.TraceIdentifier ?? Guid.NewGuid().ToString("N");
         context.Response.Headers["X-Trace-Id"] = traceId;
 
-        // Check environment
         var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-        // Map Exception
-        var (statusCode, message, code, type) = MapException(exception);
+        // Map the Exception
+        var mapping = MapException(exception);
 
-        context.Response.StatusCode = statusCode;
+        context.Response.StatusCode = mapping.StatusCode;
 
         var response = new ApiErrorResponse
         {
             Error = new ErrorResponseDto
             {
-                Message = message,
-                Code = code,
-                Type = type,
-                StatusCode = statusCode,
+                Message = mapping.Message,
+                Code = mapping.Code,
+                Type = mapping.Type,
+                StatusCode = mapping.StatusCode,
                 TraceId = traceId,
-                // Only show StackTrace in Dev; 'Details' can be used for specific validation errors if needed
+                Details = mapping.Details, // ✅ Pass field errors to frontend
                 StackTrace = isDevelopment ? exception.StackTrace : null
             }
         };
@@ -68,58 +77,66 @@ public class ErrorHandlingMiddleware
         await context.Response.WriteAsJsonAsync(response, options);
     }
 
-    private static (int StatusCode, string Message, string Code, string Type) MapException(Exception exception)
+    private static (int StatusCode, string Message, string Code, string Type, Dictionary<string, string[]>? Details) MapException(Exception exception)
     {
+        // 1. FluentValidation Errors (Automatic from Validator classes)
+        if (exception is ValidationException validationEx)
+        {
+            var errors = validationEx.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(
+                    g => JsonNamingPolicy.CamelCase.ConvertName(g.Key), 
+                    g => g.Select(e => e.ErrorMessage).ToArray()
+                );
+
+            return (
+                StatusCodes.Status400BadRequest, 
+                "Validation failed", 
+                ErrorCodes.VALIDATION_ERROR, 
+                "ValidationError", 
+                errors
+            );
+        }
+
+        // 2. Domain Exceptions (Manual Business Rules)
+        if (exception is DomainException domainEx)
+        {
+            Dictionary<string, string[]>? details = null;
+            
+            // If the error targets a specific field (e.g., TargetField="Name"), map it so frontend highlights the input
+            if (!string.IsNullOrEmpty(domainEx.TargetField))
+            {
+                details = new Dictionary<string, string[]> 
+                { 
+                    { JsonNamingPolicy.CamelCase.ConvertName(domainEx.TargetField), new[] { domainEx.Message } } 
+                };
+            }
+
+            return (
+                StatusCodes.Status400BadRequest, 
+                domainEx.Message, 
+                domainEx.ErrorCode, 
+                "BusinessRuleViolation", 
+                details
+            );
+        }
+
+        // 3. Standard System Exceptions
         return exception switch
         {
-            // 401: Authentication Issues
-            UnauthorizedAccessException => (
-                StatusCodes.Status401Unauthorized,
-                "Authentication failed. You do not have permission to access this resource.",
-                ErrorCodes.UNAUTHORIZED,
-                "Unauthorized"
-            ),
-
-            // 404: Not Found
-            KeyNotFoundException => (
-                StatusCodes.Status404NotFound,
-                exception.Message, // Safe to show "User not found", "Clinic not found"
-                ErrorCodes.NOT_FOUND,
-                "NotFound"
-            ),
-
-            // 409: Conflicts (Duplicates)
-            InvalidOperationException when exception.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) => (
-                StatusCodes.Status409Conflict,
-                exception.Message, // Show "Email already exists"
-                ErrorCodes.DUPLICATE_RESOURCE,
-                "Conflict"
-            ),
-
-            // ✅ 400: Business Rule Violations (Subscription Limits, Logic Errors)
-            // We change this from 500 -> 400 because these are logic checks the user can fix/understand.
-            InvalidOperationException => (
-                StatusCodes.Status400BadRequest,
-                exception.Message,
-                ErrorCodes.INVALID_OPERATION,
-                "BusinessRuleViolation"
-            ),
-
-            // 400: Bad Arguments
-            ArgumentException => (
-                StatusCodes.Status400BadRequest,
-                exception.Message,
-                ErrorCodes.INVALID_ARGUMENT,
-                "BadRequest"
-            ),
-
-            // 500: Everything else (Database crashes, NullReference, etc.)
-            _ => (
-                StatusCodes.Status500InternalServerError,
-                "An unexpected error occurred. Please try again later.", // Hide internal details
-                ErrorCodes.INTERNAL_ERROR,
-                "InternalServerError"
-            )
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Authentication failed.", ErrorCodes.UNAUTHORIZED, "Unauthorized", null),
+            
+            KeyNotFoundException => (StatusCodes.Status404NotFound, exception.Message, ErrorCodes.NOT_FOUND, "NotFound", null),
+            
+            // Catch generic "Already Exists" if not using DomainException
+            InvalidOperationException when exception.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) 
+                => (StatusCodes.Status409Conflict, exception.Message, ErrorCodes.DUPLICATE_RESOURCE, "Conflict", null),
+            
+            // Generic Invalid Operation
+            InvalidOperationException => (StatusCodes.Status400BadRequest, exception.Message, ErrorCodes.INVALID_OPERATION, "BadRequest", null),
+            
+            // 500 Fallback
+            _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred.", ErrorCodes.INTERNAL_ERROR, "InternalServerError", null)
         };
     }
 }

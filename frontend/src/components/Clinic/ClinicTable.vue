@@ -1,3 +1,4 @@
+// src/components/Clinic/ClinicTable.vue
 <template>
   <div class="card p-0 border-0 shadow-none h-full">
     <DataTable
@@ -238,15 +239,16 @@
 
   const StatusConfig: Record<
     string,
-    { severity: 'success' | 'warn' | 'danger' | 'info' | 'secondary' }
+    { severity: 'success' | 'warn' | 'danger' | 'info' | 'secondary' | 'contrast' }
   > = {
     [SubscriptionStatus.Active]: { severity: 'success' },
+    [SubscriptionStatus.Inactive]: { severity: 'warn' },
     [SubscriptionStatus.Expired]: { severity: 'danger' },
     [SubscriptionStatus.Cancelled]: { severity: 'secondary' },
-    [SubscriptionStatus.Suspended]: { severity: 'warn' },
+    [SubscriptionStatus.Suspended]: { severity: 'danger' },
     [SubscriptionStatus.Trial]: { severity: 'info' },
     [SubscriptionStatus.PastDue]: { severity: 'warn' },
-    [SubscriptionStatus.Future]: { severity: 'info' },
+    [SubscriptionStatus.Future]: { severity: 'contrast' },
   };
 
   const onLazyLoad = (e: any) => emit('lazy-load', e);

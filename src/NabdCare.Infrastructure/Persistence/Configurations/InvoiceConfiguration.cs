@@ -17,9 +17,9 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.HasIndex(i => i.SubscriptionId);
         builder.HasIndex(i => i.IssueDate);
         
-        // ✅ 2025: New Indexes
-        builder.HasIndex(i => i.IdempotencyKey).IsUnique(); // Prevent duplicates
-        builder.HasIndex(i => i.Currency); // For reporting
+        // New Indexes
+        builder.HasIndex(i => i.IdempotencyKey).IsUnique(); 
+        builder.HasIndex(i => i.Currency); 
 
         // 💰 Precision
         builder.Property(i => i.SubTotal).HasPrecision(18, 2);
@@ -28,7 +28,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.TotalAmount).HasPrecision(18, 2);
         builder.Property(i => i.PaidAmount).HasPrecision(18, 2);
 
-        // ✅ 2025: New Fields Configuration
+        // Fields Configuration
         builder.Property(i => i.Currency)
             .IsRequired()
             .HasMaxLength(3)
@@ -39,15 +39,20 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.IdempotencyKey).HasMaxLength(100);
 
         // 🔒 Relationships
+
+        // ⚠️ FIX 1: Allow Cascade Delete for Clinic
+        // When Clinic is deleted -> Delete its Invoices
         builder.HasOne(i => i.Clinic)
             .WithMany()
             .HasForeignKey(i => i.ClinicId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade); 
 
+        // ⚠️ FIX 2: Allow Cascade Delete for Subscription
+        // When Subscription is deleted (e.g. via Clinic cascade) -> Delete its Invoices
         builder.HasOne(i => i.Subscription)
             .WithMany(s => s.Invoices)
             .HasForeignKey(i => i.SubscriptionId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(i => i.Items)
             .WithOne(item => item.Invoice)

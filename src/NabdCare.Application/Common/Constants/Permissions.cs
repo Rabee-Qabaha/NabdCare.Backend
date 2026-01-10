@@ -51,7 +51,6 @@ public static class Permissions
         public const string Edit = "Clinic.Edit";
         public const string ViewSettings = "Clinic.ViewSettings";
         public const string EditSettings = "Clinic.EditSettings";
-        public const string ManageBranches = "Clinic.ManageBranches";
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
@@ -59,7 +58,6 @@ public static class Permissions
             [Edit] = "Edit clinic details and contact information",
             [ViewSettings] = "View clinic configuration settings",
             [EditSettings] = "Modify clinic configuration settings",
-            [ManageBranches] = "Add, edit, or remove clinic branches"
         };
     }
 
@@ -123,15 +121,17 @@ public static class Permissions
         public const string Create = "Branches.Create";
         public const string Edit = "Branches.Edit";
         public const string Delete = "Branches.Delete";
-        public const string ManageSettings = "Branches.ManageSettings"; // Branch-specific settings
+        public const string ToggleStatus = "Branches.ToggleStatus"; 
+        public const string SetMain = "Branches.SetMain"; 
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
             [View] = "View clinic branches",
             [Create] = "Create new branches (subject to subscription limits)",
-            [Edit] = "Edit branch details",
-            [Delete] = "Delete/Close branches",
-            [ManageSettings] = "Manage branch-specific configurations"
+            [Edit] = "Edit branch details (Name, Address, Contact)",
+            [Delete] = "Delete branches (cannot delete Main branch)",
+            [ToggleStatus] = "Open or Close (Activate/Deactivate) a branch",
+            [SetMain] = "Promote a branch to be the Main HQ"
         };
     }
     

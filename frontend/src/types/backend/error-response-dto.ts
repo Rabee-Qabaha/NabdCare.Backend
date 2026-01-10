@@ -9,6 +9,6 @@ export class ErrorResponseDto {
   type: string = "";
   statusCode: number;
   traceId: string = "";
-  details: Object;
+  details: { [key: string]: string[]; };
   stackTrace: string;
 }
