@@ -6,8 +6,8 @@ using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Subscriptions;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Subscriptions;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Constants;
-using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Api.Endpoints;
@@ -19,29 +19,39 @@ public static class SubscriptionEndpoints
         var group = app.MapGroup("/subscriptions").WithTags("Subscriptions");
 
         // ============================================
-        // 🆕 GET AVAILABLE PLANS (Product Catalog)
+        // 🆕 GET AVAILABLE PLANS (Public/Authenticated)
         // ============================================
         group.MapGet("/plans", () => Results.Ok(SubscriptionPlans.All))
-            .RequireAuthorization() // Accessible to any authenticated user
+            .RequireAuthorization()
             .WithName("GetSubscriptionPlans")
-            .WithSummary("Get list of available subscription plans")
             .Produces<IEnumerable<PlanDefinition>>(StatusCodes.Status200OK);
 
         // ============================================
-        // 🔹 GET SUBSCRIPTION BY ID
+        // 🔹 GET SUBSCRIPTION BY ID (Hybrid)
         // ============================================
         group.MapGet("/{id:guid}", async (
             Guid id,
-            [FromServices] ISubscriptionService service) =>
+            [FromServices] ISubscriptionService service,
+            [FromServices] ITenantContext tenant,
+            [FromServices] IPermissionEvaluator perms) =>
         {
-            var subscription = await service.GetByIdAsync(id);
-            return subscription != null
-                ? Results.Ok(subscription)
-                : Results.NotFound(new { Error = $"Subscription {id} not found" });
+            // 1. Fetch
+            var sub = await service.GetByIdAsync(id, includePayments: false);
+            if (sub == null) return Results.NotFound();
+
+            // 2. 🔐 Security: System Admin OR Owner
+            var isSystem = tenant.IsSuperAdmin;
+            var isOwner = tenant.ClinicId == sub.ClinicId;
+
+            if (!isSystem && !isOwner) return Results.Forbid();
+            
+            // If Owner, must have View permission
+            if (isOwner && !await perms.HasAsync(Permissions.Subscriptions.View))
+                return Results.Forbid();
+
+            return Results.Ok(sub);
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Subscriptions.View)
-        .WithAbac<Subscription>(Permissions.Subscriptions.View, "view", r => r as Subscription)
         .WithName("GetSubscriptionById")
         .Produces<SubscriptionResponseDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
@@ -53,19 +63,20 @@ public static class SubscriptionEndpoints
         group.MapGet("/clinic/{clinicId:guid}/active", async (
                 Guid clinicId,
                 [FromServices] ISubscriptionService service,
-                [FromServices] ITenantContext tenantContext) =>
+                [FromServices] ITenantContext tenant,
+                [FromServices] IPermissionEvaluator perms) =>
             {
-                // Security Check
-                if (!tenantContext.IsSuperAdmin && tenantContext.ClinicId != clinicId)
+                // 🔐 Security: System Admin OR Specific Clinic Owner
+                if (!tenant.IsSuperAdmin && tenant.ClinicId != clinicId)
                     return Results.Forbid();
+
+                if (!tenant.IsSuperAdmin && !await perms.HasAsync(Permissions.Subscriptions.ViewActive))
+                     return Results.Forbid();
 
                 var active = await service.GetActiveSubscriptionAsync(clinicId);
 
-                // 🛑 CHANGE HERE: Return 200 OK with null instead of 404 NotFound
-                if (active == null)
-                {
-                    return Results.Ok<object?>(null);
-                }
+                // Frontend preference: 200 OK with null if no active plan
+                if (active == null) return Results.Ok<object?>(null);
 
                 var daysRemaining = (active.EndDate - DateTime.UtcNow).Days;
 
@@ -78,10 +89,7 @@ public static class SubscriptionEndpoints
                 });
             })
             .RequireAuthorization()
-            .RequirePermission(Permissions.Subscriptions.ViewActive)
-            .WithName("GetActiveSubscriptionForClinic")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status403Forbidden);
+            .WithName("GetActiveSubscriptionForClinic");
 
         // ============================================
         // 🔹 GET SUBSCRIPTIONS BY CLINIC (HISTORY)
@@ -89,187 +97,199 @@ public static class SubscriptionEndpoints
         group.MapGet("/clinic/{clinicId:guid}", async (
                 Guid clinicId,
                 [FromServices] ISubscriptionService service,
-                [FromServices] ITenantContext tenantContext,
+                [FromServices] ITenantContext tenant,
+                [FromServices] IPermissionEvaluator perms,
                 [AsParameters] PaginationRequestDto pagination,
                 [FromQuery] bool includePayments = false) =>
             {
-                if (!tenantContext.IsSuperAdmin && tenantContext.ClinicId != clinicId)
+                // 🔐 Security
+                if (!tenant.IsSuperAdmin && tenant.ClinicId != clinicId)
+                    return Results.Forbid();
+
+                if (!tenant.IsSuperAdmin && !await perms.HasAsync(Permissions.Subscriptions.View))
                     return Results.Forbid();
 
                 var result = await service.GetByClinicIdPagedAsync(clinicId, pagination, includePayments);
                 return Results.Ok(result);
             })
             .RequireAuthorization()
-            .RequirePermission(Permissions.Subscriptions.View)
-            .WithAbac<Subscription>(Permissions.Subscriptions.View, "list", r => r as Subscription)
-            .WithName("GetSubscriptionsByClinic")
-            .Produces<PaginatedResult<SubscriptionResponseDto>>(StatusCodes.Status200OK);
+            .WithName("GetSubscriptionsByClinic");
 
         // ============================================
-        // 🔹 GET ALL SUBSCRIPTIONS (SuperAdmin)
+        // 🔹 GET ALL SUBSCRIPTIONS (SuperAdmin Only)
         // ============================================
         group.MapGet("/", async (
             [AsParameters] PaginationRequestDto pagination,
             [FromServices] ISubscriptionService service,
-            [FromServices] ITenantContext tenantContext, 
+            [FromServices] ITenantContext tenant, 
             [FromQuery] bool includePayments = false) =>
         {
-            if (!tenantContext.IsSuperAdmin) return Results.Forbid();
+            // 🔐 Strict Security
+            if (!tenant.IsSuperAdmin) return Results.Forbid();
+
             var result = await service.GetAllPagedAsync(pagination, includePayments);
             return Results.Ok(result);
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Subscriptions.ViewAll)
-        .WithName("GetAllSubscriptionsPaged")
-        .Produces<PaginatedResult<SubscriptionResponseDto>>(StatusCodes.Status200OK);
+        .WithName("GetAllSubscriptionsPaged");
 
         // ============================================
-        // 🔹 CREATE SUBSCRIPTION
+        // 🔹 CREATE SUBSCRIPTION (Admin Only)
         // ============================================
         group.MapPost("/", async (
             [FromBody] CreateSubscriptionRequestDto dto,
             [FromServices] ISubscriptionService service,
             [FromServices] IValidator<CreateSubscriptionRequestDto> validator) =>
         {
+            // 1. Validate
             var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
+            if (!validation.IsValid) throw new ValidationException(validation.Errors);
 
-            try 
-            {
-                var created = await service.CreateSubscriptionAsync(dto);
-                return Results.Created($"/api/subscriptions/{created.Id}", created);
-            }
-            catch (ArgumentException ex) 
-            {
-                return Results.BadRequest(new { Error = ex.Message });
-            }
+            // 2. Create (Service handles Domain Exceptions like Clinic Not Found)
+            var created = await service.CreateSubscriptionAsync(dto);
+            return Results.Created($"/api/subscriptions/{created.Id}", created);
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Subscriptions.Create)
-        .WithAbac<Subscription>(Permissions.Subscriptions.Create, "create", r => r as Subscription)
+        .RequirePermission(Permissions.Subscriptions.Create) 
         .WithName("CreateSubscription")
-        .Produces<SubscriptionResponseDto>(StatusCodes.Status201Created)
-        .Produces(StatusCodes.Status400BadRequest);
+        .Produces<SubscriptionResponseDto>(StatusCodes.Status201Created);
 
         // ============================================
-        // 🔹 UPDATE SUBSCRIPTION
+        // 🔹 UPDATE SUBSCRIPTION (Hybrid)
         // ============================================
         group.MapPut("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateSubscriptionRequestDto dto,
             [FromServices] ISubscriptionService service,
-            [FromServices] IValidator<UpdateSubscriptionRequestDto> validator) =>
+            [FromServices] IValidator<UpdateSubscriptionRequestDto> validator,
+            [FromServices] ITenantContext tenant,
+            [FromServices] IPermissionEvaluator perms) =>
         {
-            var validation = await validator.ValidateAsync(dto);
-            if (!validation.IsValid)
-                return Results.BadRequest(new { Errors = validation.Errors.Select(e => e.ErrorMessage) });
+            // 1. Check Existence
+            var sub = await service.GetByIdAsync(id, false);
+            if (sub == null) return Results.NotFound();
 
+            // 2. 🔐 Security: System Admin OR Owner
+            var isSystem = tenant.IsSuperAdmin;
+            var isOwner = tenant.ClinicId == sub.ClinicId;
+
+            if (!isSystem && !isOwner) return Results.Forbid();
+            if (isOwner && !await perms.HasAsync(Permissions.Subscriptions.Edit))
+                return Results.Forbid();
+
+            // 3. Validation
+            var validation = await validator.ValidateAsync(dto);
+            if (!validation.IsValid) throw new ValidationException(validation.Errors);
+
+            // 4. Update
             var updated = await service.UpdateSubscriptionAsync(id, dto);
-            return updated != null
-                ? Results.Ok(updated)
-                : Results.NotFound(new { Error = $"Subscription {id} not found" });
+            return Results.Ok(updated);
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Subscriptions.Edit)
-        .WithAbac(Permissions.Subscriptions.Edit, "edit", async ctx => 
-        {
-             var svc = ctx.RequestServices.GetRequiredService<ISubscriptionService>();
-             var idStr = ctx.Request.RouteValues["id"]?.ToString();
-             return Guid.TryParse(idStr, out var sid) ? await svc.GetByIdAsync(sid) : null;
-        })
-        .WithName("UpdateSubscription")
-        .Produces<SubscriptionResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .WithName("UpdateSubscription");
 
         // ============================================
-        // 🔹 CHANGE STATUS
+        // 🔹 CHANGE STATUS (Admin Only)
         // ============================================
         group.MapPatch("/{id:guid}/status", async (
                 Guid id,
                 [FromBody] SubscriptionStatus newStatus,
                 [FromServices] ISubscriptionService service,
-                [FromServices] ITenantContext tenantContext) =>
+                [FromServices] ITenantContext tenant) =>
             {
-                if (!tenantContext.IsSuperAdmin) return Results.Forbid();
+                if (!tenant.IsSuperAdmin) return Results.Forbid();
 
                 var updated = await service.UpdateSubscriptionStatusAsync(id, newStatus);
                 return updated != null
                     ? Results.Ok(new { Message = $"Subscription {id} status changed to {newStatus}" })
-                    : Results.BadRequest(new { Error = "Failed to update status (Subscription may not exist)" });
+                    : Results.NotFound();
             })
             .RequireAuthorization()
             .RequirePermission(Permissions.Subscriptions.ChangeStatus)
-            .WithName("ChangeSubscriptionStatus")
-            .Produces(StatusCodes.Status200OK);
+            .WithName("ChangeSubscriptionStatus");
 
         // ============================================
-        // 🔹 RENEW (Admin / User?)
+        // 🔹 RENEW (Admin / Owner)
         // ============================================
         group.MapPost("/{id:guid}/renew", async (
                 Guid id,
                 [FromQuery] SubscriptionType type,
                 [FromServices] ISubscriptionService service,
-                [FromServices] ITenantContext tenantContext) =>
+                [FromServices] ITenantContext tenant,
+                [FromServices] IPermissionEvaluator perms) =>
             {
-                if (!tenantContext.IsSuperAdmin) return Results.Forbid();
+                // 1. Check
+                var sub = await service.GetByIdAsync(id, false);
+                if (sub == null) return Results.NotFound();
 
-                try
-                {
-                    var renewed = await service.RenewSubscriptionAsync(id, type);
-                    return Results.Ok(new { Message = "Renewed successfully", Subscription = renewed });
-                }
-                catch (KeyNotFoundException)
-                {
-                    return Results.NotFound(new { Error = "Subscription not found" });
-                }
-                catch (InvalidOperationException ex)
-                {
-                    // ✅ Handle "Already Queued" gracefully (Conflict)
-                    return Results.Conflict(new { Error = ex.Message });
-                }
+                // 2. 🔐 Security
+                var isSystem = tenant.IsSuperAdmin;
+                var isOwner = tenant.ClinicId == sub.ClinicId;
+
+                if (!isSystem && !isOwner) return Results.Forbid();
+                if (isOwner && !await perms.HasAsync(Permissions.Subscriptions.Renew))
+                    return Results.Forbid();
+
+                // 3. Execute
+                var renewed = await service.RenewSubscriptionAsync(id, type);
+                return Results.Ok(new { Message = "Renewed successfully", Subscription = renewed });
             })
             .RequireAuthorization()
-            .RequirePermission(Permissions.Subscriptions.Renew)
-            .WithName("RenewSubscription")
-            .Produces<SubscriptionResponseDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status409Conflict)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithName("RenewSubscription");
 
         // ============================================
-        // 🔹 TOGGLE AUTO-RENEW
+        // 🔹 TOGGLE AUTO-RENEW (Admin / Owner)
         // ============================================
         group.MapPatch("/{id:guid}/auto-renew", async (
                 Guid id,
                 [FromQuery] bool enable,
                 [FromServices] ISubscriptionService service,
-                [FromServices] ITenantContext tenantContext) =>
+                [FromServices] ITenantContext tenant,
+                [FromServices] IPermissionEvaluator perms) =>
             {
-                if (!tenantContext.IsSuperAdmin) return Results.Forbid();
+                var sub = await service.GetByIdAsync(id, false);
+                if (sub == null) return Results.NotFound();
+
+                var isSystem = tenant.IsSuperAdmin;
+                var isOwner = tenant.ClinicId == sub.ClinicId;
+
+                if (!isSystem && !isOwner) return Results.Forbid();
+                if (isOwner && !await perms.HasAsync(Permissions.Subscriptions.ToggleAutoRenew))
+                    return Results.Forbid();
+
                 var updated = await service.ToggleAutoRenewAsync(id, enable);
-                return updated != null ? Results.Ok(updated) : Results.NotFound();
+                return Results.Ok(updated);
             })
             .RequireAuthorization()
-            .RequirePermission(Permissions.Subscriptions.ToggleAutoRenew)
             .WithName("ToggleAutoRenew");
 
         // ============================================
-        // 🔹 CANCEL (Soft Delete Logic)
+        // 🔹 CANCEL (Hybrid)
         // ============================================
         group.MapDelete("/{id:guid}", async (
             Guid id, 
-            [FromServices] ISubscriptionService service) =>
+            [FromServices] ISubscriptionService service,
+            [FromServices] ITenantContext tenant,
+            [FromServices] IPermissionEvaluator perms) =>
         {
-            // ✅ FIX: Use CancelSubscriptionAsync (we removed SoftDelete wrapper)
+            var sub = await service.GetByIdAsync(id, false);
+            if (sub == null) return Results.NotFound();
+
+            var isSystem = tenant.IsSuperAdmin;
+            var isOwner = tenant.ClinicId == sub.ClinicId;
+
+            if (!isSystem && !isOwner) return Results.Forbid();
+            if (isOwner && !await perms.HasAsync(Permissions.Subscriptions.Cancel))
+                return Results.Forbid();
+
             var success = await service.CancelSubscriptionAsync(id);
             return success 
                 ? Results.Ok(new { Message = "Subscription cancelled successfully." }) 
                 : Results.NotFound();
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Subscriptions.Cancel)
-        .WithName("CancelSubscription")
-        .WithSummary("Cancel a subscription (stops renewal, marks as cancelled)");
+        .WithName("CancelSubscription");
 
         // ============================================
         // 🔹 HARD DELETE (Admin Only)
@@ -277,9 +297,10 @@ public static class SubscriptionEndpoints
         group.MapDelete("/{id:guid}/hard", async (
             Guid id, 
             [FromServices] ISubscriptionService service, 
-            [FromServices] ITenantContext ctx) =>
+            [FromServices] ITenantContext tenant) =>
         {
-            if (!ctx.IsSuperAdmin) return Results.Forbid();
+            if (!tenant.IsSuperAdmin) return Results.Forbid();
+
             var success = await service.DeleteSubscriptionAsync(id);
             return success 
                 ? Results.Ok(new { Message = "Subscription and all history permanently deleted." }) 

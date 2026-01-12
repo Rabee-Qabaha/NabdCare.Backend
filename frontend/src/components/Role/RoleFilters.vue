@@ -1,4 +1,3 @@
-// src/components/Role/RoleFilters.vue
 <template>
   <Drawer
     v-model:visible="visible"
@@ -8,18 +7,18 @@
   >
     <div class="flex flex-col gap-6">
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-surface-700">Role Name</label>
+        <label class="text-sm font-semibold text-surface-700">Search</label>
         <IconField>
           <InputIcon class="pi pi-search" />
-          <InputText v-model="local.name" placeholder="Search by name..." class="w-full" />
+          <InputText v-model="local.global" placeholder="Name or Description..." class="w-full" />
         </IconField>
       </div>
 
       <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-surface-700">Role Origin</label>
         <Select
-          v-model="local.isSystem"
-          :options="typeOptions"
+          v-model="local.roleOrigin"
+          :options="originOptions"
           optionLabel="label"
           optionValue="value"
           placeholder="All Origins"
@@ -124,12 +123,12 @@
   import Select from 'primevue/select';
   import { computed, reactive, watch } from 'vue';
 
-  // Updated Interface to match useRoleFilters.ts
+  // ✅ UPDATED INTERFACE to match 'useRoleFilters.ts'
   interface FilterState {
-    name: string;
-    isSystem: boolean | null;
+    global: string;
+    roleOrigin: string | null; // Changed from isSystem (boolean)
     isTemplate: boolean | null;
-    status: string | null; // 'active' | 'deleted' | 'all'
+    status: string | null;
     dateRange: Date[] | null;
   }
 
@@ -145,47 +144,44 @@
     set: (v) => emit('update:visible', v),
   });
 
+  // Local state for the drawer inputs
   const local = reactive<FilterState>({
-    name: '',
-    isSystem: null,
+    global: '',
+    roleOrigin: null,
     isTemplate: null,
     status: 'active',
     dateRange: null,
   });
 
-  // Options
-  const typeOptions = [
-    { label: 'System Roles', value: true, icon: 'pi pi-lock' },
-    { label: 'Clinic Roles', value: false, icon: 'pi pi-building' },
+  // ✅ UPDATED OPTIONS (String values for Backend DTO)
+  const originOptions = [
+    { label: 'System Roles', value: 'system', icon: 'pi pi-lock' },
+    { label: 'Clinic Roles', value: 'clinic', icon: 'pi pi-building' },
   ];
+
   const templateOptions = [
     { label: 'Templates', value: true, icon: 'pi pi-copy' },
     { label: 'Standard Roles', value: false, icon: 'pi pi-id-card' },
   ];
 
-  // Updated Status Options (3 States)
   const statusOptions = [
     { label: 'Active Only', value: 'active', icon: 'pi pi-check-circle' },
     { label: 'Deleted Only', value: 'deleted', icon: 'pi pi-trash' },
     { label: 'Show All', value: 'all', icon: 'pi pi-list' },
   ];
 
-  // Sync when opening
+  // Sync prop -> local when drawer opens
   watch(
     () => props.visible,
     (isOpen) => {
       if (isOpen) {
-        // Copy all props to local state
         Object.assign(local, props.filters);
       }
     },
   );
 
-  // =========================================
-  // ⚡ INSTANT FILTER LOGIC
-  // =========================================
+  // Instant Apply with Debounce
   let debounceTimer: any = null;
-
   watch(
     local,
     (newVal) => {
@@ -199,9 +195,9 @@
 
   const onClear = () => {
     emit('reset');
-    // Reset local state to defaults
-    local.name = '';
-    local.isSystem = null;
+    // Reset local
+    local.global = '';
+    local.roleOrigin = null;
     local.isTemplate = null;
     local.status = 'active';
     local.dateRange = null;

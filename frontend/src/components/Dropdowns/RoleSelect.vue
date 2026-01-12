@@ -3,9 +3,8 @@
   import Tag from 'primevue/tag';
   import { computed } from 'vue';
 
-  import { rolesApi } from '@/api/modules/roles';
+  import { useAllRoles } from '@/composables/query/roles/useRoles';
   import type { RoleResponseDto } from '@/types/backend';
-  import { useQuery } from '@tanstack/vue-query';
 
   const props = withDefaults(
     defineProps<{
@@ -15,50 +14,62 @@
       valueKey?: 'id' | 'name';
       showClear?: boolean;
       clinicId?: string | null;
+      // Optional: if true, filters list to only show templates
+      isTemplate?: boolean;
     }>(),
     {
       valueKey: 'id',
       showClear: true,
       clinicId: null,
+      isTemplate: undefined,
     },
   );
 
   const emit = defineEmits<{
     (e: 'update:modelValue', value: string | null): void;
+    (e: 'change', role: RoleResponseDto | null): void;
   }>();
 
   // -----------------------------------------------------------
-  // DATA FETCHING
+  // DATA FETCHING (Centralized Composable)
   // -----------------------------------------------------------
-  const rolesQuery = useQuery({
-    queryKey: ['dropdown', 'roles', props.clinicId ?? 'global'],
-    queryFn: async () => {
-      const res = await rolesApi.getAll({
-        clinicId: props.clinicId,
-        includeDeleted: false,
-      });
-      return res.data || [];
-    },
-    staleTime: 1000 * 60 * 5,
+  const {
+    data: rolesData,
+    isLoading,
+    isError,
+  } = useAllRoles({
+    // Pass as computed so the query reacts to prop changes
+    clinicId: computed(() => props.clinicId),
+    isTemplate: props.isTemplate,
   });
 
-  const roles = computed(() => rolesQuery.data.value ?? []);
+  const roles = computed(() => rolesData.value ?? []);
 
   const selectedRole = computed(() => {
     if (!props.modelValue) return null;
     return roles.value.find((r) => r[props.valueKey] === props.modelValue) ?? null;
   });
 
+  // -----------------------------------------------------------
+  // UI HELPERS
+  // -----------------------------------------------------------
   function getRoleSeverity(role: RoleResponseDto) {
-    if (role.isSystemRole) return 'warn';
-    if (role.isTemplate) return 'info';
-    return 'success';
+    if (role.isSystemRole) return 'warn'; // System = Orange/Yellow
+    if (role.isTemplate) return 'info'; // Template = Blue
+    return 'success'; // Clinic/Standard = Green
   }
 
   function getRoleLabel(role: RoleResponseDto) {
     if (role.isSystemRole) return 'System';
-    if (role.isTemplate) return 'Clinic';
+    if (role.isTemplate) return 'Template';
     return 'Clinic';
+  }
+
+  function handleChange(newValue: string | null) {
+    emit('update:modelValue', newValue);
+
+    const roleObj = roles.value.find((r) => r[props.valueKey] === newValue) || null;
+    emit('change', roleObj);
   }
 </script>
 
@@ -66,15 +77,15 @@
   <div class="w-full">
     <Select
       :modelValue="modelValue"
-      @update:modelValue="emit('update:modelValue', $event)"
+      @update:modelValue="handleChange"
       :options="roles"
       optionLabel="name"
       :optionValue="valueKey"
-      :loading="rolesQuery.isLoading.value"
+      :loading="isLoading"
       filter
       filterPlaceholder="Search roles..."
       :invalid="invalid"
-      :disabled="rolesQuery.isError.value"
+      :disabled="isError"
       :showClear="showClear"
       :placeholder="placeholder || 'Select a Role'"
       class="w-full"
@@ -132,9 +143,10 @@
 
           <div
             class="text-xs text-surface-500 dark:text-surface-400 truncate pl-8 opacity-80 w-full"
+            v-if="option.description"
             v-tooltip.bottom="option.description"
           >
-            {{ option.description || 'No description' }}
+            {{ option.description }}
           </div>
         </div>
       </template>

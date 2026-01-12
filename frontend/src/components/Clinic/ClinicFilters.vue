@@ -1,4 +1,3 @@
-// src/components/Clinic/ClinicFilters.vue
 <template>
   <Drawer
     v-model:visible="visible"
@@ -7,6 +6,14 @@
     class="!w-80 md:!w-96"
   >
     <div class="flex flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-surface-700">Search</label>
+        <IconField>
+          <InputIcon class="pi pi-search" />
+          <InputText v-model="local.global" placeholder="Name, Email, or Phone..." class="w-full" />
+        </IconField>
+      </div>
+
       <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-surface-700">Status</label>
         <Select
@@ -79,16 +86,15 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2 w-full mt-4">
+      <div class="flex justify-end w-full mt-4">
         <Button
-          label="Reset"
+          label="Reset Filters"
           icon="pi pi-filter-slash"
           text
           severity="secondary"
           @click="onClear"
-          class="flex-1"
+          class="w-full"
         />
-        <Button label="Apply Filters" icon="pi pi-check" @click="onApply" class="flex-1" />
       </div>
     </template>
   </Drawer>
@@ -99,15 +105,18 @@
   import Button from 'primevue/button';
   import DatePicker from 'primevue/datepicker';
   import Drawer from 'primevue/drawer';
+  import IconField from 'primevue/iconfield';
+  import InputIcon from 'primevue/inputicon';
   import InputNumber from 'primevue/inputnumber';
+  import InputText from 'primevue/inputtext';
   import Select from 'primevue/select';
   import Tag from 'primevue/tag';
   import { computed, reactive, watch } from 'vue';
 
-  // Define the flat filter structure
   export interface ClinicFiltersState {
-    status: number | null;
-    subscriptionType: number | null;
+    global: string;
+    status: SubscriptionStatus | number | null;
+    subscriptionType: SubscriptionType | number | null;
     minBranches: number | null;
     expirationDateRange: Date[] | null;
     createdDateRange: Date[] | null;
@@ -127,6 +136,7 @@
 
   // Local state copy
   const local = reactive<ClinicFiltersState>({
+    global: '',
     status: null,
     subscriptionType: null,
     minBranches: null,
@@ -134,7 +144,6 @@
     createdDateRange: null,
   });
 
-  // Options
   const statusOptions = [
     { label: 'Active', value: SubscriptionStatus.Active, severity: 'success' },
     { label: 'Inactive', value: SubscriptionStatus.Inactive, severity: 'warn' },
@@ -158,18 +167,27 @@
     },
   );
 
-  const onApply = () => {
-    emit('apply', { ...local });
-    visible.value = false;
-  };
+  // Instant Filter Debounce
+  let debounceTimer: any = null;
+  watch(
+    local,
+    (newVal) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        emit('apply', { ...newVal });
+      }, 300);
+    },
+    { deep: true },
+  );
 
   const onClear = () => {
     emit('reset');
+    // Reset local
+    local.global = '';
     local.status = null;
     local.subscriptionType = null;
     local.minBranches = null;
     local.expirationDateRange = null;
     local.createdDateRange = null;
-    visible.value = false;
   };
 </script>

@@ -31,6 +31,8 @@ export class ErrorCodes {
   static readonly dUPLICATE_RESOURCE: string = "DUPLICATE_RESOURCE";
   static readonly rESOURCE_ALREADY_EXISTS: string = "RESOURCE_ALREADY_EXISTS";
   static readonly cONSTRAINT_VIOLATION: string = "CONSTRAINT_VIOLATION";
+  static readonly dUPLICATE_NAME: string = "DUPLICATE_NAME";
+  static readonly dUPLICATE_SLUG: string = "DUPLICATE_SLUG";
   static readonly rATE_LIMIT_EXCEEDED: string = "RATE_LIMIT_EXCEEDED";
   static readonly tOO_MANY_REQUESTS: string = "TOO_MANY_REQUESTS";
   static readonly iNTERNAL_ERROR: string = "INTERNAL_ERROR";

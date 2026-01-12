@@ -17,16 +17,16 @@ public interface IRoleService
     // ============================================
 
     /// <summary>
-    /// Get all roles accessible to current user with optional filtering.
+    /// Get all roles accessible to current user with unified filtering.
+    /// Returns a flat list (ideal for Dropdowns).
     /// </summary>
-    /// <param name="includeDeleted">Include soft-deleted roles (default: false)</param>
-    /// <param name="clinicId">Filter by specific clinic (optional)</param>
-    Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null);
+    Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync(RoleFilterRequestDto filter);
 
     /// <summary>
-    /// Get all roles accessible to current user (paginated).
+    /// Get all roles accessible to current user with unified filtering.
+    /// Returns a paginated result (ideal for Grids/Tables).
     /// </summary>
-    Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(PaginationRequestDto pagination, bool includeDeleted = false);
+    Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(RoleFilterRequestDto filter);
 
     /// <summary>
     /// Get system roles (SuperAdmin only).
@@ -37,16 +37,6 @@ public interface IRoleService
     /// Get template roles that can be cloned by clinics.
     /// </summary>
     Task<IEnumerable<RoleResponseDto>> GetTemplateRolesAsync();
-
-    /// <summary>
-    /// Get roles for a specific clinic.
-    /// </summary>
-    Task<IEnumerable<RoleResponseDto>> GetClinicRolesAsync(Guid clinicId);
-
-    /// <summary>
-    /// Get roles for a specific clinic (paginated).
-    /// </summary>
-    Task<PaginatedResult<RoleResponseDto>> GetClinicRolesPagedAsync(Guid clinicId, PaginationRequestDto pagination, bool includeDeleted = false);
 
     /// <summary>
     /// Get role by ID.
@@ -63,8 +53,9 @@ public interface IRoleService
     // ============================================
 
     Task<RoleResponseDto> CreateRoleAsync(CreateRoleRequestDto dto);
-    // Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, Guid? targetClinicId, string? newRoleName);
+    
     Task<RoleResponseDto> CloneRoleAsync(Guid templateRoleId, CloneRoleRequestDto dto);
+    
     Task<RoleResponseDto?> UpdateRoleAsync(Guid id, UpdateRoleRequestDto dto);
     
     /// <summary>

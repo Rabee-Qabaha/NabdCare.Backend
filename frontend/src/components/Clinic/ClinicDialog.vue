@@ -280,7 +280,7 @@
   const splitStreet = ref('');
   const splitCity = ref('');
   const splitPostalCode = ref('');
-  const splitCountry = ref<string | { name: string; code: string } | null>('');
+  const splitCountry = ref<string | null>(null);
 
   const {
     name,
@@ -309,25 +309,16 @@
   // ============================================
   async function onSave() {
     submitted.value = true;
-    errors.value = {}; // Reset previous errors
+    errors.value = {};
 
-    // 1. Handle Address Object/String Safety
-    let countryName = '';
-    if (
-      splitCountry.value &&
-      typeof splitCountry.value === 'object' &&
-      'name' in splitCountry.value
-    ) {
-      countryName = splitCountry.value.name;
-    } else if (typeof splitCountry.value === 'string') {
-      countryName = splitCountry.value;
-    }
+    // 1. Handle Address Construction
+    const countryName = splitCountry.value || '';
 
     address.value = [splitStreet.value, splitCity.value, splitPostalCode.value, countryName]
       .filter((p) => p && p.trim() !== '')
       .join(', ');
 
-    // 2. Frontend Validation Check
+    // 2. Frontend Validation
     const validation = validate();
     if (!validation.isValid) {
       errors.value = validation.errors;
@@ -338,9 +329,20 @@
     saving.value = true;
 
     try {
-      const payload = getFormData();
+      const rawPayload = getFormData();
 
-      // 3. Execute Mutation (await allows us to catch errors locally)
+      // 🛠️ FIX: Inject missing required DTO properties with defaults
+      const payload = {
+        ...rawPayload,
+        settings: {
+          ...rawPayload.settings,
+          dateFormat: 'YYYY-MM-DD',
+          locale: 'en-US',
+          enablePatientPortal: false,
+        },
+      };
+
+      // 3. Execute Mutation
       if (isEditMode.value && props.clinic?.id) {
         await updateClinicMutation.mutateAsync({
           id: props.clinic.id,
@@ -352,19 +354,14 @@
         toast.success('Clinic created successfully');
       }
 
-      emit('saved'); // Notify parent
+      emit('saved');
       onClose();
     } catch (err: any) {
-      // 4. Backend Error Mapping logic
       const serverErrors = getFieldErrors(err);
 
       if (Object.keys(serverErrors).length > 0) {
-        // ✅ Case A: Field Validation Errors found
-        // Assign errors to UI to turn fields red. No generic toast needed.
         errors.value = serverErrors;
       } else {
-        // ✅ Case B: General Error (Auth, 500, Network)
-        // Delegate to global handler for Toast/Redirect
         handleErrorAndNotify(err);
       }
     } finally {

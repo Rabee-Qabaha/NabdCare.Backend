@@ -6,6 +6,7 @@ import type {
   PaginatedResult,
   ResetPasswordRequestDto,
   UpdateUserRequestDto,
+  UserFilterRequestDto,
   UserResponseDto,
 } from '@/types/backend';
 import { type AxiosResponse } from 'axios';
@@ -22,14 +23,13 @@ export interface UsersPagedParams {
 const defaultPaging = { limit: 20, descending: true };
 
 export const usersApi = {
-  getPaged(params?: UsersPagedParams): Promise<AxiosResponse<PaginatedResult<UserResponseDto>>> {
+  getPaged(
+    params?: UserFilterRequestDto,
+  ): Promise<AxiosResponse<PaginatedResult<UserResponseDto>>> {
     const query = {
-      Limit: params?.limit ?? defaultPaging.limit,
-      Descending: params?.descending ?? defaultPaging.descending,
-      Cursor: params?.cursor ?? null,
-      IncludeDeleted: params?.includeDeleted ?? false,
-      Search: params?.search,
-      ClinicId: params?.clinicId,
+      ...params,
+      limit: params?.limit ?? defaultPaging.limit,
+      descending: params?.descending ?? defaultPaging.descending,
     };
 
     return api.get('/users/paged', { params: query });

@@ -17,7 +17,7 @@ export class Payment {
   patientId: string;
   patient: Patient;
   amount: number;
-  paymentDate: Date = new Date("2026-01-10T16:18:47.2685200Z");
+  paymentDate: Date = new Date("2026-01-11T22:18:22.0532900Z");
   method: PaymentMethod;
   status: PaymentStatus;
   chequeDetail: ChequePaymentDetail;

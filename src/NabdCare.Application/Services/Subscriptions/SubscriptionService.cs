@@ -22,6 +22,7 @@ public class SubscriptionService : ISubscriptionService
     private readonly IClinicRepository _clinicRepository;
     private readonly IInvoiceService _invoiceService;
     private readonly IUserContext _userContext;
+    private readonly ITenantContext _tenantContext;
     private readonly IMapper _mapper;
     private readonly ILogger<SubscriptionService> _logger;
 
@@ -30,6 +31,7 @@ public class SubscriptionService : ISubscriptionService
         IClinicRepository clinicRepository,
         IInvoiceService invoiceService,
         IUserContext userContext,
+        ITenantContext tenantContext,
         IMapper mapper,
         ILogger<SubscriptionService> logger)
     {
@@ -37,6 +39,7 @@ public class SubscriptionService : ISubscriptionService
         _clinicRepository = clinicRepository ?? throw new ArgumentNullException(nameof(clinicRepository));
         _invoiceService = invoiceService ?? throw new ArgumentNullException(nameof(invoiceService));
         _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
+        _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -46,6 +49,18 @@ public class SubscriptionService : ISubscriptionService
     // ============================================
     public async Task<SubscriptionResponseDto> CreateSubscriptionAsync(CreateSubscriptionRequestDto dto)
     {
+        // 🔐 Security: Enforce Tenant Scope
+        if (!_tenantContext.IsSuperAdmin)
+        {
+            // If not SuperAdmin, can only create for own clinic (Self-Service)
+            // Note: Endpoints usually force this, but we enforce it here too.
+            if (dto.ClinicId != _tenantContext.ClinicId)
+            {
+                _logger.LogWarning("User {UserId} tried to create subscription for another clinic {TargetClinic}", _userContext.GetCurrentUserId(), dto.ClinicId);
+                throw new UnauthorizedAccessException("You can only purchase subscriptions for your own clinic.");
+            }
+        }
+
         // 1. Validation & Setup
         var clinic = await _clinicRepository.GetEntityByIdAsync(dto.ClinicId);
         if (clinic == null) 
@@ -141,7 +156,11 @@ public class SubscriptionService : ISubscriptionService
     public async Task<SubscriptionResponseDto?> UpdateSubscriptionAsync(Guid id, UpdateSubscriptionRequestDto dto)
     {
         var sub = await _repository.GetByIdAsync(id);
-        if (sub == null) return null; // 404 Handled by Endpoint
+        if (sub == null) return null;
+
+        // 🔐 Security Check
+        if (!CanAccessSubscription(sub))
+            throw new UnauthorizedAccessException("You do not have permission to modify this subscription.");
 
         var plan = SubscriptionPlans.GetById(sub.PlanId);
         if (plan == null) 
@@ -240,6 +259,10 @@ public class SubscriptionService : ISubscriptionService
         if (oldSub == null) 
             throw new DomainException("Original subscription not found.", ErrorCodes.NOT_FOUND);
         
+        // 🔐 Security Check
+        if (!CanAccessSubscription(oldSub))
+            throw new UnauthorizedAccessException("You do not have permission to renew this subscription.");
+
         if (await _repository.HasFutureSubscriptionAsync(oldSub.ClinicId, oldSub.EndDate))
             throw new DomainException("A renewal is already queued for this subscription.", ErrorCodes.CONFLICT);
 
@@ -261,6 +284,7 @@ public class SubscriptionService : ISubscriptionService
     // ============================================
     // 4. LIFECYCLE / JOBS (Per-Item Transactions)
     // ============================================
+    // NOTE: Background jobs (System) generally bypass strict Tenant Checks since they run as System.
     
     public async Task<int> ProcessAutoRenewalsAsync(DateTime nowUtc)
     {
@@ -410,6 +434,10 @@ public class SubscriptionService : ISubscriptionService
         var sub = await _repository.GetByIdAsync(id);
         if (sub == null) return false;
 
+        // 🔐 Security Check
+        if (!CanAccessSubscription(sub))
+            throw new UnauthorizedAccessException("You do not have permission to cancel this subscription.");
+
         sub.CancelAtPeriodEnd = true;
         sub.AutoRenew = false;
         sub.CancellationReason = "User requested cancellation";
@@ -422,8 +450,12 @@ public class SubscriptionService : ISubscriptionService
 
     public async Task<SubscriptionResponseDto?> UpdateSubscriptionStatusAsync(Guid id, SubscriptionStatus status)
     {
+        if (!_tenantContext.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only SuperAdmin can manually change status.");
+
         var sub = await _repository.GetByIdAsync(id);
         if (sub == null) return null;
+        
         sub.Status = status;
         await _repository.UpdateStatusAsync(sub);
         return _mapper.Map<SubscriptionResponseDto>(sub);
@@ -433,30 +465,74 @@ public class SubscriptionService : ISubscriptionService
     {
         var sub = await _repository.GetByIdAsync(id);
         if (sub == null) return null;
+
+        // 🔐 Security Check
+        if (!CanAccessSubscription(sub))
+            throw new UnauthorizedAccessException("Permission denied.");
+
         sub.AutoRenew = enable;
         await _repository.UpdateAsync(sub);
         return _mapper.Map<SubscriptionResponseDto>(sub);
     }
 
-    public async Task<bool> DeleteSubscriptionAsync(Guid id) => await _repository.DeleteAsync(id);
+    public async Task<bool> DeleteSubscriptionAsync(Guid id)
+    {
+        if (!_tenantContext.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only SuperAdmin can permanently delete subscriptions.");
+
+        return await _repository.DeleteAsync(id);
+    }
 
     // ============================================
     // 6. QUERIES
     // ============================================
     public async Task<SubscriptionResponseDto?> GetByIdAsync(Guid id, bool includePayments)
-        => _mapper.Map<SubscriptionResponseDto>(await _repository.GetByIdAsync(id, includePayments, true));
+    {
+        var sub = await _repository.GetByIdAsync(id, includePayments, true);
+        if (sub == null) return null;
+
+        // 🔐 Security Check
+        if (!CanAccessSubscription(sub))
+            throw new UnauthorizedAccessException("You do not have permission to view this subscription.");
+
+        return _mapper.Map<SubscriptionResponseDto>(sub);
+    }
 
     public async Task<SubscriptionResponseDto?> GetActiveSubscriptionAsync(Guid clinicId)
-        => _mapper.Map<SubscriptionResponseDto>(await _repository.GetActiveByClinicIdAsync(clinicId));
+    {
+        // 🔐 Security Check
+        if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
+            throw new UnauthorizedAccessException("Access denied.");
+
+        var sub = await _repository.GetActiveByClinicIdAsync(clinicId);
+        return _mapper.Map<SubscriptionResponseDto>(sub);
+    }
 
     public async Task<PaginatedResult<SubscriptionResponseDto>> GetByClinicIdPagedAsync(Guid clinicId, PaginationRequestDto p, bool i, Func<IQueryable<Subscription>, IQueryable<Subscription>>? f)
-        => MapPaged(await _repository.GetByClinicIdPagedAsync(clinicId, p, i, f));
+    {
+        // 🔐 Security Check
+        if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
+            throw new UnauthorizedAccessException("Access denied.");
+
+        return MapPaged(await _repository.GetByClinicIdPagedAsync(clinicId, p, i, f));
+    }
 
     public async Task<PaginatedResult<SubscriptionResponseDto>> GetAllPagedAsync(PaginationRequestDto p, bool i, Func<IQueryable<Subscription>, IQueryable<Subscription>>? f)
-        => MapPaged(await _repository.GetAllPagedAsync(p, i, f));
+    {
+        if (!_tenantContext.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only SuperAdmin can view all subscriptions.");
 
+        return MapPaged(await _repository.GetAllPagedAsync(p, i, f));
+    }
+
+    // Note: GetPagedAsync (generic) should probably be protected or removed if not used by SuperAdmin only logic
     public async Task<PaginatedResult<SubscriptionResponseDto>> GetPagedAsync(PaginationRequestDto p, bool i, Func<IQueryable<Subscription>, IQueryable<Subscription>>? f)
-        => MapPaged(await _repository.GetPagedAsync(p, i, f));
+    {
+        if (!_tenantContext.IsSuperAdmin)
+             throw new UnauthorizedAccessException("Access denied.");
+             
+        return MapPaged(await _repository.GetPagedAsync(p, i, f));
+    }
 
     private PaginatedResult<SubscriptionResponseDto> MapPaged(PaginatedResult<Subscription> res)
     {
@@ -470,8 +546,15 @@ public class SubscriptionService : ISubscriptionService
     }
 
     // ============================================
-    // 7. PRIVATE HELPERS (Transactional)
+    // 7. PRIVATE HELPERS (Transactional & Security)
     // ============================================
+    
+    private bool CanAccessSubscription(Subscription sub)
+    {
+        if (_tenantContext.IsSuperAdmin) return true;
+        return sub.ClinicId == _tenantContext.ClinicId;
+    }
+
     private async Task<Subscription> ExecuteRenewalAsync(Subscription old, SubscriptionType type, DateTime start, bool isAuto)
     {
         var plan = SubscriptionPlans.GetById(old.PlanId) 

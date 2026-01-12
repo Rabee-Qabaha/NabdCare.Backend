@@ -1,19 +1,21 @@
+// src/components/Dropdowns/CountrySelect.vue
 <script setup lang="ts">
   import { COUNTRIES } from '@/constants/countries';
   import Select from 'primevue/select';
   import { computed } from 'vue';
 
   const props = defineProps<{
-    modelValue?: string;
+    modelValue?: string | null;
     placeholder?: string;
-    class?: string;
+    // ❌ REMOVED: class?: string
+    // (Let Vue handle class merging automatically)
   }>();
 
   const emit = defineEmits(['update:modelValue']);
 
   const selectedCountry = computed(() => COUNTRIES.find((c) => c.name === props.modelValue));
 
-  const onUpdate = (val: string) => {
+  const onUpdate = (val: string | null) => {
     emit('update:modelValue', val);
   };
 </script>
@@ -26,8 +28,8 @@
     optionValue="name"
     :placeholder="placeholder || 'Select a Country'"
     filter
+    showClear
     class="w-full custom-country-select"
-    :class="props.class"
     @update:modelValue="onUpdate"
   >
     <template #value="slotProps">
@@ -59,22 +61,14 @@
 </template>
 
 <style scoped>
-  /**
- * 🛠️ Visual Styling for Flags
- */
   .flag-icon {
-    width: 24px; /* Your requested size */
+    width: 24px;
     height: auto;
     border-radius: 2px;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.15);
-    /* Ensures no distortion */
     object-fit: contain;
   }
 
-  /**
- * 🛠️ Height Consistency Fix
- * Keeps the selector at standard PrimeVue height (40px / 2.5rem)
- */
   .custom-country-select :deep(.p-select-label) {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
@@ -83,7 +77,6 @@
     height: 2.5rem;
   }
 
-  /* Vertical spacing for options in the dropdown list */
   :deep(.p-select-option) {
     padding-top: 0.5rem !important;
     padding-bottom: 0.5rem !important;

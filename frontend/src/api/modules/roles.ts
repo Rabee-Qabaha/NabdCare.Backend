@@ -1,22 +1,29 @@
-// src/api/modules/roles.ts
 import { api } from '@/api/apiClient';
 import type {
   CloneRoleRequestDto,
   CreateRoleRequestDto,
-  PermissionResponseDto,
+  PaginatedResult,
+  RoleFilterRequestDto,
   RoleResponseDto,
   UpdateRoleRequestDto,
 } from '@/types/backend';
+import type { AxiosResponse } from 'axios';
 
 export const rolesApi = {
   // -----------------------------------------
   // QUERIES
   // -----------------------------------------
 
-  getAll(iparams: { includeDeleted?: boolean; clinicId?: string | null }) {
-    return api.get<RoleResponseDto[]>('/roles', {
-      params: iparams,
-    });
+  // 1. For Dropdowns (List) - Uses Unified Filter
+  getAll(params?: RoleFilterRequestDto): Promise<AxiosResponse<RoleResponseDto[]>> {
+    return api.get('/roles', { params });
+  },
+
+  // 2. For Grid (Paged) - Uses Unified Filter
+  getPaged(
+    params?: RoleFilterRequestDto,
+  ): Promise<AxiosResponse<PaginatedResult<RoleResponseDto>>> {
+    return api.get('/roles/paged', { params });
   },
 
   getSystem() {
@@ -25,10 +32,6 @@ export const rolesApi = {
 
   getTemplates() {
     return api.get<RoleResponseDto[]>('/roles/templates');
-  },
-
-  getByClinic(clinicId: string) {
-    return api.get<RoleResponseDto[]>(`/roles/clinic/${clinicId}`);
   },
 
   getById(id: string) {
@@ -68,9 +71,7 @@ export const rolesApi = {
   // -----------------------------------------
 
   getPermissions(roleId: string) {
-    // Note: Ensure backend returns PermissionResponseDto[].
-    // If backend returns string[] (IDs only), this type should be string[].
-    return api.get<PermissionResponseDto[]>(`/roles/${roleId}/permissions`);
+    return api.get<string[]>(`/roles/${roleId}/permissions`);
   },
 
   assignPermission(roleId: string, permissionId: string) {

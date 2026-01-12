@@ -171,10 +171,14 @@ public class PermissionEvaluator : IPermissionEvaluator
 
         if (typeof(TResource) == typeof(Role))
         {
-            _logger.LogDebug("Applying clinic filter to roles query. Clinic: {ClinicId}", _tenant.ClinicId);
+            _logger.LogDebug("Applying tenant visibility filter to roles. Clinic: {ClinicId}", _tenant.ClinicId);
 
             var filtered = query.Cast<Role>()
-                .Where(r => r.ClinicId == _tenant.ClinicId)
+                .Where(r => 
+                    r.ClinicId == _tenant.ClinicId || 
+                    r.IsSystemRole || 
+                    r.IsTemplate
+                )
                 .Cast<TResource>();
 
             return filtered;

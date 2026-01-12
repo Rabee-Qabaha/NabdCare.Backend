@@ -1,4 +1,5 @@
 ﻿using NabdCare.Application.DTOs.Pagination;
+using NabdCare.Application.DTOs.Users;
 using NabdCare.Domain.Entities.Users;
 
 namespace NabdCare.Application.Interfaces.Users;
@@ -36,9 +37,7 @@ public interface IUserRepository
     /// Cursor-based pagination for high scalability.
     /// </summary>
     Task<PaginatedResult<User>> GetAllPagedAsync(
-        int limit,
-        string? cursor,
-        bool includeDeleted = false,
+        UserFilterRequestDto filter,
         Func<IQueryable<User>, IQueryable<User>>? abacFilter = null);
 
     /// <summary>

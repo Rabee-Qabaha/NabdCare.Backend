@@ -37,6 +37,7 @@ declare module 'vue' {
     ColorPicker: typeof import('primevue/colorpicker')['default']
     Column: typeof import('primevue/column')['default']
     ConfirmDialog: typeof import('primevue/confirmdialog')['default']
+    ConfirmPopup: typeof import('primevue/confirmpopup')['default']
     CountrySelect: typeof import('./src/components/Dropdowns/CountrySelect.vue')['default']
     CurrentPlanCard: typeof import('./src/components/Subscription/CurrentPlanCard.vue')['default']
     DataTable: typeof import('primevue/datatable')['default']

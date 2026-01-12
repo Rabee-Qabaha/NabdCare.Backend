@@ -9,7 +9,7 @@ public interface IUserService
     Task<UserResponseDto?> GetUserByIdAsync(Guid id);
 
     /// <summary>SuperAdmin: all users (paged).</summary>
-    Task<PaginatedResult<UserResponseDto>> GetAllPagedAsync(int limit, string? cursor, bool includeDeleted = false);
+    Task<PaginatedResult<UserResponseDto>> GetAllPagedAsync(UserFilterRequestDto filter);
 
     /// <summary>Clinic users (paged). SuperAdmin can pass any clinicId. ClinicAdmin is restricted to their clinic.</summary>
     Task<PaginatedResult<UserResponseDto>> GetByClinicIdPagedAsync(Guid clinicId, int limit, string? cursor, bool includeDeleted = false);

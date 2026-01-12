@@ -6,7 +6,7 @@
         <PageHeader
           title="Users Management"
           description="Manage all users across all clinics"
-          :stats="[{ icon: 'pi pi-users', label: `${filteredUsers.length} Total Users` }]"
+          :stats="[{ icon: 'pi pi-users', label: `${visibleUsers.length} Users Visible` }]"
         />
       </header>
 
@@ -31,13 +31,19 @@
         <IconField class="w-full">
           <InputIcon><i class="pi pi-search" /></InputIcon>
           <InputText
-            v-model="activeFilters.global"
+            v-model="filtersState.global"
             placeholder="Search users by name, email, role, or clinic..."
             class="w-full"
           />
         </IconField>
-        <small v-if="activeFilters.global && !showGridLoading" class="mt-1 block text-surface-500">
-          {{ filteredUsers.length }} result{{ filteredUsers.length !== 1 ? 's' : '' }} found
+        <small v-if="isFetching && visibleUsers.length > 0" class="mt-1 block text-surface-500">
+          Updating results...
+        </small>
+        <small
+          v-else-if="filtersState.global && !showGridLoading"
+          class="mt-1 block text-surface-500"
+        >
+          Found results for "{{ filtersState.global }}"
         </small>
       </div>
 
@@ -154,7 +160,7 @@
 
       <UserFilters
         v-model:visible="filtersDialogVisible"
-        :filters="activeFilters"
+        :filters="filtersState"
         @apply="applyFilters"
         @reset="resetAllFilters"
       />
@@ -224,10 +230,7 @@
   import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog.vue';
   import ResetPasswordDialog from '@/components/User/ResetPasswordDialog.vue';
   import UserCard from '@/components/User/UserCard.vue';
-
-  // ✅ Import the new Skeleton
   import UserCardSkeleton from '@/components/User/UserCardSkeleton.vue';
-
   import UserDialog from '@/components/User/UserDialog.vue';
   import UserFilters from '@/components/User/UserFilters.vue';
   import UserPermissionsDialog from '@/components/User/userPermissionsDialog.vue';
@@ -242,8 +245,8 @@
   import InputIcon from 'primevue/inputicon';
   import InputText from 'primevue/inputtext';
   import ProgressSpinner from 'primevue/progressspinner';
-  // Removed Skeleton from here as it's now inside UserCardSkeleton
 
+  // Composables & Types
   import { useUserActions } from '@/composables/query/users/useUserActions';
   import { useInfiniteUsersPaged } from '@/composables/query/users/useUsers';
   import { usePermission } from '@/composables/usePermission';
@@ -251,58 +254,63 @@
   import { useUserFilters } from '@/composables/user/useUserFilters';
   import type { PaginatedResult, UserResponseDto } from '@/types/backend';
   import type { InfiniteData } from '@tanstack/vue-query';
+  import { refDebounced } from '@vueuse/core';
   import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
   const { can } = usePermission();
 
-  // Permissions
+  // 1. Permissions
   const canCreate = computed(() => can('Users.Create'));
   const canEdit = computed(() => can('Users.Edit'));
   const canDelete = computed(() => can('Users.Delete'));
   const canResetPassword = computed(() => can('Users.ResetPassword'));
   const canActivate = computed(() => can('Users.Activate'));
 
-  // 1. Data Fetching
-  const includeDeleted = ref(false);
+  // 2. Filter State Management
+  const { filtersState, resetFilters: resetLocalFilters } = useUserFilters();
 
+  // 🌟 DEBOUNCING: Wait 300ms after user stops typing to trigger search
+  const debouncedSearch = refDebounced(
+    computed(() => filtersState.global),
+    300,
+  );
+
+  // Computed Derived State for Query
+  const includeDeleted = computed(
+    () => filtersState.status === 'deleted' || filtersState.status === 'all',
+  );
+
+  // 3. Server-Side Data Fetching (Connected to Filters)
   const {
     data: infiniteData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isFetching, // This is true when refetching OR loading next page
-    isLoading, // This is true only on initial load
+    isFetching,
+    isLoading,
     refetch,
     error,
   } = useInfiniteUsersPaged({
-    search: '',
+    search: debouncedSearch,
+    roleId: computed(() => filtersState.roleId),
+    clinicId: computed(() => filtersState.clinicId),
+    isActive: computed(() => filtersState.isActive),
     includeDeleted: includeDeleted,
+    dateRange: computed(() => filtersState.dateRange),
   });
 
-  const allUsersRef = computed<UserResponseDto[]>(() => {
+  // 4. Data Flattening
+  const visibleUsers = computed(() => {
     const data = infiniteData.value as unknown as InfiniteData<PaginatedResult<UserResponseDto>>;
-    if (!data?.pages) return [];
-    return data.pages.flatMap((page) => page.items ?? []);
-  });
-
-  const showGridLoading = computed(() => {
-    if (isLoading.value) return true;
-    if (isFetching.value && visibleUsers.value.length === 0) return true;
-    return false;
+    return data?.pages.flatMap((page) => page.items ?? []) ?? [];
   });
 
   const errorMessage = computed(() => (error.value ? (error.value as any).message : null));
 
-  // 2. Filtering & Logic
-  const {
-    activeFilters,
-    filteredUsers,
-    resetFilters: resetLocalFilters,
-  } = useUserFilters(allUsersRef);
-  const visibleCount = ref(20);
-  const visibleUsers = computed(() => filteredUsers.value.slice(0, visibleCount.value));
+  // Show skeleton only on initial load OR if clearing filters creates a brief empty state
+  const showGridLoading = computed(() => isLoading.value && visibleUsers.value.length === 0);
 
-  // 3. Dialog State
+  // 5. Actions & Dialogs
   const {
     dialogs,
     selectedUser,
@@ -320,8 +328,8 @@
   const filtersDialogVisible = ref(false);
   const selectedUserIds = ref<string[]>([]);
   const isDeleting = ref(false);
+  const loadingUserIds = ref(new Set<string>());
 
-  // 4. Actions
   const {
     createUserMutation,
     updateUserMutation,
@@ -332,32 +340,21 @@
     deactivateMutation,
   } = useUserActions();
 
-  const loadingUserIds = ref(new Set<string>());
-
-  // 5. Handlers
+  // 6. Event Handlers
 
   function applyFilters(newFilters: any) {
-    Object.assign(activeFilters, newFilters);
-    const needsDeleted = newFilters.status === 'deleted' || newFilters.status === 'all';
-    if (needsDeleted && !includeDeleted.value) {
-      includeDeleted.value = true;
-    } else if (!needsDeleted && includeDeleted.value) {
-      includeDeleted.value = false;
-    }
+    Object.assign(filtersState, newFilters);
   }
 
   function resetAllFilters() {
     resetLocalFilters();
-    includeDeleted.value = false;
   }
 
   function toggleDeletedView() {
-    if (activeFilters.status === 'active') {
-      activeFilters.status = 'deleted';
-      includeDeleted.value = true;
+    if (filtersState.status === 'active') {
+      filtersState.status = 'deleted';
     } else {
-      activeFilters.status = 'active';
-      includeDeleted.value = false;
+      filtersState.status = 'active';
     }
   }
 
@@ -377,7 +374,7 @@
     try {
       if (user.isActive) await deactivateMutation.mutateAsync(user.id);
       else await activateMutation.mutateAsync(user.id);
-      refetch();
+      // Tanstack Query handles invalidation automatically via useUserActions setup
     } finally {
       loadingUserIds.value.delete(user.id);
     }
@@ -389,12 +386,10 @@
     softDeleteMutation.mutate(selectedUser.value.id, {
       onSuccess: () => {
         closeAll();
-        refetch();
+        selectedUserIds.value = selectedUserIds.value.filter((id) => id !== selectedUser.value?.id);
         isDeleting.value = false;
       },
-      onError: () => {
-        isDeleting.value = false;
-      },
+      onError: () => (isDeleting.value = false),
     });
   }
 
@@ -404,21 +399,15 @@
     hardDeleteMutation.mutate(selectedUser.value.id, {
       onSuccess: () => {
         closeAll();
-        refetch();
+        selectedUserIds.value = selectedUserIds.value.filter((id) => id !== selectedUser.value?.id);
         isDeleting.value = false;
       },
-      onError: () => {
-        isDeleting.value = false;
-      },
+      onError: () => (isDeleting.value = false),
     });
   }
 
   function restoreUser(user: UserResponseDto) {
-    restoreMutation.mutate(user.id, {
-      onSuccess: () => {
-        refetch();
-      },
-    });
+    restoreMutation.mutate(user.id);
   }
 
   // --- Bulk Actions ---
@@ -444,13 +433,12 @@
       await Promise.allSettled(promises);
       selectedUserIds.value = [];
       closeAll();
-      refetch();
     } finally {
       bulkActionLoading.value = false;
     }
   }
 
-  // --- Infinite Scroll ---
+  // --- Infinite Scroll Observer ---
   const sentinel = ref<HTMLElement | null>(null);
   let observer: IntersectionObserver;
 
@@ -460,7 +448,6 @@
       const entry = entries[0];
       if (entry && entry.isIntersecting && hasNextPage.value && !isFetchingNextPage.value) {
         await fetchNextPage();
-        visibleCount.value += 20;
       }
     });
     if (sentinel.value) observer.observe(sentinel.value);

@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
-using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Roles;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Domain.Entities.Roles;
+using NabdCare.Application.Common;
 
 namespace NabdCare.Api.Endpoints;
 
@@ -16,21 +16,13 @@ public static class RoleEndpoints
             .WithTags("Roles");
 
         // ============================================
-        // 📋 GET ALL ROLES (with filtering)
+        // 📋 GET ALL ROLES (List for Dropdowns)
         // ============================================
         group.MapGet("/", async (
-                [FromServices] IRoleService service,
-                [FromServices] ITenantContext tenant,
-                // 👇 FIX: Add default values to make query params optional
-                [FromQuery] bool includeDeleted = false, 
-                [FromQuery] Guid? clinicId = null) =>
+                [AsParameters] RoleFilterRequestDto filter,
+                [FromServices] IRoleService service) =>
             {
-                // SuperAdmin → all roles (or filtered by specific clinicId)
-                // ClinicAdmin → only own clinic (force override)
-                if (!tenant.IsSuperAdmin)
-                    clinicId = tenant.ClinicId;
-
-                var roles = await service.GetAllRolesAsync(includeDeleted, clinicId);
+                var roles = await service.GetAllRolesAsync(filter);
                 return Results.Ok(roles);
             })
             .RequireAuthorization()
@@ -40,8 +32,27 @@ public static class RoleEndpoints
                 "view",
                 r => r as Role)
             .WithName("GetAllRoles")
-            .WithSummary("Get all roles with filtering options")
+            .WithSummary("Get list of roles (for dropdowns) with filtering")
             .Produces<IEnumerable<RoleResponseDto>>(StatusCodes.Status200OK);
+
+        // ============================================
+        // 📋 GET PAGED ROLES (Grid/Table)
+        // ============================================
+        group.MapGet("/paged", async (
+                [AsParameters] RoleFilterRequestDto filter,
+                [FromServices] IRoleService service) =>
+            {
+                var result = await service.GetAllPagedAsync(filter);
+                return Results.Ok(result);
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.Roles.ViewAll)
+            .WithAbac<Role>(
+                Permissions.Roles.ViewAll,
+                "view",
+                r => r as Role)
+            .WithName("GetPagedRoles")
+            .WithSummary("Get paginated roles (for management grid)");
 
         // ============================================
         // 📋 GET SYSTEM ROLES
@@ -54,12 +65,7 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Roles.ViewSystem)
-        .WithAbac<Role>(
-            Permissions.Roles.ViewSystem,
-            "viewSystem",
-            r => r as Role)
-        .WithName("GetSystemRoles")
-        .WithSummary("Get system-defined roles");
+        .WithName("GetSystemRoles");
 
         // ============================================
         // 📋 GET TEMPLATE ROLES
@@ -72,36 +78,8 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Roles.ViewTemplates)
-        .WithAbac<Role>(
-            Permissions.Roles.ViewTemplates,
-            "viewTemplates",
-            r => r as Role)
-        .WithName("GetTemplateRoles")
-        .WithSummary("Get template roles");
-
-        // ============================================
-        // 📋 GET CLINIC ROLES
-        // ============================================
-        group.MapGet("/clinic/{clinicId:guid}", async (
-            Guid clinicId,
-            [FromServices] IRoleService service,
-            [FromServices] ITenantContext tenant) =>
-        {
-            if (!tenant.IsSuperAdmin)
-                clinicId = tenant.ClinicId!.Value; // enforce own clinic
-
-            var roles = await service.GetClinicRolesAsync(clinicId);
-            return Results.Ok(roles);
-        })
-        .RequireAuthorization()
-        .RequirePermission(Permissions.Roles.ViewClinic)
-        .WithAbac<Role>(
-            Permissions.Roles.ViewClinic,
-            "viewClinic",
-            r => r as Role)
-        .WithName("GetClinicRoles")
-        .WithSummary("Get roles for a specific clinic");
-
+        .WithName("GetTemplateRoles");
+        
         // ============================================
         // 🔍 GET ROLE BY ID
         // ============================================
@@ -135,7 +113,6 @@ public static class RoleEndpoints
             [FromServices] IRoleService service,
             [FromServices] ITenantContext tenant) =>
         {
-            // ClinicAdmin can only create roles inside own clinic
             if (!tenant.IsSuperAdmin)
                 dto.ClinicId = tenant.ClinicId!.Value;
 
@@ -160,13 +137,10 @@ public static class RoleEndpoints
                 [FromServices] IRoleService service,
                 [FromServices] ITenantContext tenant) =>
             {
-                // Security: Enforce clinic ID for non-superadmins
                 if (!tenant.IsSuperAdmin)
                     dto.ClinicId = tenant.ClinicId!.Value;
 
-                // Pass the full DTO to the service
                 var cloned = await service.CloneRoleAsync(templateRoleId, dto);
-    
                 return Results.Created($"/api/roles/{cloned.Id}", cloned);
             })
         .RequireAuthorization()
@@ -204,7 +178,7 @@ public static class RoleEndpoints
         .WithName("UpdateRole");
 
         // ============================================
-        // 🗑️ SOFT DELETE ROLE (Move to Trash)
+        // 🗑️ SOFT DELETE ROLE
         // ============================================
         group.MapDelete("/{id:guid}", async (
             Guid id,
@@ -226,12 +200,11 @@ public static class RoleEndpoints
                     ? await svc.GetRoleByIdAsync(rid)
                     : null;
             })
-        .WithName("SoftDeleteRole")
-        .WithSummary("Soft delete a role (move to trash).");
+        .WithName("SoftDeleteRole");
 
         // ============================================
-// 💥 HARD DELETE ROLE (Permanent)
-// ============================================
+        // 💥 HARD DELETE ROLE
+        // ============================================
         group.MapDelete("/{id:guid}/permanent", async (
                 Guid id,
                 [FromServices] IRoleService service) =>
@@ -241,20 +214,18 @@ public static class RoleEndpoints
             })
             .RequireAuthorization()
             .RequirePermission(Permissions.Roles.HardDelete)
-            .WithAbac<RoleResponseDto>( // ✅ FIX: Use DTO Type
+            .WithAbac<RoleResponseDto>(
                 Permissions.Roles.HardDelete,
                 "hardDelete",
                 async ctx =>
                 {
                     var service = ctx.RequestServices.GetRequiredService<IRoleService>();
                     var idStr = ctx.Request.RouteValues["id"]?.ToString();
-
                     return Guid.TryParse(idStr, out var rid)
                         ? await service.GetRoleByIdAsync(rid) 
                         : null;
                 })
-            .WithName("HardDeleteRole")
-            .WithSummary("Permanently delete a role (irreversible).");
+            .WithName("HardDeleteRole");
 
         // ============================================
         // ♻️ RESTORE ROLE
@@ -300,7 +271,7 @@ public static class RoleEndpoints
         .WithName("GetRolePermissions");
 
         // ============================================
-        // ➕ ASSIGN PERMISSION TO ROLE
+        // ➕ ASSIGN PERMISSION
         // ============================================
         group.MapPost("/{roleId:guid}/permissions/{permissionId:guid}", async (
             Guid roleId,
@@ -308,9 +279,7 @@ public static class RoleEndpoints
             [FromServices] IRoleService service) =>
         {
             var ok = await service.AssignPermissionToRoleAsync(roleId, permissionId);
-            return ok
-                ? Results.Ok(new { message = "Permission assigned" })
-                : Results.Conflict(new { message = "Already assigned" });
+            return ok ? Results.Ok(new { message = "Permission assigned" }) : Results.Conflict();
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.Assign)
@@ -328,7 +297,7 @@ public static class RoleEndpoints
         .WithName("AssignPermission");
 
         // ============================================
-        // ➖ REMOVE PERMISSION FROM ROLE
+        // ➖ REMOVE PERMISSION
         // ============================================
         group.MapDelete("/{roleId:guid}/permissions/{permissionId:guid}", async (
             Guid roleId,

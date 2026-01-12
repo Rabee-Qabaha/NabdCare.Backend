@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.DTOs.Pagination;
+using NabdCare.Application.DTOs.Users;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.Users;
 using NabdCare.Infrastructure.Persistence;
@@ -71,50 +72,94 @@ public class UserRepository : IUserRepository
     /// Optional ABAC filter allows contextual visibility (e.g., clinic restriction).
     /// </summary>
     public async Task<PaginatedResult<User>> GetAllPagedAsync(
-        int limit,
-        string? cursor,
-        bool includeDeleted = false,
+        UserFilterRequestDto filter,
         Func<IQueryable<User>, IQueryable<User>>? abacFilter = null)
     {
-        if (limit <= 0) limit = 20;
-        if (limit > 100) limit = 100;
+        // 1. Sanitize Limit
+        int limit = filter.Limit <= 0 ? 20 : (filter.Limit > 100 ? 100 : filter.Limit);
 
-        var (createdAtCursor, idCursor) = DecodeCursor(cursor);
-
+        // 2. Base Query (Optimized)
         IQueryable<User> query = _dbContext.Users
-            .IgnoreQueryFilters() // ✅ Bypass default soft delete filter
+            .IgnoreQueryFilters() // Bypass default filters to handle IncludeDeleted manually
             .Include(u => u.Clinic)
             .Include(u => u.Role)
             .Include(u => u.CreatedByUser)
             .AsNoTracking();
 
-        if (!includeDeleted)
+        // 3. Apply Filters
+        if (!filter.IncludeDeleted)
             query = query.Where(u => !u.IsDeleted);
 
+        if (filter.ClinicId.HasValue)
+            query = query.Where(u => u.ClinicId == filter.ClinicId.Value);
+
+        if (filter.RoleId.HasValue)
+            query = query.Where(u => u.RoleId == filter.RoleId.Value);
+
+        if (filter.IsActive.HasValue)
+            query = query.Where(u => u.IsActive == filter.IsActive.Value);
+
+        // 4. Search (Name or Email)
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var searchLower = filter.Search.Trim().ToLower();
+            query = query.Where(u =>
+                u.FullName.ToLower().Contains(searchLower) ||
+                u.Email.ToLower().Contains(searchLower));
+        }
+
+        // 5. Date Range
+        if (filter.FromDate.HasValue)
+            query = query.Where(u => u.CreatedAt >= filter.FromDate.Value);
+
+        if (filter.ToDate.HasValue)
+            query = query.Where(u => u.CreatedAt <= filter.ToDate.Value);
+
+        // 6. Security Filter (ABAC)
         if (abacFilter != null)
             query = abacFilter(query);
 
+        // 📸 SNAPSHOT: Get Total Count NOW (before applying cursor/limit)
+        var totalCount = await query.CountAsync();
+
+        // 7. Cursor Logic (Fixing the SQL Translation Error)
+        var (createdAtCursor, idCursor) = DecodeCursor(filter.Cursor);
+
         if (createdAtCursor.HasValue && idCursor.HasValue)
         {
-            query = query.Where(u =>
-                (u.CreatedAt > createdAtCursor.Value) ||
-                (u.CreatedAt == createdAtCursor.Value && u.Id.CompareTo(idCursor.Value) > 0));
+            if (filter.Descending)
+            {
+                // Paginate Backward (Newest first)
+                query = query.Where(u =>
+                    u.CreatedAt < createdAtCursor.Value ||
+                    (u.CreatedAt == createdAtCursor.Value && u.Id.CompareTo(idCursor.Value) < 0));
+                // Note: If CompareTo still fails, use: u.Id < idCursor.Value
+            }
+            else
+            {
+                // Paginate Forward (Oldest first)
+                query = query.Where(u =>
+                    u.CreatedAt > createdAtCursor.Value ||
+                    (u.CreatedAt == createdAtCursor.Value && u.Id.CompareTo(idCursor.Value) > 0));
+            }
         }
 
-        var users = await query
-            .OrderBy(u => u.CreatedAt)
-            .ThenBy(u => u.Id)
-            .Take(limit + 1)
-            .ToListAsync();
+        // 8. Ordering
+        query = filter.Descending
+            ? query.OrderByDescending(u => u.CreatedAt).ThenBy(u => u.Id)
+            : query.OrderBy(u => u.CreatedAt).ThenBy(u => u.Id);
 
+        // 9. Fetch Data (Fetch limit + 1 to check if there is a next page)
+        var users = await query.Take(limit + 1).ToListAsync();
+
+        // 10. Next Cursor Calculation
         bool hasMore = users.Count > limit;
-        if (hasMore) users.RemoveAt(users.Count - 1);
+        if (hasMore)
+            users.RemoveAt(users.Count - 1); // Remove the extra item we fetched
 
         string? nextCursor = hasMore && users.LastOrDefault() is { } last
             ? EncodeCursor(last.CreatedAt, last.Id)
             : null;
-
-        var totalCount = await query.CountAsync();
 
         return new PaginatedResult<User>
         {

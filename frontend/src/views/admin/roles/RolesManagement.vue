@@ -5,13 +5,13 @@
         <PageHeader
           title="Roles Management"
           description="Manage system roles, templates, and clinic roles"
-          :stats="[{ icon: 'pi pi-unlock', label: `${filteredRoles.length} Total Roles` }]"
+          :stats="[{ icon: 'pi pi-unlock', label: `${visibleRoles.length} Visible` }]"
         />
       </header>
 
       <RoleToolbar
         :loading="isFetching"
-        :include-deleted="includeDeleted"
+        :include-deleted="filtersState.status !== 'active'"
         :can-create="canCreateRole"
         @create="openCreateDialog"
         @filters="filtersDialogVisible = true"
@@ -24,14 +24,14 @@
         <IconField class="w-full">
           <InputIcon><i class="pi pi-search" /></InputIcon>
           <InputText
-            v-model="activeFilters.global"
-            placeholder="Search roles by name or description..."
+            v-model="filtersState.global"
+            placeholder="Search roles by name..."
             class="w-full"
           />
         </IconField>
 
-        <small v-if="activeFilters.global && !showGridLoading" class="mt-1 block text-surface-500">
-          {{ filteredRoles.length }} result{{ filteredRoles.length !== 1 ? 's' : '' }} found
+        <small v-if="filtersState.global && !showGridLoading" class="mt-1 block text-surface-500">
+          Found results for "{{ filtersState.global }}"
         </small>
       </div>
 
@@ -54,7 +54,18 @@
         />
       </div>
 
-      <RoleGrid :roles="filteredRoles" :loading="showGridLoading">
+      <div
+        v-if="showGridLoading"
+        class="grid gap-5 sm:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-4"
+      >
+        <div
+          v-for="n in 8"
+          :key="n"
+          class="h-48 rounded-xl bg-surface-100 dark:bg-surface-800 animate-pulse border border-surface-200 dark:border-surface-700"
+        ></div>
+      </div>
+
+      <RoleGrid v-else :roles="visibleRoles" :loading="false">
         <template #actions="{ role }">
           <div class="flex gap-1">
             <Button
@@ -115,9 +126,14 @@
         </template>
       </RoleGrid>
 
+      <div ref="sentinel" class="h-6 w-full"></div>
+      <div v-if="isFetchingNextPage" class="flex justify-center p-4">
+        <ProgressSpinner style="width: 30px; height: 30px" strokeWidth="4" />
+      </div>
+
       <RoleFilters
         v-model:visible="filtersDialogVisible"
-        :filters="activeFilters"
+        :filters="filtersState"
         @apply="applyFilters"
         @reset="resetAllFilters"
       />
@@ -160,6 +176,19 @@
 </template>
 
 <script setup lang="ts">
+  // Vue & Utils
+  import { refDebounced } from '@vueuse/core';
+  import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
+  // PrimeVue Components
+  import Button from 'primevue/button';
+  import ConfirmDialog from 'primevue/confirmdialog';
+  import IconField from 'primevue/iconfield';
+  import InputIcon from 'primevue/inputicon';
+  import InputText from 'primevue/inputtext';
+  import ProgressSpinner from 'primevue/progressspinner';
+
+  // Custom Components
   import RoleCreateEditDialog from '@/components/Role/RoleCreateEditDialog.vue';
   import RoleFilters from '@/components/Role/RoleFilters.vue';
   import RoleGrid from '@/components/Role/RoleGrid.vue';
@@ -168,53 +197,64 @@
   import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog.vue';
   import PageHeader from '@/layout/PageHeader.vue';
 
+  // Composables
   import { useRoleActions } from '@/composables/query/roles/useRoleActions';
-  import { useRoles } from '@/composables/query/roles/useRoles';
+  import { useInfiniteRolesPaged } from '@/composables/query/roles/useRoles';
   import { useRoleDialogs } from '@/composables/role/useRoleDialogs';
+  import { useRoleFilters } from '@/composables/role/useRoleFilters';
   import { usePermission } from '@/composables/usePermission';
 
-  import Button from 'primevue/button';
-  import ConfirmDialog from 'primevue/confirmdialog';
-  import IconField from 'primevue/iconfield';
-  import InputIcon from 'primevue/inputicon';
-  import InputText from 'primevue/inputtext';
+  // Types
+  import type { PaginatedResult, RoleResponseDto } from '@/types/backend';
+  import type { InfiniteData } from '@tanstack/vue-query';
 
-  import type { RoleResponseDto } from '@/types/backend';
-  import { computed, ref } from 'vue';
+  // 1. Filter State Management
+  const { filtersState, resetFilters } = useRoleFilters();
+  const filtersDialogVisible = ref(false);
 
-  // 1. Data Query
+  // Debounce search input (300ms)
+  const debouncedSearch = refDebounced(
+    computed(() => filtersState.global),
+    300,
+  );
+
+  // 2. Server-Side Data Query
   const {
-    roles,
-    filteredRoles,
-    activeFilters,
-    resetFilters: resetLocalFilters,
-    isLoading,
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isFetching,
-    error,
+    isLoading,
     refetch,
-    includeDeleted,
-  } = useRoles();
+    error,
+  } = useInfiniteRolesPaged({
+    search: debouncedSearch,
+    clinicId: computed(() => null), // Admin view usually sees all visible roles; filters can narrow this if needed
+    roleOrigin: computed(() => filtersState.roleOrigin),
+    isTemplate: computed(() => filtersState.isTemplate),
+    status: computed(() => filtersState.status),
+    dateRange: computed(() => filtersState.dateRange),
+  });
+
+  // 3. Flatten Pagination Pages for Display
+  const visibleRoles = computed(() => {
+    const data = infiniteData.value as unknown as InfiniteData<PaginatedResult<RoleResponseDto>>;
+    return data?.pages.flatMap((page) => page.items ?? []) ?? [];
+  });
 
   const errorMessage = computed(() =>
     error.value instanceof Error ? error.value.message : 'Failed to load roles',
   );
 
-  // Combine loading states.
-  // If we are doing the initial load OR a background refetch (filtering/tab switch),
-  // we want the grid to show skeletons.
+  // Smart loading state: Show skeletons only on initial load or empty search results
   const showGridLoading = computed(() => {
-    // 1. Hard loading (No data at all) -> Show Skeletons
     if (isLoading.value) return true;
-
-    // 2. Background fetching AND no results yet -> Show Skeletons
-    // This covers the split second where filters switch but data hasn't arrived.
-    if (isFetching.value && filteredRoles.value.length === 0) return true;
-
-    // 3. Otherwise -> Show real UI (either data or empty state)
+    if (isFetching.value && visibleRoles.value.length === 0) return true;
     return false;
   });
 
-  // 2. Permissions
+  // 4. Permissions
   const { can: canPermission } = usePermission();
   const canViewPermissions = computed(() => canPermission('Roles.Permissions.View'));
   const isSuperAdmin = computed(() => canPermission('SuperAdmin'));
@@ -230,7 +270,7 @@
     canCreateRole,
   } = useRoleActions();
 
-  // 3. Dialog State
+  // 5. Dialogs & Actions
   const {
     dialogs,
     selectedRole,
@@ -244,38 +284,21 @@
     closeAll,
   } = useRoleDialogs();
 
-  const filtersDialogVisible = ref(false);
   const isDeleting = ref(false);
 
-  // 4. Filters & Actions
-  function applyFilters(newFilters: any) {
-    activeFilters.name = newFilters.name;
-    activeFilters.isSystem = newFilters.isSystem;
-    activeFilters.isTemplate = newFilters.isTemplate;
-    activeFilters.dateRange = newFilters.dateRange;
-    activeFilters.status = newFilters.status;
+  // --- Handlers ---
 
-    const needsDeletedData = newFilters.status === 'deleted' || newFilters.status === 'all';
-    if (needsDeletedData && !includeDeleted.value) {
-      includeDeleted.value = true;
-    } else if (!needsDeletedData && includeDeleted.value) {
-      includeDeleted.value = false;
-    }
+  function applyFilters(newFilters: any) {
+    // Update reactive state, triggering the query automatically
+    Object.assign(filtersState, newFilters);
   }
 
   function resetAllFilters() {
-    resetLocalFilters();
-    includeDeleted.value = false;
+    resetFilters();
   }
 
   function toggleDeletedView() {
-    if (activeFilters.status === 'active') {
-      activeFilters.status = 'deleted';
-      includeDeleted.value = true;
-    } else {
-      activeFilters.status = 'active';
-      includeDeleted.value = false;
-    }
+    filtersState.status = filtersState.status === 'active' ? 'deleted' : 'active';
   }
 
   async function handleDeleteRole() {
@@ -284,6 +307,8 @@
 
     const onSuccess = () => {
       closeAll();
+      // No need to manually filter local array; refetch or cache invalidation handles it
+      // Standard practice: Refetch to ensure count/pagination is correct
       refetch();
       isDeleting.value = false;
     };
@@ -313,6 +338,30 @@
 
   function onPermissionsUpdated() {
     dialogs.value.permissions = false;
+    // Permissions updated -> Refetch roles to update permission counts if necessary
     refetch();
   }
+
+  // 6. Infinite Scroll Observer
+  const sentinel = ref<HTMLElement | null>(null);
+  let observer: IntersectionObserver;
+
+  function setupObserver() {
+    if (observer) observer.disconnect();
+
+    observer = new IntersectionObserver(async (entries) => {
+      const entry = entries[0];
+      // Trigger load if visible, has more pages, and not currently loading
+      if (entry && entry.isIntersecting && hasNextPage.value && !isFetchingNextPage.value) {
+        await fetchNextPage();
+      }
+    });
+
+    if (sentinel.value) observer.observe(sentinel.value);
+  }
+
+  // Setup observer on mount and watch for ref changes
+  onMounted(setupObserver);
+  onBeforeUnmount(() => observer?.disconnect());
+  watch(sentinel, setupObserver);
 </script>

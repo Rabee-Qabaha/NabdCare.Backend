@@ -77,13 +77,14 @@ public static class PermissionEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.View)
-        .WithSummary("Get permission by ID");
+        .WithSummary("Get permission by ID")
+        .Produces<PermissionResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
 
         // ============================================
         // 👤 GET MY PERMISSIONS (Current User)
         // ============================================
         group.MapGet("/me", async (
-            [FromServices] IPermissionService service,
             [FromServices] CachedPermissionService cachedService,
             [FromServices] IUserContext userContext,
             [FromServices] ILoggerFactory loggerFactory) =>
@@ -91,17 +92,15 @@ public static class PermissionEndpoints
             var logger = loggerFactory.CreateLogger("Permissions.Me");
 
             var userIdStr = userContext.GetCurrentUserId();
-            if (!Guid.TryParse(userIdStr, out var userId))
-                return Results.Unauthorized();
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
 
             var roleIdStr = userContext.GetCurrentUserRoleId();
-            if (!Guid.TryParse(roleIdStr, out var roleId))
-                return Results.Unauthorized();
+            if (!Guid.TryParse(roleIdStr, out var roleId)) return Results.Unauthorized();
 
             var permissions = await cachedService.GetUserEffectivePermissionsAsync(userId, roleId);
             var version = cachedService.GetVersion(userId, roleId);
 
-            logger.LogInformation("📊 User {UserId} fetched permissions (Role {RoleId}, Version {Version})", userId, roleId, version);
+            logger.LogInformation("📊 User {UserId} fetched permissions (v{Version})", userId, version);
 
             return Results.Ok(new
             {
@@ -137,20 +136,16 @@ public static class PermissionEndpoints
                 [FromServices] IPermissionService service,
                 [FromServices] CachedPermissionService cachedService) =>
             {
-                // جلب role للمستخدم
                 var userInfo = await service.GetUserForAuthorizationAsync(userId);
                 if (!userInfo.HasValue)
                     return Results.NotFound(new { message = "User not found or has no role" });
 
-                var roleId = userInfo.Value.RoleId;
-
-                // effective = role perms + user override perms
-                var effective = await cachedService.GetUserEffectivePermissionsAsync(userId, roleId);
+                var effective = await cachedService.GetUserEffectivePermissionsAsync(userId, userInfo.Value.RoleId);
 
                 return Results.Ok(new
                 {
                     userId,
-                    roleId,
+                    roleId = userInfo.Value.RoleId,
                     permissions = effective.OrderBy(p => p.Name).ToList()
                 });
             })
@@ -181,19 +176,15 @@ public static class PermissionEndpoints
             [FromServices] CachedPermissionService cachedService) =>
         {
             var userInfo = await permissionService.GetUserForAuthorizationAsync(userId);
-            if (!userInfo.HasValue)
-                return Results.NotFound(new { message = $"User {userId} not found or has no role assigned." });
+            if (!userInfo.HasValue) return Results.NotFound();
 
             cachedService.InvalidateUser(userId, userInfo.Value.RoleId);
-            var fresh = await cachedService.GetUserEffectivePermissionsAsync(userId, userInfo.Value.RoleId);
             var version = cachedService.GetVersion(userId, userInfo.Value.RoleId);
 
             return Results.Ok(new
             {
-                message = "✅ Permissions refreshed successfully.",
+                message = "Permissions refreshed",
                 userId,
-                roleId = userInfo.Value.RoleId,
-                permissionsCount = fresh.Count(),
                 permissionsVersion = version
             });
         })
@@ -208,6 +199,7 @@ public static class PermissionEndpoints
             [FromBody] CreatePermissionDto dto,
             [FromServices] IPermissionService service) =>
         {
+            // Middleware handles exceptions
             var created = await service.CreatePermissionAsync(dto);
             return Results.Created($"/api/permissions/{created.Id}", created);
         })
@@ -251,14 +243,22 @@ public static class PermissionEndpoints
             [FromBody] AssignPermissionToUserDto dto,
             [FromServices] IPermissionService service) =>
         {
+            // Service handles Security (UnauthorizedAccessException) and Not Found (KeyNotFoundException)
             var assigned = await service.AssignPermissionToUserAsync(dto.UserId, dto.PermissionId);
+            
+            // If false, it implies it's redundant/already inherited. 
+            // We can return 409 Conflict or 200 OK with message. Conflict is better for UI feedback.
             return assigned
-                ? Results.Ok(new { message = "Permission assigned successfully" })
-                : Results.Conflict(new { message = "Permission already assigned to this user" });
+                ? Results.Ok(new { message = "Permission assigned" })
+                : Results.Conflict(new { message = "Permission already inherited from role" });
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.Assign)
-        .WithSummary("Assign permission override to a specific user");
+        .WithName("AssignPermissionToUser")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status409Conflict)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
         // ➖ REMOVE PERMISSION FROM USER
@@ -270,7 +270,7 @@ public static class PermissionEndpoints
         {
             var removed = await service.RemovePermissionFromUserAsync(userId, permissionId);
             return removed
-                ? Results.Ok(new { message = "Permission removed successfully" })
+                ? Results.Ok(new { message = "Permission removed" })
                 : Results.NotFound();
         })
         .RequireAuthorization()
@@ -284,9 +284,7 @@ public static class PermissionEndpoints
                 Guid userId,
                 [FromServices] IPermissionService service) =>
             {
-                // This will call CachedPermissionService.ClearUserPermissionsAsync
-                var cleared = await service.ClearUserPermissionsAsync(userId);
-    
+                await service.ClearUserPermissionsAsync(userId);
                 return Results.Ok(new { message = "All custom permissions removed. User reverted to Role defaults." });
             })
             .RequireAuthorization()

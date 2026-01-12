@@ -63,7 +63,7 @@
     street: '',
     city: '',
     postalCode: '',
-    country: '',
+    country: null as string | null, // Corrected type for CountrySelect
   });
 
   const errors = ref<Record<string, string>>({});
@@ -74,13 +74,15 @@
   const parseAddress = (fullAddress: string) => {
     if (!fullAddress) return { street: '', city: '', postalCode: '', country: '' };
     const parts = fullAddress.split(',').map((p) => p.trim());
+
+    // Heuristic: Last part country, second to last zip, third to last city, rest street
+    // This is just a best-effort parser for UI prepopulation
     if (parts.length >= 3) {
-      return {
-        street: parts[0] || '',
-        city: parts[1] || '',
-        country: parts[2] || '',
-        postalCode: parts[3] || '',
-      };
+      const country = parts.pop() || '';
+      const postalCode = parts.pop() || '';
+      const city = parts.pop() || '';
+      const street = parts.join(', ');
+      return { street, city, postalCode, country };
     }
     return { street: fullAddress, city: '', postalCode: '', country: '' };
   };
@@ -103,7 +105,7 @@
             street: addr.street,
             city: addr.city,
             postalCode: addr.postalCode,
-            country: addr.country,
+            country: addr.country || null,
           };
         } else {
           form.value = {
@@ -113,7 +115,7 @@
             street: '',
             city: '',
             postalCode: '',
-            country: '',
+            country: null,
             isMain: false,
           };
         }
@@ -127,7 +129,7 @@
     if (!result.success) {
       const newErrors: Record<string, string> = {};
       result.error.issues.forEach((issue) => {
-        const field = issue.path[0].toString();
+        const field = (issue.path[0] ?? 'general').toString();
         newErrors[field] = issue.message;
       });
       errors.value = newErrors;
@@ -140,16 +142,13 @@
   const onSubmit = async () => {
     serverError.value = null;
 
-    // 1. Frontend Validation
     if (!validate()) return;
 
-    // 2. Prepare Address String
-    // We combine the parts here. We do NOT send the parts separately.
     const fullAddress = [
       form.value.street,
       form.value.city,
+      form.value.postalCode, // Adjusted order slightly
       form.value.country,
-      form.value.postalCode,
     ]
       .filter((p) => p && p.toString().trim() !== '')
       .join(', ');
@@ -188,26 +187,12 @@
       emit('update:visible', false);
     } catch (err: any) {
       console.error('Full Error Object:', err);
-
-      // ------------------------------------------------------------------
-      // 🔍 Step 1: Attempt to find the Response Body
-      // ------------------------------------------------------------------
-      // Check standard Axios (err.response.data) first, then fallback to err itself
       const responseBody = err.response?.data || err;
-
-      // 🔍 Step 2: Attempt to find our Custom Error DTO
-      // It might be nested in { error: ... } or it might be the body itself
       const backendError = responseBody?.error || responseBody;
 
-      // ------------------------------------------------------------------
-      // ✅ Scenario A: We found a Structured Backend Error
-      // ------------------------------------------------------------------
-      // We look for 'code' or 'type' to ensure it's OUR error, not a generic JS error
       if (backendError && (backendError.code || backendError.details)) {
-        // 1. Handle Field-Specific Errors
         if (backendError.details) {
           const newErrors: Record<string, string> = {};
-
           Object.keys(backendError.details).forEach((key) => {
             const messages = backendError.details[key];
             if (messages && messages.length > 0) {
@@ -215,31 +200,21 @@
               newErrors[fieldName] = messages[0];
             }
           });
-
           errors.value = newErrors;
-          // If we mapped field errors, show them on inputs and stop.
           if (Object.keys(errors.value).length > 0) return;
         }
-
-        // 2. Handle Global Message (e.g. "Limit Reached")
         if (backendError.message) {
           serverError.value = backendError.message;
           return;
         }
       }
 
-      // ------------------------------------------------------------------
-      // ✅ Scenario B: Fallback (Unstructured Error)
-      // ------------------------------------------------------------------
-      // If we couldn't parse it, show the raw message or status text
       if (err.response) {
-        // It is an HTTP error, but maybe not JSON
         serverError.value =
           err.response.data?.title ||
           err.response.data ||
           `Request failed: ${err.response.statusText} (${err.response.status})`;
       } else {
-        // It is a Network Error or CORS issue
         serverError.value = err.message || 'Unable to connect to the server.';
       }
     }
@@ -251,21 +226,42 @@
     :visible="visible"
     @update:visible="emit('update:visible', $event)"
     position="right"
-    class="!w-full md:!w-[450px]"
+    class="!w-full md:!w-[400px]"
     :header="isEditing ? 'Edit Branch' : 'New Branch'"
     :dismissable="false"
+    :pt="{
+      root: {
+        class:
+          'bg-surface-0 dark:bg-surface-900 border-l border-surface-200 dark:border-surface-700',
+      },
+      header: {
+        class:
+          'border-b border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-900 text-surface-900 dark:text-surface-0',
+      },
+      content: { class: 'bg-surface-0 dark:bg-surface-900' },
+      footer: {
+        class:
+          'bg-surface-50 dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700',
+      },
+    }"
   >
-    <div class="flex flex-col h-full gap-6 pt-2">
-      <Message v-if="serverError" severity="error" :closable="false" icon="pi pi-times-circle">
+    <div class="flex flex-col h-full gap-6">
+      <Message
+        v-if="serverError"
+        severity="error"
+        :closable="false"
+        icon="pi pi-times-circle"
+        class="w-full"
+      >
         {{ serverError }}
       </Message>
 
       <div
         v-if="canSetMain"
-        class="flex items-center justify-between p-4 rounded-xl border transition-colors"
+        class="flex items-center justify-between p-4 rounded-xl border transition-colors duration-200 mt-6"
         :class="[
           form.isMain
-            ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800'
+            ? 'bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/30'
             : 'bg-surface-50 border-surface-200 dark:bg-surface-800 dark:border-surface-700',
         ]"
       >
@@ -274,21 +270,25 @@
             class="mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors"
             :class="
               form.isMain
-                ? 'bg-orange-100 text-orange-600'
-                : 'bg-surface-200 text-surface-500 dark:bg-surface-700'
+                ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400'
+                : 'bg-surface-200 text-surface-500 dark:bg-surface-700 dark:text-surface-400'
             "
           >
             <i class="pi pi-star-fill text-sm"></i>
           </div>
           <div class="flex flex-col">
             <span
-              class="font-semibold text-sm"
-              :class="form.isMain ? 'text-orange-700 dark:text-orange-400' : ''"
+              class="font-semibold text-sm transition-colors"
+              :class="
+                form.isMain
+                  ? 'text-orange-700 dark:text-orange-400'
+                  : 'text-surface-900 dark:text-surface-0'
+              "
             >
               Main Headquarters
             </span>
-            <span class="text-xs text-surface-500 dark:text-surface-400 max-w-[300px]">
-              Set this as the primary location.
+            <span class="text-xs text-surface-500 dark:text-surface-400 max-w-[250px]">
+              Set this as the primary location used for billing and legal identity.
             </span>
           </div>
         </div>
@@ -300,12 +300,15 @@
       </div>
 
       <div class="flex flex-col gap-5">
-        <h3 class="text-base font-bold text-surface-900 dark:text-surface-0 border-b pb-2">
+        <h3
+          class="text-sm font-bold text-surface-900 dark:text-surface-0 border-b border-surface-200 dark:border-surface-700 pb-2 flex items-center gap-2"
+        >
+          <i class="pi pi-info-circle text-primary"></i>
           General Information
         </h3>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium">
+          <label class="text-sm font-medium text-surface-700 dark:text-surface-300">
             Branch Name
             <span class="text-red-500">*</span>
           </label>
@@ -316,12 +319,12 @@
             :invalid="!!errors.name"
             @input="errors.name = ''"
           />
-          <small v-if="errors.name" class="text-red-500">{{ errors.name }}</small>
+          <small v-if="errors.name" class="text-red-500 text-xs">{{ errors.name }}</small>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">Email</label>
+            <label class="text-sm font-medium text-surface-700 dark:text-surface-300">Email</label>
             <InputText
               v-model="form.email"
               placeholder="branch@email.com"
@@ -329,10 +332,10 @@
               :invalid="!!errors.email"
               @input="errors.email = ''"
             />
-            <small v-if="errors.email" class="text-red-500">{{ errors.email }}</small>
+            <small v-if="errors.email" class="text-red-500 text-xs">{{ errors.email }}</small>
           </div>
           <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">Phone</label>
+            <label class="text-sm font-medium text-surface-700 dark:text-surface-300">Phone</label>
             <InputText
               v-model="form.phone"
               placeholder="+1 234..."
@@ -340,32 +343,38 @@
               :invalid="!!errors.phone"
               @input="errors.phone = ''"
             />
-            <small v-if="errors.phone" class="text-red-500">{{ errors.phone }}</small>
+            <small v-if="errors.phone" class="text-red-500 text-xs">{{ errors.phone }}</small>
           </div>
         </div>
       </div>
 
       <div class="flex flex-col gap-5">
-        <h3 class="text-base font-bold text-surface-900 dark:text-surface-0 border-b pb-2 mt-2">
+        <h3
+          class="text-sm font-bold text-surface-900 dark:text-surface-0 border-b border-surface-200 dark:border-surface-700 pb-2 mt-2 flex items-center gap-2"
+        >
+          <i class="pi pi-map-marker text-primary"></i>
           Address Details
         </h3>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium">Street / Building</label>
+          <label class="text-sm font-medium text-surface-700 dark:text-surface-300">
+            Street / Building
+          </label>
           <Textarea
             v-model="form.street"
             placeholder="123 Health Ave, Building B"
             class="w-full resize-none"
             rows="2"
+            autoResize
             :invalid="!!errors.street"
             @input="errors.street = ''"
           />
-          <small v-if="errors.street" class="text-red-500">{{ errors.street }}</small>
+          <small v-if="errors.street" class="text-red-500 text-xs">{{ errors.street }}</small>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">City</label>
+            <label class="text-sm font-medium text-surface-700 dark:text-surface-300">City</label>
             <InputText
               v-model="form.city"
               placeholder="e.g. Ramallah"
@@ -373,10 +382,12 @@
               :invalid="!!errors.city"
               @input="errors.city = ''"
             />
-            <small v-if="errors.city" class="text-red-500">{{ errors.city }}</small>
+            <small v-if="errors.city" class="text-red-500 text-xs">{{ errors.city }}</small>
           </div>
           <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">Postal Code</label>
+            <label class="text-sm font-medium text-surface-700 dark:text-surface-300">
+              Postal Code
+            </label>
             <InputText
               v-model="form.postalCode"
               placeholder="e.g. 90210"
@@ -384,19 +395,23 @@
               :invalid="!!errors.postalCode"
               @input="errors.postalCode = ''"
             />
-            <small v-if="errors.postalCode" class="text-red-500">{{ errors.postalCode }}</small>
+            <small v-if="errors.postalCode" class="text-red-500 text-xs">
+              {{ errors.postalCode }}
+            </small>
           </div>
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium">Country</label>
+          <label class="text-sm font-medium text-surface-700 dark:text-surface-300">Country</label>
           <CountrySelect v-model="form.country" placeholder="Select Country" class="w-full" />
         </div>
       </div>
 
       <div class="flex-grow"></div>
 
-      <div class="flex gap-3 pt-4 border-t border-surface-100 dark:border-surface-800">
+      <div
+        class="flex gap-3 pt-4 border-t border-surface-100 dark:border-surface-800 sticky bottom-0 bg-surface-0 dark:bg-surface-900 pb-2"
+      >
         <Button
           label="Cancel"
           severity="secondary"

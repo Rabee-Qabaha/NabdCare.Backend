@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
 using NabdCare.Application.DTOs.Pagination;
+using NabdCare.Application.DTOs.Roles;
 using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Domain.Entities.Roles;
@@ -32,199 +33,145 @@ public class RoleRepository : IRoleRepository
     private Guid? CurrentClinicId => _tenantContext.ClinicId;
     private string? CurrentUserId => _tenantContext.UserId?.ToString();
 
-    // ============================================
-    // QUERY METHODS
-    // ============================================
-
-    /// <summary>
-    /// Get all roles with optional deletion and clinic filtering
-    /// </summary>
-    public async Task<IEnumerable<Role>> GetAllRolesAsync(bool includeDeleted = false, Guid? clinicId = null)
+    // =================================================================
+    // 🏗️ SHARED QUERY BUILDER (Private)
+    // =================================================================
+private IQueryable<Role> BuildQuery(RoleFilterRequestDto filter, Func<IQueryable<Role>, IQueryable<Role>>? abacFilter)
     {
         var query = _dbContext.Roles
+            .IgnoreQueryFilters()
             .Include(r => r.Clinic)
-            .AsQueryable();
+            .AsNoTracking();
 
-        // ---------------------------------------------------------
-        // 1. HANDLE DELETION & SECURITY
-        // ---------------------------------------------------------
-        if (includeDeleted)
+        // 1. Security & Deletion
+        if (filter.IncludeDeleted)
         {
-            // 🔓 Unlock deleted rows (This also disables tenant filters!)
-            query = query.IgnoreQueryFilters();
-
-            // 🔒 MANUALLY RE-APPLY TENANT SECURITY
             if (!IsSuperAdmin() && CurrentClinicId.HasValue)
             {
-                query = query.Where(r =>
-                    r.IsSystemRole ||
-                    r.IsTemplate ||
-                    r.ClinicId == CurrentClinicId
-                );
+                query = query.Where(r => 
+                    r.IsSystemRole || 
+                    r.IsTemplate || 
+                    r.ClinicId == CurrentClinicId);
             }
         }
         else
         {
-            // Standard Mode: Global Filter handles both !IsDeleted AND Tenant Security
             query = query.Where(r => !r.IsDeleted);
         }
 
-        // ---------------------------------------------------------
-        // 2. SPECIFIC FILTERING
-        // ---------------------------------------------------------
-        if (clinicId.HasValue)
+        // 2. Explicit Filters (Boolean Flags)
+        // Only apply these if they are explicitly set to true/false
+        if (filter.ClinicId.HasValue)
+            query = query.Where(r => r.ClinicId == filter.ClinicId.Value);
+
+        if (filter.IsSystemRole.HasValue)
+            query = query.Where(r => r.IsSystemRole == filter.IsSystemRole.Value);
+
+        if (filter.IsTemplate.HasValue)
+            query = query.Where(r => r.IsTemplate == filter.IsTemplate.Value);
+
+        // 3. "Role Origin" Helper (String based for Dropdown)
+        if (!string.IsNullOrWhiteSpace(filter.RoleOrigin))
         {
-            query = query.Where(r => r.ClinicId == clinicId);
+            var origin = filter.RoleOrigin.Trim().ToLower();
+            
+            if (origin == "system") 
+            {
+                // SaaS Level Roles
+                query = query.Where(r => r.IsSystemRole);
+            }
+            else if (origin == "template") 
+            {
+                // Blueprint Roles
+                query = query.Where(r => r.IsTemplate);
+            }
+            else if (origin == "clinic") 
+            {
+                query = query.Where(r => !r.IsSystemRole);
+            }
         }
 
+        // 4. Search
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var searchLower = filter.Search.Trim().ToLower();
+            query = query.Where(r => r.Name.ToLower().Contains(searchLower));
+        }
+        
+        // 5. Date Range
+        if (filter.FromDate.HasValue)
+            query = query.Where(r => r.CreatedAt >= filter.FromDate.Value);
+
+        if (filter.ToDate.HasValue)
+            query = query.Where(r => r.CreatedAt <= filter.ToDate.Value);
+
+        // 6. ABAC
+        if (abacFilter != null)
+            query = abacFilter(query);
+
+        return query;
+    }
+
+    // =================================================================
+    // 📋 QUERY METHODS
+    // =================================================================
+
+    public async Task<PaginatedResult<Role>> GetAllPagedAsync(
+        RoleFilterRequestDto filter,
+        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
+    {
+        int limit = filter.Limit <= 0 ? 20 : (filter.Limit > 100 ? 100 : filter.Limit);
+
+        var query = BuildQuery(filter, abacFilter);
+
+        // 📸 Total Count Snapshot
+        var totalCount = await query.CountAsync();
+
+        // Cursor Logic
+        var (createdAtCursor, idCursor) = DecodeCursor(filter.Cursor);
+        if (createdAtCursor.HasValue)
+        {
+            if (filter.Descending)
+                query = query.Where(r => r.CreatedAt < createdAtCursor.Value);
+            else
+                query = query.Where(r => r.CreatedAt > createdAtCursor.Value);
+        }
+
+        // Ordering (Must be stable for cursor)
+        query = filter.Descending
+            ? query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id)
+            : query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id);
+
+        // Fetch
+        var roles = await query.Take(limit + 1).ToListAsync();
+
+        bool hasMore = roles.Count > limit;
+        if (hasMore) roles.RemoveAt(roles.Count - 1);
+
+        string? nextCursor = hasMore && roles.LastOrDefault() is { } last
+            ? EncodeCursor(last.CreatedAt, last.Id)
+            : null;
+
+        return new PaginatedResult<Role>
+        {
+            Items = roles,
+            TotalCount = totalCount,
+            HasMore = hasMore,
+            NextCursor = nextCursor
+        };
+    }
+
+    public async Task<IEnumerable<Role>> GetAllRolesAsync(
+        RoleFilterRequestDto filter,
+        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
+    {
+        var query = BuildQuery(filter, abacFilter);
+
+        // Simple sorting for dropdowns
         return await query
             .OrderBy(r => r.DisplayOrder)
             .ThenBy(r => r.Name)
             .ToListAsync();
-    }
-
-    public async Task<PaginatedResult<Role>> GetAllPagedAsync(
-        PaginationRequestDto pagination,
-        bool includeDeleted = false,
-        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
-    {
-        var query = _dbContext.Roles
-            .Include(r => r.Clinic)
-            .AsQueryable();
-
-        // ---------------------------------------------------------
-        // 1. HANDLE DELETION & SECURITY
-        // ---------------------------------------------------------
-        if (includeDeleted)
-        {
-            // 🔓 Disable "IsDeleted" filter -> Show All (Active + Deleted)
-            query = query.IgnoreQueryFilters();
-
-            // 🔒 MANUALLY RE-APPLY TENANT SECURITY
-            if (!IsSuperAdmin() && CurrentClinicId.HasValue)
-            {
-                query = query.Where(r =>
-                    r.IsSystemRole ||
-                    r.IsTemplate ||
-                    r.ClinicId == CurrentClinicId
-                );
-            }
-        }
-        else
-        {
-            // Active Only
-            query = query.Where(r => !r.IsDeleted);
-        }
-
-        // ---------------------------------------------------------
-        // 2. ABAC & SEARCH
-        // ---------------------------------------------------------
-        if (abacFilter is not null)
-            query = abacFilter(query);
-
-        if (!string.IsNullOrWhiteSpace(pagination.Filter))
-        {
-            var filter = pagination.Filter.ToLower();
-            query = query.Where(r => r.Name.ToLower().Contains(filter));
-        }
-
-        // ---------------------------------------------------------
-        // 3. SORTING & PAGING
-        // ---------------------------------------------------------
-        if (!string.IsNullOrEmpty(pagination.SortBy))
-        {
-            query = pagination.SortBy.ToLower() switch
-            {
-                "name" => pagination.Descending ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
-                "displayorder" => pagination.Descending
-                    ? query.OrderByDescending(r => r.DisplayOrder)
-                    : query.OrderBy(r => r.DisplayOrder),
-                _ => query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name)
-            };
-        }
-        else
-        {
-            query = query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name);
-        }
-
-        var total = await query.CountAsync();
-        var roles = await query.Take(pagination.Limit).ToListAsync();
-
-        return new PaginatedResult<Role>
-        {
-            Items = roles,
-            TotalCount = total,
-            HasMore = roles.Count == pagination.Limit,
-            NextCursor = null
-        };
-    }
-
-    public async Task<PaginatedResult<Role>> GetClinicRolesPagedAsync(
-        Guid clinicId,
-        PaginationRequestDto pagination,
-        bool includeDeleted = false,
-        Func<IQueryable<Role>, IQueryable<Role>>? abacFilter = null)
-    {
-        var query = _dbContext.Roles
-            .Include(r => r.Clinic)
-            .AsQueryable();
-
-        // 1. Handle Deletion Status
-        if (includeDeleted)
-        {
-            // Disable global filters to see deleted items
-            query = query.IgnoreQueryFilters();
-        }
-        else
-        {
-            // Enforce active only
-            query = query.Where(r => !r.IsDeleted);
-        }
-
-        // 2. Enforce Clinic Scope (Required because IgnoreQueryFilters removes the global tenant check)
-        query = query.Where(r => r.ClinicId == clinicId);
-
-        // 3. Apply ABAC Filter
-        if (abacFilter is not null)
-            query = abacFilter(query);
-
-        // 4. Search Text
-        if (!string.IsNullOrWhiteSpace(pagination.Filter))
-        {
-            var filter = pagination.Filter.ToLower();
-            query = query.Where(r => r.Name.ToLower().Contains(filter));
-        }
-
-        // 5. Sorting
-        if (!string.IsNullOrEmpty(pagination.SortBy))
-        {
-            query = pagination.SortBy.ToLower() switch
-            {
-                "name" => pagination.Descending
-                    ? query.OrderByDescending(r => r.Name)
-                    : query.OrderBy(r => r.Name),
-                "displayorder" => pagination.Descending
-                    ? query.OrderByDescending(r => r.DisplayOrder)
-                    : query.OrderBy(r => r.DisplayOrder),
-                _ => query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name)
-            };
-        }
-        else
-        {
-            query = query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Name);
-        }
-
-        // 6. Pagination Execution
-        var total = await query.CountAsync();
-        var roles = await query.Take(pagination.Limit).ToListAsync();
-
-        return new PaginatedResult<Role>
-        {
-            Items = roles,
-            TotalCount = total,
-            HasMore = roles.Count == pagination.Limit,
-            NextCursor = null
-        };
     }
 
     public async Task<IEnumerable<Role>> GetSystemRolesAsync()
@@ -289,9 +236,9 @@ public class RoleRepository : IRoleRepository
         return await query.AnyAsync();
     }
 
-    // ============================================
+    // =================================================================
     // COMMAND METHODS
-    // ============================================
+    // =================================================================
 
     public async Task<Role> CreateRoleAsync(Role role)
     {
@@ -307,8 +254,7 @@ public class RoleRepository : IRoleRepository
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Id == role.Id);
 
-        if (existing == null)
-            return null;
+        if (existing == null) return null;
 
         if (existing.IsSystemRole && !IsSuperAdmin())
             throw new UnauthorizedAccessException("System roles can only be modified by SuperAdmin");
@@ -359,17 +305,13 @@ public class RoleRepository : IRoleRepository
         return true;
     }
 
-    /// <summary>
-    /// Restore a soft-deleted role
-    /// </summary>
     public async Task<Role?> RestoreRoleAsync(Guid id)
     {
         var role = await _dbContext.Roles
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Id == id);
 
-        if (role == null)
-            return null;
+        if (role == null) return null;
 
         if (!role.IsDeleted)
             throw new InvalidOperationException("Role is not deleted");
@@ -389,9 +331,9 @@ public class RoleRepository : IRoleRepository
         return role;
     }
 
-    // ============================================
+    // =================================================================
     // PERMISSION MANAGEMENT
-    // ============================================
+    // =================================================================
 
     public async Task<IEnumerable<Guid>> GetRolePermissionIdsAsync(Guid roleId)
     {
@@ -533,5 +475,35 @@ public class RoleRepository : IRoleRepository
         await _cacheInvalidator.InvalidateRoleAsync(roleId);
         _logger.LogInformation("Synced {Count} permissions for role {RoleId}", permissionIds.Count(), roleId);
         return true;
+    }
+
+    // =================================================================
+    // 🛡️ HELPER METHODS
+    // =================================================================
+    private static (DateTime? createdAt, Guid? id) DecodeCursor(string? cursor)
+    {
+        if (string.IsNullOrWhiteSpace(cursor)) return (null, null);
+        try
+        {
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (dict == null) return (null, null);
+
+            DateTime? createdAt = dict.TryGetValue("c", out var cStr) && DateTime.TryParse(cStr, out var cVal) ? cVal : null;
+            Guid? id = dict.TryGetValue("i", out var iStr) && Guid.TryParse(iStr, out var iVal) ? iVal : null;
+            return (createdAt, id);
+        }
+        catch { return (null, null); }
+    }
+
+    private static string EncodeCursor(DateTime createdAt, Guid id)
+    {
+        var payload = new Dictionary<string, string>
+        {
+            ["c"] = createdAt.ToString("O"),
+            ["i"] = id.ToString()
+        };
+        var json = System.Text.Json.JsonSerializer.Serialize(payload);
+        return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
     }
 }

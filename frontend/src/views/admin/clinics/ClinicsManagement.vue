@@ -64,7 +64,7 @@
         :clinic="selectedClinic"
       />
 
-      <ConfirmDialog />
+      <ConfirmDialog :style="{ width: '20vw', minWidth: '100px' }" />
     </div>
   </div>
 </template>
