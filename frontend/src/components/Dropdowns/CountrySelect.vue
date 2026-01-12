@@ -22,15 +22,15 @@
 
 <template>
   <Select
-    :modelValue="modelValue"
+    :model-value="modelValue"
     :options="COUNTRIES"
-    optionLabel="name"
-    optionValue="name"
+    option-label="name"
+    option-value="name"
     :placeholder="placeholder || 'Select a Country'"
     filter
-    showClear
+    show-clear
     class="w-full custom-country-select"
-    @update:modelValue="onUpdate"
+    @update:model-value="onUpdate"
   >
     <template #value="slotProps">
       <div v-if="slotProps.value" class="flex items-center gap-3 h-full">

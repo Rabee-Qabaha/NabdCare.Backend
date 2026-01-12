@@ -68,55 +68,55 @@
         <UserCard
           v-for="u in visibleUsers"
           :key="u.id"
-          :user="u"
           v-model:selected="selectedUserIds"
+          :user="u"
         >
           <template #actions>
             <div class="flex gap-1">
               <template v-if="!u.isDeleted">
                 <Button
                   v-if="canEdit"
+                  v-tooltip.top="'Edit'"
                   icon="pi pi-pencil"
                   text
                   size="small"
                   severity="info"
-                  v-tooltip.top="'Edit'"
                   @click="openEditDialog(u)"
                 />
                 <Button
                   v-if="canActivate"
+                  v-tooltip.top="u.isActive ? 'Deactivate' : 'Activate'"
                   :icon="u.isActive ? 'pi pi-ban' : 'pi pi-check'"
                   text
                   size="small"
                   :severity="u.isActive ? 'warn' : 'success'"
-                  v-tooltip.top="u.isActive ? 'Deactivate' : 'Activate'"
-                  @click="toggleUserStatus(u)"
                   :loading="loadingUserIds.has(u.id)"
+                  @click="toggleUserStatus(u)"
                 />
                 <Button
                   v-if="canResetPassword"
+                  v-tooltip.top="'Reset Password'"
                   icon="pi pi-key"
                   text
                   size="small"
                   severity="help"
-                  v-tooltip.top="'Reset Password'"
                   @click="openResetPasswordDialog(u)"
                 />
                 <Button
+                  v-tooltip.top="'Permissions'"
                   icon="pi pi-shield"
                   text
                   size="small"
                   severity="primary"
-                  v-tooltip.top="'Permissions'"
                   @click="openPermissionsDialog(u)"
                 />
                 <Button
                   v-if="canDelete"
+                  v-tooltip.top="'Move to Trash'"
                   icon="pi pi-trash"
                   text
                   size="small"
                   severity="danger"
-                  v-tooltip.top="'Move to Trash'"
                   @click="openDeleteDialog(u)"
                 />
               </template>
@@ -124,20 +124,20 @@
               <template v-else>
                 <Button
                   v-if="canDelete"
+                  v-tooltip.top="'Restore'"
                   icon="pi pi-undo"
                   text
                   size="small"
                   severity="success"
-                  v-tooltip.top="'Restore'"
                   @click="restoreUser(u)"
                 />
                 <Button
                   v-if="canDelete"
+                  v-tooltip.top="'Permanently Delete'"
                   icon="pi pi-times-circle"
                   text
                   size="small"
                   severity="danger"
-                  v-tooltip.top="'Permanently Delete'"
                   @click="openPermanentDeleteDialog(u)"
                 />
               </template>
@@ -155,7 +155,7 @@
 
       <div ref="sentinel" class="h-6"></div>
       <div v-if="isFetchingNextPage" class="flex justify-center p-4">
-        <ProgressSpinner style="width: 30px; height: 30px" strokeWidth="4" />
+        <ProgressSpinner style="width: 30px; height: 30px" stroke-width="4" />
       </div>
 
       <UserFilters
@@ -366,7 +366,9 @@
         await createUserMutation.mutateAsync(userData);
       }
       closeAll();
-    } catch (e: any) {}
+    } catch (e: any) {
+      // safe to ignore
+    }
   }
 
   async function toggleUserStatus(user: UserResponseDto) {

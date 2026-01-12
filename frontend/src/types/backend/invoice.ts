@@ -22,7 +22,7 @@ export class Invoice {
   billedToTaxNumber: string;
   pdfUrl: string;
   hostedPaymentUrl: string;
-  issueDate: Date = new Date("2026-01-11T22:18:22.0540540Z");
+  issueDate: Date = new Date("2026-01-12T17:27:51.7087470Z");
   dueDate: Date;
   paidDate: Date;
   paymentAttemptCount: number;

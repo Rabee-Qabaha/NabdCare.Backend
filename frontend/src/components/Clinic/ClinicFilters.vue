@@ -19,10 +19,10 @@
         <Select
           v-model="local.status"
           :options="statusOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Any Status"
-          showClear
+          show-clear
           class="w-full"
         >
           <template #option="slotProps">
@@ -36,10 +36,10 @@
         <Select
           v-model="local.subscriptionType"
           :options="planOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Any Plan"
-          showClear
+          show-clear
           class="w-full"
         />
       </div>
@@ -48,13 +48,13 @@
         <label class="text-sm font-semibold text-surface-700">Expiration Date</label>
         <DatePicker
           v-model="local.expirationDateRange"
-          selectionMode="range"
-          :manualInput="false"
+          selection-mode="range"
+          :manual-input="false"
           placeholder="Select Date Range"
-          showIcon
+          show-icon
           fluid
-          dateFormat="dd/mm/yy"
-          showButtonBar
+          date-format="dd/mm/yy"
+          show-button-bar
         />
         <small class="text-surface-500">Find clinics expiring soon.</small>
       </div>
@@ -63,13 +63,13 @@
         <label class="text-sm font-semibold text-surface-700">Joined Date</label>
         <DatePicker
           v-model="local.createdDateRange"
-          selectionMode="range"
-          :manualInput="false"
+          selection-mode="range"
+          :manual-input="false"
           placeholder="Select Date Range"
-          showIcon
+          show-icon
           fluid
-          dateFormat="dd/mm/yy"
-          showButtonBar
+          date-format="dd/mm/yy"
+          show-button-bar
         />
       </div>
 
@@ -77,7 +77,7 @@
         <label class="text-sm font-semibold text-surface-700">Min. Branches</label>
         <InputNumber
           v-model="local.minBranches"
-          showButtons
+          show-buttons
           :min="0"
           placeholder="e.g. 5"
           class="w-full"
@@ -92,8 +92,8 @@
           icon="pi pi-filter-slash"
           text
           severity="secondary"
-          @click="onClear"
           class="w-full"
+          @click="onClear"
         />
       </div>
     </template>

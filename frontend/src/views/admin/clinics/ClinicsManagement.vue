@@ -32,9 +32,9 @@
       </div>
 
       <ClinicTable
+        v-model:filters="filters"
         :virtual-clinics="virtualClinics"
         :loading="loading"
-        v-model:filters="filters"
         @lazy-load="loadCarsLazy"
         @sort="onSort"
         @refresh="refresh"

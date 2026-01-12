@@ -67,7 +67,6 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     header="Change Password"
     modal
     :style="{ width: '500px' }"
@@ -84,6 +83,7 @@
           'border-t border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-50 dark:bg-surface-800',
       },
     }"
+    @update:visible="emit('update:visible', $event)"
   >
     <div class="pt-5">
       <UserPasswordFields

@@ -36,17 +36,17 @@
     <Select
       size="medium"
       class="w-full"
-      :modelValue="modelValue"
-      @update:modelValue="emit('update:modelValue', $event)"
+      :model-value="modelValue"
       :options="clinics"
-      optionLabel="name"
-      :optionValue="valueKey ?? 'id'"
+      option-label="name"
+      :option-value="valueKey ?? 'id'"
       :loading="isLoading"
       filter
-      filterPlaceholder="Search clinics..."
+      filter-placeholder="Search clinics..."
       :disabled="disabled || !!error"
       :invalid="invalid"
-      :showClear="showClear ?? true"
+      :show-clear="showClear ?? true"
+      @update:model-value="emit('update:modelValue', $event)"
     >
       <!-- ⭐ FIXED VALUE SLOT (No 'value' used) -->
       <template #value>

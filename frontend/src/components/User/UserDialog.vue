@@ -24,8 +24,8 @@
         <div
           class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 shrink-0"
         >
-          <i class="pi pi-user-plus text-xl" v-if="!localUser.id"></i>
-          <i class="pi pi-user-edit text-xl" v-else></i>
+          <i v-if="!localUser.id" class="pi pi-user-plus text-xl"></i>
+          <i v-else class="pi pi-user-edit text-xl"></i>
         </div>
         <div class="flex flex-col">
           <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight">
@@ -66,8 +66,8 @@
             type="email"
             placeholder="user@example.com"
             :invalid="submitted && (!isEmailValid || emailExistsError)"
-            @blur="checkEmail"
             class="w-full"
+            @blur="checkEmail"
           />
           <small v-if="emailExistsError" class="text-red-500 text-xs">Email already exists.</small>
           <small v-if="softDeletedUser" class="text-orange-500 text-xs flex items-center gap-1">

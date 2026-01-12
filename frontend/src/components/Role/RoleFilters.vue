@@ -19,10 +19,10 @@
         <Select
           v-model="local.roleOrigin"
           :options="originOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="All Origins"
-          showClear
+          show-clear
           class="w-full"
         >
           <template #option="slotProps">
@@ -39,10 +39,10 @@
         <Select
           v-model="local.isTemplate"
           :options="templateOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="All Types"
-          showClear
+          show-clear
           class="w-full"
         >
           <template #option="slotProps">
@@ -59,8 +59,8 @@
         <Select
           v-model="local.status"
           :options="statusOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Active Only (Default)"
           class="w-full"
         >
@@ -86,14 +86,14 @@
         <label class="text-sm font-semibold text-surface-700">Created Date</label>
         <DatePicker
           v-model="local.dateRange"
-          selectionMode="range"
-          :manualInput="false"
+          selection-mode="range"
+          :manual-input="false"
           placeholder="Select date range"
-          showIcon
+          show-icon
           fluid
           class="w-full"
-          dateFormat="yy-mm-dd"
-          showButtonBar
+          date-format="yy-mm-dd"
+          show-button-bar
         />
       </div>
     </div>
@@ -105,8 +105,8 @@
           icon="pi pi-filter-slash"
           text
           severity="secondary"
-          @click="onClear"
           class="w-full"
+          @click="onClear"
         />
       </div>
     </template>

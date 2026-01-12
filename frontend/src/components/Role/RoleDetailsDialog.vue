@@ -83,7 +83,7 @@
         </div>
 
         <div v-if="isLoading" class="space-y-3">
-          <Skeleton height="4rem" class="rounded-lg" v-for="i in 2" :key="i" />
+          <Skeleton v-for="i in 2" :key="i" height="4rem" class="rounded-lg" />
         </div>
 
         <div

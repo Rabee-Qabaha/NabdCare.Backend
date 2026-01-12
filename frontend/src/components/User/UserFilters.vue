@@ -17,12 +17,12 @@
 
       <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-surface-700">Role</label>
-        <RoleSelect v-model="local.roleId" showClear class="w-full" />
+        <RoleSelect v-model="local.roleId" show-clear class="w-full" />
       </div>
 
       <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-surface-700">Clinic</label>
-        <ClinicSelect v-model="local.clinicId" showClear class="w-full" />
+        <ClinicSelect v-model="local.clinicId" show-clear class="w-full" />
       </div>
 
       <div class="flex flex-col gap-2">
@@ -30,10 +30,10 @@
         <Select
           v-model="local.isActive"
           :options="statusOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="All Statuses"
-          showClear
+          show-clear
           class="w-full"
         >
           <template #option="slotProps">
@@ -55,8 +55,8 @@
         <Select
           v-model="local.status"
           :options="deletedOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           class="w-full"
         >
           <template #option="slotProps">
@@ -77,14 +77,14 @@
         <label class="text-sm font-semibold text-surface-700">Created Date</label>
         <DatePicker
           v-model="local.dateRange"
-          selectionMode="range"
-          :manualInput="false"
+          selection-mode="range"
+          :manual-input="false"
           placeholder="Select date range"
-          showIcon
+          show-icon
           fluid
           class="w-full"
-          dateFormat="yy-mm-dd"
-          showButtonBar
+          date-format="yy-mm-dd"
+          show-button-bar
         />
       </div>
     </div>
@@ -96,8 +96,8 @@
           icon="pi pi-filter-slash"
           text
           severity="secondary"
-          @click="onClear"
           class="w-full"
+          @click="onClear"
         />
       </div>
     </template>

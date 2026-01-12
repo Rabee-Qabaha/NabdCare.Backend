@@ -224,7 +224,6 @@
 <template>
   <Drawer
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     position="right"
     class="!w-full md:!w-[400px]"
     :header="isEditing ? 'Edit Branch' : 'New Branch'"
@@ -244,6 +243,7 @@
           'bg-surface-50 dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700',
       },
     }"
+    @update:visible="emit('update:visible', $event)"
   >
     <div class="flex flex-col h-full gap-6">
       <Message
@@ -294,8 +294,8 @@
         </div>
         <ToggleSwitch
           v-model="form.isMain"
-          :disabled="isEditing && form.isMain"
           v-tooltip.left="isEditing && form.isMain ? 'Promote another branch to switch HQ' : ''"
+          :disabled="isEditing && form.isMain"
         />
       </div>
 
@@ -365,7 +365,7 @@
             placeholder="123 Health Ave, Building B"
             class="w-full resize-none"
             rows="2"
-            autoResize
+            auto-resize
             :invalid="!!errors.street"
             @input="errors.street = ''"
           />
@@ -423,8 +423,8 @@
           :label="isEditing ? 'Save Changes' : 'Create Branch'"
           icon="pi pi-check"
           class="flex-1"
-          @click="onSubmit"
           :loading="createMutation.isPending.value || updateMutation.isPending.value"
+          @click="onSubmit"
         />
       </div>
     </div>

@@ -89,8 +89,8 @@
         <Password
           id="currentPassword"
           v-model="passwords.currentPassword"
-          toggleMask
-          inputClass="w-full"
+          toggle-mask
+          input-class="w-full"
           class="w-full"
           :feedback="false"
           :disabled="props.loading"
@@ -102,13 +102,13 @@
         <Password
           id="newPassword"
           v-model="passwords.newPassword"
-          toggleMask
-          inputClass="w-full"
+          toggle-mask
+          input-class="w-full"
           class="w-full"
           :feedback="true"
           :invalid="props.submitted && !!getFieldError('newPassword')"
-          @input="markFieldTouched('newPassword')"
           :disabled="props.loading"
+          @input="markFieldTouched('newPassword')"
         />
         <label for="newPassword">New Password *</label>
       </FloatLabel>
@@ -121,13 +121,13 @@
         <Password
           id="confirmPassword"
           v-model="passwords.confirmPassword"
-          toggleMask
-          inputClass="w-full"
+          toggle-mask
+          input-class="w-full"
           class="w-full"
           :feedback="false"
           :invalid="props.submitted && !!getFieldError('confirmPassword')"
-          @input="markFieldTouched('confirmPassword')"
           :disabled="props.loading"
+          @input="markFieldTouched('confirmPassword')"
         />
         <label for="confirmPassword">Confirm Password *</label>
       </FloatLabel>

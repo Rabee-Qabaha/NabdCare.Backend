@@ -109,12 +109,11 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     modal
     header=" "
     :style="{ width: '100%', maxWidth: '64rem' }"
     :breakpoints="{ '960px': '90vw', '640px': '95vw' }"
-    :contentStyle="{
+    :content-style="{
       padding: '0',
       borderRadius: '0 0 12px 12px',
       maxHeight: '85vh',
@@ -127,6 +126,7 @@
       },
       mask: { class: 'backdrop-blur-sm' },
     }"
+    @update:visible="emit('update:visible', $event)"
   >
     <template #header>
       <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
@@ -163,7 +163,7 @@
               rounded
             />
           </template>
-          <Skeleton v-else width="100px" height="28px" borderRadius="16px" />
+          <Skeleton v-else width="100px" height="28px" border-radius="16px" />
         </div>
       </div>
     </template>

@@ -249,7 +249,6 @@
             :key="primaryColor.name"
             type="button"
             :title="primaryColor.name"
-            @click="updateColors('primary', primaryColor)"
             :class="[
               'h-5 w-5 cursor-pointer rounded-full border-none p-0 outline-none outline-offset-1',
               { 'outline-primary': layoutConfig.primary === primaryColor.name },
@@ -257,6 +256,7 @@
             :style="{
               backgroundColor: `${primaryColor.name === 'noir' ? 'var(--text-color)' : primaryColor.palette['500']}`,
             }"
+            @click="updateColors('primary', primaryColor)"
           ></button>
         </div>
       </div>
@@ -268,7 +268,6 @@
             :key="surface.name"
             type="button"
             :title="surface.name"
-            @click="updateColors('surface', surface)"
             :class="[
               'h-5 w-5 cursor-pointer rounded-full border-none p-0 outline-none outline-offset-1',
               {
@@ -280,6 +279,7 @@
               },
             ]"
             :style="{ backgroundColor: `${surface.palette['500']}` }"
+            @click="updateColors('surface', surface)"
           ></button>
         </div>
       </div>
@@ -287,20 +287,20 @@
         <span class="text-sm font-semibold text-muted-color">Presets</span>
         <SelectButton
           v-model="preset"
-          @change="onPresetChange"
           :options="presetOptions"
-          :allowEmpty="false"
+          :allow-empty="false"
+          @change="onPresetChange"
         />
       </div>
       <div class="flex flex-col gap-2">
         <span class="text-sm font-semibold text-muted-color">Menu Mode</span>
         <SelectButton
           v-model="menuMode"
-          @change="onMenuModeChange"
           :options="menuModeOptions"
-          :allowEmpty="false"
-          optionLabel="label"
-          optionValue="value"
+          :allow-empty="false"
+          option-label="label"
+          option-value="value"
+          @change="onMenuModeChange"
         />
       </div>
     </div>

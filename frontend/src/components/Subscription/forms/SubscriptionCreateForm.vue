@@ -53,18 +53,18 @@
             <label class="text-xs font-bold mb-1 block text-surface-600">Paid Users</label>
             <InputNumber
               v-model="form.extraUsers"
-              showButtons
+              show-buttons
               :min="0"
-              inputClass="w-full text-center"
+              input-class="w-full text-center"
             />
           </div>
           <div>
             <label class="text-xs font-bold mb-1 block text-surface-600">Paid Branches</label>
             <InputNumber
               v-model="form.extraBranches"
-              showButtons
+              show-buttons
               :min="0"
-              inputClass="w-full text-center"
+              input-class="w-full text-center"
             />
           </div>
         </div>
@@ -100,7 +100,7 @@
                 v-model="form.bonusUsers"
                 placeholder="0"
                 class="w-full"
-                inputClass="text-center font-bold bg-white/60 dark:bg-black/20"
+                input-class="text-center font-bold bg-white/60 dark:bg-black/20"
                 :min="0"
               />
             </div>
@@ -114,7 +114,7 @@
                 v-model="form.bonusBranches"
                 placeholder="0"
                 class="w-full"
-                inputClass="text-center font-bold bg-white/60 dark:bg-black/20"
+                input-class="text-center font-bold bg-white/60 dark:bg-black/20"
                 :min="0"
               />
             </div>
@@ -127,9 +127,9 @@
         <Button
           label="Activate Subscription"
           class="flex-1"
-          @click="handleSubmit"
           :loading="createSubscriptionMutation.isPending.value"
           :disabled="!form.planId"
+          @click="handleSubmit"
         />
       </div>
     </div>

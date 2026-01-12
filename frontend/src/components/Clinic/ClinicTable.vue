@@ -4,8 +4,8 @@
     <DataTable
       :value="virtualClinics"
       scrollable
-      scrollHeight="calc(100vh - 21rem)"
-      :virtualScrollerOptions="{
+      scroll-height="calc(100vh - 21rem)"
+      :virtual-scroller-options="{
         lazy: true,
         onLazyLoad: onLazyLoad,
         itemSize: 60,
@@ -14,11 +14,11 @@
         loading: loading,
         numToleratedItems: 10,
       }"
-      dataKey="id"
-      @sort="onSort"
-      tableStyle="min-width: 85rem"
+      data-key="id"
+      table-style="min-width: 85rem"
       class="p-datatable-sm"
-      :rowClass="rowClass"
+      :row-class="rowClass"
+      @sort="onSort"
     >
       <template #empty>
         <div class="text-center p-8">
@@ -101,7 +101,7 @@
         </template>
       </Column>
 
-      <Column field="subscriptionFee" header="Fee" sortable dataType="numeric" style="width: 10%">
+      <Column field="subscriptionFee" header="Fee" sortable data-type="numeric" style="width: 10%">
         <template #loading><Skeleton width="3rem" height="1rem" /></template>
         <template #body="{ data }">
           <span v-if="data" class="font-mono text-sm">
@@ -111,7 +111,7 @@
         </template>
       </Column>
 
-      <Column field="createdAt" header="Joined" sortable dataType="date" style="width: 12%">
+      <Column field="createdAt" header="Joined" sortable data-type="date" style="width: 12%">
         <template #loading><Skeleton width="5rem" height="1rem" /></template>
         <template #body="{ data }">
           <span v-if="data" class="text-sm text-surface-500">{{ formatDate(data.createdAt) }}</span>
@@ -119,7 +119,7 @@
         </template>
       </Column>
 
-      <Column header="" alignFrozen="right" frozen style="width: 4rem">
+      <Column header="" align-frozen="right" frozen style="width: 4rem">
         <template #loading><Skeleton shape="circle" size="2rem" /></template>
         <template #body="{ data }">
           <div v-if="data" class="flex justify-center">
@@ -129,9 +129,9 @@
               text
               rounded
               severity="secondary"
-              @click="toggleMenu($event, data)"
               aria-haspopup="true"
               aria-controls="overlay_menu"
+              @click="toggleMenu($event, data)"
             />
           </div>
           <Skeleton v-else shape="circle" size="2rem" />
@@ -139,7 +139,7 @@
       </Column>
     </DataTable>
 
-    <Menu ref="menu" id="overlay_menu" :model="menuItems" :popup="true" />
+    <Menu id="overlay_menu" ref="menu" :model="menuItems" :popup="true" />
   </div>
 </template>
 

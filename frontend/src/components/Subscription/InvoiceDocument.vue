@@ -151,7 +151,7 @@
         </div>
 
         <div class="mb-10 relative z-10">
-          <DataTable :value="invoice.items" class="invoice-table" stripedRows>
+          <DataTable :value="invoice.items" class="invoice-table" striped-rows>
             <Column header="Description">
               <template #body="{ data }">
                 <div class="py-3">

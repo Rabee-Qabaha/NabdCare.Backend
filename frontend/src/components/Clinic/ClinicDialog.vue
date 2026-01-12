@@ -2,7 +2,7 @@
   <Dialog
     v-model:visible="isVisible"
     modal
-    :dismissableMask="!saving"
+    :dismissable-mask="!saving"
     :style="{ width: '750px', maxWidth: '95vw' }"
     :pt="{
       root: {
@@ -64,9 +64,9 @@
         <InputText
           v-model="name"
           :invalid="submitted && !!errors.name"
-          @input="errors.name = ''"
           placeholder="e.g. Nabd Medical Center"
           class="w-full"
+          @input="errors.name = ''"
         />
         <small v-if="submitted && errors.name" class="text-red-500 text-xs">
           {{ errors.name }}
@@ -83,8 +83,8 @@
           <InputText
             v-model="slug"
             :invalid="submitted && !!errors.slug"
-            @input="onSlugInputChange"
             placeholder="clinic-name"
+            @input="onSlugInputChange"
           />
           <InputGroupAddon class="text-xs">.nabd.care</InputGroupAddon>
         </InputGroup>
@@ -107,9 +107,9 @@
           <InputText
             v-model="logoUrl"
             :invalid="submitted && !!errors.logoUrl"
-            @input="errors.logoUrl = ''"
             placeholder="https://..."
             class="w-full p-inputtext-sm"
+            @input="errors.logoUrl = ''"
           />
           <small v-if="submitted && errors.logoUrl" class="text-red-500 text-xs">
             {{ errors.logoUrl }}
@@ -131,10 +131,10 @@
         <InputText
           v-model="email"
           :invalid="submitted && !!errors.email"
-          @input="errors.email = ''"
           type="email"
           placeholder="admin@clinic.com"
           class="w-full"
+          @input="errors.email = ''"
         />
         <small v-if="submitted && errors.email" class="text-red-500 text-xs">
           {{ errors.email }}
@@ -149,9 +149,9 @@
         <InputText
           v-model="phone"
           :invalid="submitted && !!errors.phone"
-          @input="errors.phone = ''"
           placeholder="+970 ..."
           class="w-full"
+          @input="errors.phone = ''"
         />
         <small v-if="submitted && errors.phone" class="text-red-500 text-xs">
           {{ errors.phone }}
@@ -169,9 +169,9 @@
           <InputText
             v-model="splitStreet"
             :invalid="submitted && !!errors.address"
-            @input="errors.address = ''"
             placeholder="Street"
             class="w-full"
+            @input="errors.address = ''"
           />
         </div>
         <div class="flex flex-col gap-2">
@@ -181,9 +181,9 @@
           </label>
           <InputText
             v-model="splitCity"
-            @input="errors.address = ''"
             placeholder="City"
             class="w-full"
+            @input="errors.address = ''"
           />
         </div>
         <div class="flex flex-col gap-2">
@@ -197,8 +197,8 @@
           </label>
           <CountrySelect
             v-model="splitCountry"
-            @change="errors.address = ''"
             :class="{ 'p-invalid': submitted && !!errors.address }"
+            @change="errors.address = ''"
           />
         </div>
         <small v-if="submitted && errors.address" class="text-red-500 text-xs col-span-4">
@@ -226,12 +226,12 @@
 
     <template #footer>
       <div class="flex justify-end gap-2 w-full mt-2">
-        <Button label="Cancel" severity="secondary" text @click="onClose" :disabled="saving" />
+        <Button label="Cancel" severity="secondary" text :disabled="saving" @click="onClose" />
         <Button
           :label="isEditMode ? 'Update Profile' : 'Create Clinic'"
           icon="pi pi-check"
-          @click="onSave"
           :loading="saving"
+          @click="onSave"
         />
       </div>
     </template>

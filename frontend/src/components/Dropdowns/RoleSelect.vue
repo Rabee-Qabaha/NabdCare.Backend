@@ -76,17 +76,16 @@
 <template>
   <div class="w-full">
     <Select
-      :modelValue="modelValue"
-      @update:modelValue="handleChange"
+      :model-value="modelValue"
       :options="roles"
-      optionLabel="name"
-      :optionValue="valueKey"
+      option-label="name"
+      :option-value="valueKey"
       :loading="isLoading"
       filter
-      filterPlaceholder="Search roles..."
+      filter-placeholder="Search roles..."
       :invalid="invalid"
       :disabled="isError"
-      :showClear="showClear"
+      :show-clear="showClear"
       :placeholder="placeholder || 'Select a Role'"
       class="w-full"
       :fluid="true"
@@ -95,8 +94,9 @@
         label: { class: 'flex items-center w-full overflow-hidden' },
         list: { class: 'p-1' },
       }"
+      @update:model-value="handleChange"
     >
-      <template #value="{ value }">
+      <template #value>
         <div v-if="selectedRole" class="flex items-center gap-2 w-full overflow-hidden">
           <div
             class="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-white text-[10px] shadow-sm"
@@ -142,9 +142,9 @@
           </div>
 
           <div
-            class="text-xs text-surface-500 dark:text-surface-400 truncate pl-8 opacity-80 w-full"
             v-if="option.description"
             v-tooltip.bottom="option.description"
+            class="text-xs text-surface-500 dark:text-surface-400 truncate pl-8 opacity-80 w-full"
           >
             {{ option.description }}
           </div>

@@ -37,7 +37,7 @@
       </div>
     </template>
 
-    <form @submit.prevent="onSubmit" class="flex flex-col h-full">
+    <form class="flex flex-col h-full" @submit.prevent="onSubmit">
       <div
         class="p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar"
         style="max-height: 600px"
@@ -66,7 +66,7 @@
               v-model="form.clinicId"
               placeholder="Global (System Level)"
               class="w-full"
-              :showClear="true"
+              :show-clear="true"
             />
           </div>
           <div v-else class="flex flex-col gap-1.5">
@@ -111,8 +111,8 @@
                 title="Custom Color"
               >
                 <input
-                  type="color"
                   v-model="form.colorCode"
+                  type="color"
                   class="absolute inset-0 opacity-0 cursor-pointer"
                 />
                 <i class="pi pi-palette text-xs"></i>
@@ -141,12 +141,12 @@
             <Dropdown
               v-model="form.iconClass"
               :options="availableIcons"
-              optionLabel="label"
-              optionValue="class"
+              option-label="label"
+              option-value="class"
               placeholder="Select an icon"
               class="w-full"
               filter
-              :virtualScrollerOptions="{ itemSize: 38 }"
+              :virtual-scroller-options="{ itemSize: 38 }"
               :disabled="effectiveMode === 'clone'"
               :class="{ 'opacity-70 bg-surface-50 dark:bg-surface-800': effectiveMode === 'clone' }"
             >
@@ -202,8 +202,8 @@
                   v-model="form.displayOrder"
                   :min="1"
                   :max="1000"
-                  showButtons
-                  buttonLayout="horizontal"
+                  show-buttons
+                  button-layout="horizontal"
                   :step="1"
                   input-class="!w-full !text-center !text-xs font-medium"
                   class="w-full"

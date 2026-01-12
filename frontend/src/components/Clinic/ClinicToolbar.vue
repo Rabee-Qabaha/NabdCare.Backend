@@ -37,21 +37,21 @@
 
       <div class="flex w-full justify-end gap-1 sm:w-auto">
         <Button
+          v-tooltip.top="'Reset filters'"
           icon="pi pi-filter-slash"
           severity="secondary"
           text
           rounded
-          v-tooltip.top="'Reset filters'"
           @click="$emit('clear-filters')"
         />
 
         <Button
+          v-tooltip.top="'Refresh'"
           icon="pi pi-refresh"
           severity="secondary"
           text
           rounded
           :loading="loading"
-          v-tooltip.top="'Refresh'"
           @click="$emit('refresh')"
         />
       </div>

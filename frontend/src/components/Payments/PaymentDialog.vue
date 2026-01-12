@@ -1,10 +1,10 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     :header="localPayment.id ? 'Edit Payment' : 'Add Payment'"
     :modal="true"
     :style="{ width: '400px', maxWidth: '100%' }"
+    @update:visible="emit('update:visible', $event)"
   >
     <div class="flex flex-col gap-6">
       <!-- Amount -->
@@ -17,8 +17,8 @@
           currency="ILS"
           locale="en-US"
           :step="0.01"
-          :minFractionDigits="0"
-          :maxFractionDigits="2"
+          :min-fraction-digits="0"
+          :max-fraction-digits="2"
           aria-label="Payment Amount"
           :invalid="submitted && !isAmountValid"
           class="w-full"
@@ -36,8 +36,8 @@
           id="method"
           v-model="localPayment.method"
           :options="[]"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Select Payment Method"
           :invalid="submitted && !localPayment.method"
           class="w-full"
@@ -53,8 +53,8 @@
         <DatePicker
           id="paidAt"
           v-model="localPayment.paidAt"
-          :showIcon="true"
-          :showButtonBar="true"
+          :show-icon="true"
+          :show-button-bar="true"
           placeholder="Select date"
           :invalid="submitted && !localPayment.paidAt"
           class="w-full"

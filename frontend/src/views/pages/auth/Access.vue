@@ -33,7 +33,7 @@
       </p>
 
       <div class="flex justify-center gap-4">
-        <Button label="Go Back" icon="pi pi-arrow-left" @click="goBack" severity="secondary" />
+        <Button label="Go Back" icon="pi pi-arrow-left" severity="secondary" @click="goBack" />
         <Button label="Go to Dashboard" icon="pi pi-home" @click="goHome" />
       </div>
     </div>

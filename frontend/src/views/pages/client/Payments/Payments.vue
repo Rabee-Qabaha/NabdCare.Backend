@@ -1,6 +1,6 @@
 <template>
   <div className="card">
-    <PaymentsList showPatientInfo />
+    <PaymentsList show-patient-info />
   </div>
 </template>
 

@@ -76,7 +76,7 @@
 
         <ProgressBar
           :value="users.percent"
-          :showValue="false"
+          :show-value="false"
           style="height: 6px"
           class="rounded-full bg-surface-100 dark:bg-surface-700 mb-1"
           :pt="{ value: { class: '!bg-purple-500 rounded-full' } }"
@@ -116,7 +116,7 @@
 
         <ProgressBar
           :value="branches.percent"
-          :showValue="false"
+          :show-value="false"
           style="height: 6px"
           class="rounded-full bg-surface-100 dark:bg-surface-700 mb-1"
           :pt="{

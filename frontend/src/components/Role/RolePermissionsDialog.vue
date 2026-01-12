@@ -40,7 +40,7 @@
         class="px-6 py-4 border-b border-surface-100 dark:border-surface-800 bg-white/95 dark:bg-surface-900/95 backdrop-blur-sm sticky top-0 z-20"
       >
         <div v-if="!isLoading">
-          <IconField iconPosition="left" class="w-full">
+          <IconField icon-position="left" class="w-full">
             <InputIcon class="pi pi-search text-surface-400" />
             <InputText
               v-model="search"
@@ -157,8 +157,8 @@
                     <ToggleSwitch
                       :model-value="isCategoryFullySelected(cat)"
                       :disabled="false"
-                      @update:model-value="(v) => toggleCategory(cat, v)"
                       class="scale-90"
+                      @update:model-value="(v) => toggleCategory(cat, v)"
                     />
                   </div>
                 </div>
@@ -176,7 +176,6 @@
                   <div
                     v-for="perm in cat.items"
                     :key="perm.id"
-                    @click="onPermissionClick(perm)"
                     class="group relative p-3 flex items-start gap-3 rounded-lg border transition-all duration-200 select-none"
                     :class="[
                       // 1. ASSIGNED (Blue)
@@ -191,6 +190,7 @@
 
                       isMutating ? 'pointer-events-none' : '',
                     ]"
+                    @click="onPermissionClick(perm)"
                   >
                     <div class="mt-0.5 relative">
                       <ToggleSwitch

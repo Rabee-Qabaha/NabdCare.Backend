@@ -70,56 +70,56 @@
           <div class="flex gap-1">
             <Button
               v-if="canEditRole && !role.isDeleted && !role.isSystemRole"
+              v-tooltip.top="'Edit Role'"
               icon="pi pi-pencil"
               text
               size="small"
               severity="info"
-              v-tooltip.top="'Edit Role'"
               @click="openEditDialog(role)"
             />
             <Button
               v-if="canViewPermissions && !role.isDeleted"
+              v-tooltip.top="'Manage Permissions'"
               icon="pi pi-sliders-h"
               text
               size="small"
               severity="primary"
-              v-tooltip.top="'Manage Permissions'"
               @click="openPermissionsDialog(role)"
             />
             <Button
               v-if="canCloneRole && role.isTemplate && !role.isDeleted"
+              v-tooltip.top="'Clone Template'"
               icon="pi pi-copy"
               text
               size="small"
               severity="help"
-              v-tooltip.top="'Clone Template'"
               @click="openCloneDialog(role)"
             />
             <Button
               v-if="canDeleteRole && !role.isSystemRole && !role.isDeleted && role.userCount === 0"
+              v-tooltip.top="'Delete Role'"
               icon="pi pi-trash"
               text
               size="small"
               severity="danger"
-              v-tooltip.top="'Delete Role'"
               @click="openDeleteDialog(role)"
             />
             <Button
               v-if="role.isDeleted && canRestoreRole"
+              v-tooltip.top="'Restore Role'"
               icon="pi pi-undo"
               text
               size="small"
               severity="success"
-              v-tooltip.top="'Restore Role'"
               @click="restoreRole(role)"
             />
             <Button
               v-if="role.isDeleted && canDeleteRole && isSuperAdmin"
+              v-tooltip.top="'Permanently Delete'"
               icon="pi pi-times-circle"
               text
               size="small"
               severity="danger"
-              v-tooltip.top="'Permanently Delete'"
               @click="openPermanentDeleteDialog(role)"
             />
           </div>
@@ -128,7 +128,7 @@
 
       <div ref="sentinel" class="h-6 w-full"></div>
       <div v-if="isFetchingNextPage" class="flex justify-center p-4">
-        <ProgressSpinner style="width: 30px; height: 30px" strokeWidth="4" />
+        <ProgressSpinner style="width: 30px; height: 30px" stroke-width="4" />
       </div>
 
       <RoleFilters

@@ -1,10 +1,10 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     :style="{ width: '100%', maxWidth: '800px' }"
     :header="localVisit.id ? 'Edit Visit' : 'Add Visit'"
     modal
+    @update:visible="emit('update:visible', $event)"
   >
     <div class="flex flex-col gap-6">
       <!-- Practitioner -->
@@ -46,8 +46,8 @@
               id="visit-type"
               v-model="localVisit.visitType"
               :options="[]"
-              optionLabel="label"
-              optionValue="value"
+              option-label="label"
+              option-value="value"
               placeholder="Select Visit Type"
               :invalid="submitted && !localVisit.visitType"
               class="w-full"
@@ -68,9 +68,9 @@
               locale="en-US"
               :min="0"
               :step="0.01"
-              :minFractionDigits="0"
-              :maxFractionDigits="2"
-              inputId="fee-amount"
+              :min-fraction-digits="0"
+              :max-fraction-digits="2"
+              input-id="fee-amount"
               aria-label="Fee Amount"
               :invalid="submitted && !isFeeValid"
               class="w-full"
@@ -91,8 +91,8 @@
           <DatePicker
             id="visit-date"
             v-model="localVisit.date"
-            showIcon
-            showButtonBar
+            show-icon
+            show-button-bar
             :invalid="submitted && !localVisit.date"
             class="w-full"
           />
@@ -107,8 +107,8 @@
           <DatePicker
             id="visit-appointment"
             v-model="localVisit.nextAppointment"
-            showIcon
-            showButtonBar
+            show-icon
+            show-button-bar
             class="w-full"
           />
         </div>
@@ -120,7 +120,7 @@
         <Editor
           id="visit-description"
           v-model="localVisit.description"
-          editorStyle="height: 320px"
+          editor-style="height: 320px"
         />
       </div>
     </div>

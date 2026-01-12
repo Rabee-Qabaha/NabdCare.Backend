@@ -85,12 +85,12 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     modal
-    :dismissableMask="false"
+    :dismissable-mask="false"
     :style="{ width: '900px', maxWidth: '95vw' }"
     :draggable="false"
     :header="clinic?.name"
+    @update:visible="emit('update:visible', $event)"
   >
     <template #header>
       <div class="flex flex-col gap-1">
@@ -117,9 +117,9 @@
           label="Add Branch"
           icon="pi pi-plus"
           size="small"
-          @click="openCreate"
           severity="primary"
           raised
+          @click="openCreate"
         />
       </div>
 
@@ -130,9 +130,9 @@
           :value="sortedBranches"
           :loading="isLoading"
           scrollable
-          scrollHeight="flex"
-          rowHover
-          dataKey="id"
+          scroll-height="flex"
+          row-hover
+          data-key="id"
           class="p-datatable-sm"
         >
           <template #empty>
@@ -207,45 +207,45 @@
             </template>
           </Column>
 
-          <Column header="" alignFrozen="right" frozen style="width: 100px">
+          <Column header="" align-frozen="right" frozen style="width: 100px">
             <template #body="{ data }">
               <div class="flex justify-end gap-1">
                 <Button
                   v-if="canToggleStatus"
+                  v-tooltip.left="data.isActive ? 'Close Branch' : 'Re-open Branch'"
                   :icon="data.isActive ? 'pi pi-power-off' : 'pi pi-refresh'"
                   text
                   rounded
                   size="small"
                   :severity="data.isActive ? 'secondary' : 'success'"
-                  @click="onToggleStatus($event, data)"
-                  v-tooltip.left="data.isActive ? 'Close Branch' : 'Re-open Branch'"
                   :disabled="data.isMain && data.isActive"
                   class="w-8 h-8"
+                  @click="onToggleStatus($event, data)"
                 />
 
                 <Button
                   v-if="canEdit"
+                  v-tooltip.top="'Edit Details'"
                   icon="pi pi-pencil"
                   text
                   rounded
                   size="small"
                   severity="info"
-                  @click="openEdit(data)"
-                  v-tooltip.top="'Edit Details'"
                   class="w-8 h-8"
+                  @click="openEdit(data)"
                 />
 
                 <Button
                   v-if="canDelete"
+                  v-tooltip.top="'Delete'"
                   icon="pi pi-trash"
                   text
                   rounded
                   size="small"
                   severity="danger"
-                  @click="onDelete($event, data)"
                   :disabled="data.isMain"
-                  v-tooltip.top="'Delete'"
                   class="w-8 h-8"
+                  @click="onDelete($event, data)"
                 />
               </div>
             </template>
@@ -256,8 +256,8 @@
 
     <BranchFormSidebar
       v-model:visible="isFormVisible"
-      :clinicId="clinic?.id || ''"
-      :branchToEdit="selectedBranch"
+      :clinic-id="clinic?.id || ''"
+      :branch-to-edit="selectedBranch"
     />
 
     <ConfirmPopup />

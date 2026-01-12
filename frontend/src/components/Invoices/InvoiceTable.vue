@@ -49,10 +49,10 @@
       :value="invoices"
       :loading="loading"
       size="small"
-      stripedRows
-      rowHover
+      striped-rows
+      row-hover
       scrollable
-      scrollHeight="flex"
+      scroll-height="flex"
       class="text-sm flex-grow"
     >
       <template #empty>
@@ -92,35 +92,35 @@
         </template>
       </Column>
 
-      <Column style="width: 100px" alignFrozen="right" frozen>
+      <Column style="width: 100px" align-frozen="right" frozen>
         <template #body="{ data }">
           <div class="flex gap-1">
             <Button
+              v-tooltip="'Download PDF'"
               icon="pi pi-download"
               text
               rounded
               size="small"
               severity="secondary"
               @click="handleDownload(data)"
-              v-tooltip="'Download PDF'"
             />
 
             <Button
               v-if="data.hostedPaymentUrl && data.status !== InvoiceStatus.Paid"
+              v-tooltip="'Pay Now'"
               icon="pi pi-wallet"
               text
               rounded
               size="small"
               severity="success"
               @click="emit('pay', data)"
-              v-tooltip="'Pay Now'"
             />
           </div>
         </template>
       </Column>
 
       <template #footer>
-        <div class="flex justify-center p-2" v-if="hasNextPage">
+        <div v-if="hasNextPage" class="flex justify-center p-2">
           <Button
             label="Load More"
             text

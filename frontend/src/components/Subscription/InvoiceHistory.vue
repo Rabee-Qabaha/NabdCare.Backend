@@ -134,7 +134,7 @@
         <span class="text-xs font-bold text-surface-900 dark:text-surface-0">Billing History</span>
       </div>
       <div class="flex items-center gap-2">
-        <IconField iconPosition="left">
+        <IconField icon-position="left">
           <InputIcon class="pi pi-search text-surface-400 !text-[10px]" />
           <InputText
             v-model="searchQuery"
@@ -143,19 +143,19 @@
           />
         </IconField>
         <Button
+          v-tooltip.left="'View All Invoices'"
           icon="pi pi-external-link"
           text
           rounded
           size="small"
           class="!w-7 !h-7 !text-surface-500"
-          v-tooltip.left="'View All Invoices'"
           @click="emit('view-all')"
         />
       </div>
     </div>
 
     <div ref="scrollContainer" class="flex-grow overflow-y-auto relative custom-scrollbar">
-      <DataTable :value="displayInvoices" class="text-[11px] w-full" stripedRows rowHover>
+      <DataTable :value="displayInvoices" class="text-[11px] w-full" striped-rows row-hover>
         <template #empty>
           <div class="p-6 text-center text-surface-500 text-xs">No invoices found.</div>
         </template>
@@ -196,7 +196,7 @@
         <Column header="Status" style="width: 80px">
           <template #body="{ data }">
             <div v-if="data._skeleton">
-              <Skeleton width="3rem" height="1rem" borderRadius="4px" />
+              <Skeleton width="3rem" height="1rem" border-radius="4px" />
             </div>
             <Tag
               v-else
@@ -208,7 +208,7 @@
           </template>
         </Column>
 
-        <Column style="width: 40px" alignFrozen="right" frozen>
+        <Column style="width: 40px" align-frozen="right" frozen>
           <template #body="{ data }">
             <div v-if="data._skeleton"><Skeleton shape="circle" size="1.2rem" /></div>
             <Button
@@ -242,13 +242,13 @@
       modal
       header="Invoice Preview"
       :style="{ width: '100vw', height: '100vh', maxHeight: '100%' }"
-      :contentStyle="{ padding: '0' }"
-      appendTo="body"
+      :content-style="{ padding: '0' }"
+      append-to="body"
     >
       <InvoiceDocument
         v-if="selectedInvoice"
         :invoice="selectedInvoice"
-        :companyInfo="companyInfo"
+        :company-info="companyInfo"
         @close="showPrintDialog = false"
       />
     </Dialog>

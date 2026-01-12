@@ -95,10 +95,10 @@
             <label class="block text-sm font-medium mb-1">Extra Users</label>
             <InputNumber
               v-model="form.extraUsers"
-              showButtons
-              buttonLayout="horizontal"
+              show-buttons
+              button-layout="horizontal"
               :min="0"
-              inputClass="w-full text-center font-bold"
+              input-class="w-full text-center font-bold"
               class="w-full"
             >
               <template #incrementbuttonicon><span class="pi pi-plus" /></template>
@@ -109,10 +109,10 @@
             <label class="block text-sm font-medium mb-1">Extra Branches</label>
             <InputNumber
               v-model="form.extraBranches"
-              showButtons
-              buttonLayout="horizontal"
+              show-buttons
+              button-layout="horizontal"
               :min="0"
-              inputClass="w-full text-center font-bold"
+              input-class="w-full text-center font-bold"
               class="w-full"
             >
               <template #incrementbuttonicon><span class="pi pi-plus" /></template>
@@ -164,10 +164,10 @@
             </div>
             <InputNumber
               v-model="form.bonusUsers"
-              showButtons
-              buttonLayout="horizontal"
+              show-buttons
+              button-layout="horizontal"
               :min="0"
-              inputClass="w-full text-center font-bold bg-white/50 dark:bg-surface-900/50"
+              input-class="w-full text-center font-bold bg-white/50 dark:bg-surface-900/50"
               class="w-full"
             >
               <template #incrementbuttonicon><span class="pi pi-plus text-green-600" /></template>
@@ -189,10 +189,10 @@
             </div>
             <InputNumber
               v-model="form.bonusBranches"
-              showButtons
-              buttonLayout="horizontal"
+              show-buttons
+              button-layout="horizontal"
               :min="0"
-              inputClass="w-full text-center font-bold bg-white/50 dark:bg-surface-900/50"
+              input-class="w-full text-center font-bold bg-white/50 dark:bg-surface-900/50"
               class="w-full"
             >
               <template #incrementbuttonicon><span class="pi pi-plus text-green-600" /></template>
@@ -227,8 +227,8 @@
       <Button
         label="Save Changes"
         icon="pi pi-check"
-        @click="handleSubmit"
         :loading="updateMutation.isPending.value"
+        @click="handleSubmit"
       />
     </div>
   </div>

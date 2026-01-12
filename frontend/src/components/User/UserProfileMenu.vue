@@ -74,9 +74,9 @@
 <template>
   <div
     class="user-profile-menu flex cursor-pointer select-none items-center gap-2 rounded-lg p-1 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors duration-200"
-    @click="toggleProfileMenu"
     aria-haspopup="true"
     aria-controls="overlay_menu"
+    @click="toggleProfileMenu"
   >
     <Avatar
       :label="initials"
@@ -101,6 +101,6 @@
   <ChangePasswordDialog
     v-if="currentUser?.id"
     v-model:visible="changePasswordDialog"
-    :userId="currentUser.id"
+    :user-id="currentUser.id"
   />
 </template>

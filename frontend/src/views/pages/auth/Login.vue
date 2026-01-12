@@ -142,7 +142,7 @@
           </p>
         </div>
 
-        <form @submit.prevent="handleLogin" @keypress="handleKeyPress" class="space-y-6">
+        <form class="space-y-6" @submit.prevent="handleLogin" @keypress="handleKeyPress">
           <div class="w-full">
             <FloatLabel>
               <IconField>
@@ -168,10 +168,10 @@
                 <Password
                   :id="ids.password"
                   v-model="password"
-                  :toggleMask="true"
+                  :toggle-mask="true"
                   :feedback="false"
                   class="w-full"
-                  inputClass="w-full pl-10"
+                  input-class="w-full pl-10"
                   required
                   autocomplete="current-password"
                   :disabled="authStore.loading"
@@ -193,7 +193,7 @@
           <div class="flex items-center">
             <Checkbox
               v-model="rememberMe"
-              :inputId="ids.remember"
+              :input-id="ids.remember"
               :binary="true"
               class="mr-2"
               :disabled="authStore.loading"
@@ -210,7 +210,7 @@
             type="submit"
             label="Sign In"
             icon="pi pi-arrow-right"
-            iconPos="right"
+            icon-pos="right"
             class="h-12 w-full text-lg font-semibold shadow-lg shadow-primary-500/30 transition-all hover:scale-[1.02] hover:shadow-primary-500/50"
             :loading="authStore.loading"
             :disabled="authStore.loading || !isFormValid"
@@ -224,9 +224,9 @@
             v-if="authStore.error"
             severity="error"
             :closable="true"
-            @close="authStore.clearError()"
             class="mt-6 shadow-sm"
             icon="pi pi-exclamation-circle"
+            @close="authStore.clearError()"
           >
             {{ authStore.error }}
           </Message>

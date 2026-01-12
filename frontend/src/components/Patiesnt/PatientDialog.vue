@@ -52,10 +52,10 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     :style="{ width: '500px' }"
     :header="localPatient.id ? 'Edit Patient' : 'Add Patient'"
     modal
+    @update:visible="emit('update:visible', $event)"
   >
     <div class="flex flex-col gap-6">
       <!-- Name -->
@@ -75,7 +75,7 @@
       <div class="grid grid-cols-12 gap-4">
         <div class="col-span-6">
           <label for="patient-dob" class="mb-3 block font-bold">Date of Birth</label>
-          <DatePicker id="patient-dob" v-model="localPatient.dob" showIcon showButtonBar />
+          <DatePicker id="patient-dob" v-model="localPatient.dob" show-icon show-button-bar />
         </div>
         <div class="col-span-6">
           <label for="patient-gender" class="mb-3 block font-bold">Gender</label>
@@ -83,8 +83,8 @@
             id="patient-gender"
             v-model="localPatient.gender"
             :options="genderOptions"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             placeholder="Select Gender"
             :invalid="submitted && !localPatient.gender"
             fluid

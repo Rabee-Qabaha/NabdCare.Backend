@@ -13,7 +13,7 @@
     <div v-if="user.isDeleted" class="absolute top-0 left-0 w-full h-1 bg-red-500 z-10"></div>
 
     <div class="absolute top-3 right-3 z-20 flex items-center gap-2 pt-2">
-      <Checkbox v-if="!user.isDeleted" :value="user.id" v-model="selectedIds" />
+      <Checkbox v-if="!user.isDeleted" v-model="selectedIds" :value="user.id" />
 
       <span
         v-if="user.isDeleted"
@@ -53,12 +53,12 @@
           {{ user.email }}
         </span>
         <Button
+          v-tooltip.bottom="'Copy Email'"
           icon="pi pi-copy"
           text
           rounded
           size="small"
           class="!h-6 !w-6 !text-surface-400 hover:!text-primary-500"
-          v-tooltip.bottom="'Copy Email'"
           @click.stop="copyToClipboard(user.email)"
         />
       </div>
@@ -133,9 +133,9 @@
       ]"
     >
       <span
+        v-tooltip.top="'Copy ID'"
         class="text-[9px] font-mono text-surface-300 dark:text-surface-600 cursor-pointer hover:text-primary-500 transition-colors"
         @click.stop="copyToClipboard(user.id)"
-        v-tooltip.top="'Copy ID'"
       >
         #{{ user.id.slice(0, 8) }}
       </span>

@@ -3,11 +3,11 @@
     v-model:visible="visible"
     modal
     :style="{ width: '400px' }"
-    :showHeader="false"
+    :show-header="false"
     :closable="!loading"
-    :dismissableMask="!loading"
+    :dismissable-mask="!loading"
     class="rounded-xl overflow-hidden shadow-2xl"
-    :contentClass="'!p-0 !rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900'"
+    :content-class="'!p-0 !rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900'"
     @hide="onClose"
   >
     <div class="relative flex flex-col items-center p-6 text-center">
@@ -17,8 +17,8 @@
         rounded
         size="small"
         class="!absolute right-3 top-3 !text-surface-400 hover:!text-surface-600 dark:hover:!text-surface-200 !w-8 !h-8"
-        @click="onClose"
         :disabled="loading"
+        @click="onClose"
       />
 
       <div
@@ -77,8 +77,8 @@
           label="Cancel"
           severity="secondary"
           class="flex-1 !bg-surface-100 !text-surface-600 hover:!bg-surface-200 dark:!bg-surface-800 dark:!text-surface-300 dark:hover:!bg-surface-700 !border-0"
-          @click="onClose"
           :disabled="loading"
+          @click="onClose"
         />
         <Button
           :label="confirmLabelComputed"

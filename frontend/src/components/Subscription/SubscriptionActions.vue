@@ -29,9 +29,11 @@
   const currentEndDate = computed(() => new Date(props.subscription.endDate));
   const newEndDate = computed(() => {
     const d = new Date(currentEndDate.value);
-    props.subscription.type === SubscriptionType.Yearly
-      ? d.setFullYear(d.getFullYear() + 1)
-      : d.setMonth(d.getMonth() + 1);
+    if (props.subscription.type === SubscriptionType.Yearly) {
+      d.setFullYear(d.getFullYear() + 1);
+    } else {
+      d.setMonth(d.getMonth() + 1);
+    }
     return d;
   });
 
@@ -110,11 +112,11 @@
         <span class="font-bold text-surface-900 dark:text-surface-0 text-sm">Auto-Renew</span>
         <div class="scale-90 h-6 flex items-center" @click.stop>
           <ToggleSwitch
-            :modelValue="props.subscription.autoRenew"
-            @update:modelValue="
+            :model-value="props.subscription.autoRenew"
+            :disabled="toggleAutoRenewMutation.isPending.value"
+            @update:model-value="
               (v) => toggleAutoRenewMutation.mutate({ id: props.subscription.id, enable: v })
             "
-            :disabled="toggleAutoRenewMutation.isPending.value"
           />
         </div>
       </div>

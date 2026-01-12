@@ -44,7 +44,6 @@
       </div>
 
       <button
-        class="layout-topbar-menu-button layout-topbar-action"
         v-styleclass="{
           selector: '@next',
           enterFromClass: 'hidden',
@@ -53,6 +52,7 @@
           leaveActiveClass: 'animate-fadeout',
           hideOnOutsideClick: true,
         }"
+        class="layout-topbar-menu-button layout-topbar-action"
       >
         <i class="pi pi-ellipsis-v"></i>
       </button>

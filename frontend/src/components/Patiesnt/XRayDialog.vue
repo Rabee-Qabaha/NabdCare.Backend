@@ -1,10 +1,10 @@
 <template>
   <Dialog
     :visible="visible"
-    @update:visible="emit('update:visible', $event)"
     :style="{ width: '100%', maxWidth: '600px' }"
     :header="localXRay.id ? 'Edit X-Ray' : 'Add X-Ray'"
     modal
+    @update:visible="emit('update:visible', $event)"
   >
     <div class="flex flex-col gap-4">
       <!-- Image Upload / Preview Card -->
@@ -181,8 +181,8 @@
     submitted.value = true;
     if (props.isProcessing || fileIsUploading.value) return;
 
-    let fileRefPath: string | null = null;
-    let uploadedImageUrl: string | null = null;
+    const fileRefPath: string | null = null;
+    const uploadedImageUrl: string | null = null;
 
     // try {
     //     if (selectedFile.value) {

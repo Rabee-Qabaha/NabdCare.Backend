@@ -7,7 +7,7 @@
     "build": "npm run prebuild && vue-tsc --noEmit && vite build",
     "prebuild": "npm run generate:types && npm run sync:permissions && npm run validate:routes",
     "preview": "vite preview",
-    "lint": "eslint --fix . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix --ignore-path .gitignore",
+    "lint": "eslint . --fix",
     "type-check": "vue-tsc --noEmit",
     "update-deps": "bun scripts/update-deps.ts",
     "generate:types": "dotnet build ../NabdCare.Backend.sln && dotnet typegen generate --project-folder .. --config-path tgen.json --output-folder frontend/src/types/backend",

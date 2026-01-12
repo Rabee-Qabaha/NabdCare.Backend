@@ -15,7 +15,7 @@ export function validatePassword(password: string): PasswordStrength {
     uppercase: /[A-Z]/.test(password),
     lowercase: /[a-z]/.test(password),
     digit: /\d/.test(password),
-    specialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
   };
 }
 

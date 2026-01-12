@@ -44,15 +44,15 @@
     <Select
       size="medium"
       class="w-full"
-      :modelValue="modelValue"
-      @update:modelValue="onUpdate"
+      :model-value="modelValue"
       :options="plans"
-      optionLabel="name"
-      optionValue="id"
+      option-label="name"
+      option-value="id"
       :loading="isLoading"
       :disabled="disabled || !!error"
       :invalid="invalid"
-      :showClear="showClear ?? true"
+      :show-clear="showClear ?? true"
+      @update:model-value="onUpdate"
     >
       <template #value>
         <div v-if="selectedPlan" class="flex items-center gap-2">
