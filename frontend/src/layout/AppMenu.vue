@@ -1,11 +1,11 @@
 <script setup lang="ts">
   import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
   import { useToastService } from '@/composables/useToastService';
+  import AppMenuItem from '@/layout/AppMenuItem.vue';
   import { useAuthStore } from '@/stores/authStore';
   import Button from 'primevue/button';
   import { computed } from 'vue';
   import { useRouter } from 'vue-router';
-  import AppMenuItem from './AppMenuItem.vue';
 
   const router = useRouter();
   const authStore = useAuthStore();

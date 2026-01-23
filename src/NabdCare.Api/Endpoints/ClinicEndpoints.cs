@@ -234,13 +234,13 @@ public static class ClinicEndpoints
         // ============================================
         // STATISTICS
         // ============================================
-        group.MapGet("/{id:guid}/stats", async (Guid id, [FromServices] IClinicService service) =>
-        {
-            var stats = await service.GetClinicStatisticsAsync(id);
-            return stats != null ? Results.Ok(stats) : Results.NotFound();
-        })
-        .RequireAuthorization()
-        .RequirePermission(Permissions.Clinics.ViewStats)
-        .WithName("GetClinicStatistics");
+        // group.MapGet("/{id:guid}/stats", async (Guid id, [FromServices] IClinicService service) =>
+        // {
+        //     var stats = await service.GetClinicStatisticsAsync(id);
+        //     return stats != null ? Results.Ok(stats) : Results.NotFound();
+        // })
+        // .RequireAuthorization()
+        // .RequirePermission(Permissions.Clinics.ViewStats)
+        // .WithName("GetClinicStatistics");
     }
 }

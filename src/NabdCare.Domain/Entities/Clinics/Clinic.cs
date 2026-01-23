@@ -1,4 +1,6 @@
 using NabdCare.Domain.Entities.Subscriptions;
+using NabdCare.Domain.Entities.Users;    // ✅ Added
+using NabdCare.Domain.Entities.Patients; // ✅ Added
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Domain.Entities.Clinics;
@@ -14,7 +16,7 @@ public class Clinic : BaseEntity
     public string? Address { get; set; }
 
     // ==========================================
-    // 🎨 Branding & Legal (New)
+    // 🎨 Branding & Legal
     // ==========================================
     public string? LogoUrl { get; set; }
     public string? Website { get; set; }
@@ -22,12 +24,20 @@ public class Clinic : BaseEntity
     public string? RegistrationNumber { get; set; }
 
     // ==========================================
-    // ⚙️ Configuration (New - Mapped to JSONB)
+    // ⚙️ Configuration (Mapped via Fluent API in ClinicConfiguration)
     // ==========================================
     public ClinicSettings Settings { get; set; } = new();
+    
     public int BranchCount { get; set; } = 1;
-
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
-    public ICollection<Subscription>? Subscriptions { get; set; } = new List<Subscription>();
+
+    // ==========================================
+    // 🔗 Navigation Collections (For Backend Queries)
+    // ==========================================
     public virtual ICollection<Branch> Branches { get; set; } = new List<Branch>();
+    public virtual ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
+    
+    public virtual ICollection<User> Users { get; set; } = new List<User>();
+    
+    public virtual ICollection<Patient> Patients { get; set; } = new List<Patient>();
 }

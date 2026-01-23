@@ -9,7 +9,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.ToTable("Users");
-
         builder.HasKey(u => u.Id);
 
         builder.Property(u => u.Email)
@@ -24,32 +23,52 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(255);
 
-        // Relations
+        // ============================================================
+        // 🔗 RELATIONSHIPS
+        // ============================================================
+
+        // Explicitly map back to Clinic.Users to avoid 'ClinicId1'
         builder.HasOne(u => u.Clinic)
-            .WithMany()
+            .WithMany(c => c.Users)
             .HasForeignKey(u => u.ClinicId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // ⚠️ NEW: Role relationship
+        // Role relationship
         builder.HasOne(u => u.Role)
             .WithMany(r => r.Users)
             .HasForeignKey(u => u.RoleId)
-            .OnDelete(DeleteBehavior.Restrict); // Cannot delete role with assigned users
+            .OnDelete(DeleteBehavior.Restrict);
 
+        // Self-Referencing (CreatedBy)
+        builder.HasOne(u => u.CreatedByUser)
+            .WithMany() // No "CreatedUsers" list in User entity
+            .HasForeignKey(u => u.CreatedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Permissions
         builder.HasMany(u => u.Permissions)
             .WithOne(up => up.User)
             .HasForeignKey(up => up.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne(u => u.CreatedByUser)
-            .WithMany()
-            .HasForeignKey(u => u.CreatedByUserId)
+        // Schedules (Doctor Availability)
+        builder.HasMany(u => u.Schedules)
+            .WithOne(s => s.User)
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Appointments (Doctor's Calendar)
+        builder.HasMany(u => u.Appointments)
+            .WithOne(a => a.Doctor)
+            .HasForeignKey(a => a.DoctorId)
             .OnDelete(DeleteBehavior.Restrict);
-        
-        // Indexes
+
+        // ============================================================
+        // ⚡ INDEXES
+        // ============================================================
         builder.HasIndex(u => u.Email).IsUnique();
         builder.HasIndex(u => u.FullName);
-        builder.HasIndex(u => u.RoleId); // ⚠️ NEW: Index for role lookups
+        builder.HasIndex(u => u.RoleId);
         builder.HasIndex(u => u.ClinicId);
     }
 }

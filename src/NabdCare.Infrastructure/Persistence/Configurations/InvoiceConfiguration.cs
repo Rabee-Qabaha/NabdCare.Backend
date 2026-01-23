@@ -8,55 +8,84 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
 {
     public void Configure(EntityTypeBuilder<Invoice> builder)
     {
-        builder.ToTable("Invoices");
+        builder.ToTable("Invoices", t =>
+        {
+            // ✅ Constraint: Invoice must act as EITHER SaaS Bill OR Patient Bill (not both, not neither)
+            // Checks that SubscriptionId is set OR PatientId is set.
+            t.HasCheckConstraint("CK_Invoice_Polymorphic", 
+                "(\"SubscriptionId\" IS NOT NULL AND \"PatientId\" IS NULL) OR " +
+                "(\"PatientId\" IS NOT NULL AND \"SubscriptionId\" IS NULL)"
+            );
+        });
+
         builder.HasKey(i => i.Id);
 
-        // ⚡ Indexes
-        builder.HasIndex(i => i.InvoiceNumber).IsUnique();
-        builder.HasIndex(i => i.ClinicId);
-        builder.HasIndex(i => i.SubscriptionId);
-        builder.HasIndex(i => i.IssueDate);
-        
-        // New Indexes
-        builder.HasIndex(i => i.IdempotencyKey).IsUnique(); 
-        builder.HasIndex(i => i.Currency); 
-
-        // 💰 Precision
+        // ============================================================
+        // 💰 PRECISION & DEFAULTS
+        // ============================================================
         builder.Property(i => i.SubTotal).HasPrecision(18, 2);
         builder.Property(i => i.TaxRate).HasPrecision(18, 4);
         builder.Property(i => i.TaxAmount).HasPrecision(18, 2);
         builder.Property(i => i.TotalAmount).HasPrecision(18, 2);
         builder.Property(i => i.PaidAmount).HasPrecision(18, 2);
 
-        // Fields Configuration
         builder.Property(i => i.Currency)
             .IsRequired()
             .HasMaxLength(3)
             .HasDefaultValue("USD");
 
+        builder.Property(i => i.InvoiceNumber).IsRequired().HasMaxLength(50);
+        builder.Property(i => i.IdempotencyKey).HasMaxLength(100);
         builder.Property(i => i.PdfUrl).HasMaxLength(500);
         builder.Property(i => i.HostedPaymentUrl).HasMaxLength(500);
-        builder.Property(i => i.IdempotencyKey).HasMaxLength(100);
 
-        // 🔒 Relationships
+        // ============================================================
+        // 🔗 RELATIONSHIPS
+        // ============================================================
 
-        // ⚠️ FIX 1: Allow Cascade Delete for Clinic
-        // When Clinic is deleted -> Delete its Invoices
+        // Clinic Link (Cascade Delete OK for Tenant Cleanup)
         builder.HasOne(i => i.Clinic)
             .WithMany()
             .HasForeignKey(i => i.ClinicId)
-            .OnDelete(DeleteBehavior.Cascade); 
+            .OnDelete(DeleteBehavior.Cascade);
 
-        // ⚠️ FIX 2: Allow Cascade Delete for Subscription
-        // When Subscription is deleted (e.g. via Clinic cascade) -> Delete its Invoices
+        // Case A: SaaS Subscription
         builder.HasOne(i => i.Subscription)
-            .WithMany(s => s.Invoices)
+            .WithMany(s => s.Invoices) // ✅ Explicit mapping
             .HasForeignKey(i => i.SubscriptionId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Case B: Patient Bill
+        builder.HasOne(i => i.Patient)
+            .WithMany(p => p.Invoices) // ✅ Explicit mapping to Patient.Invoices
+            .HasForeignKey(i => i.PatientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Optional Link: Clinical Encounter
+        builder.HasOne(i => i.ClinicalEncounter)
+            .WithMany() // No list on Encounter side
+            .HasForeignKey(i => i.ClinicalEncounterId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Invoice Items
         builder.HasMany(i => i.Items)
             .WithOne(item => item.Invoice)
             .HasForeignKey(item => item.InvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
+        
+        // Payments
+        builder.HasMany(i => i.Payments)
+             .WithOne(/* If Payment has InvoiceId? Your current entity didn't show it */);
+
+        // ============================================================
+        // ⚡ INDEXES
+        // ============================================================
+        builder.HasIndex(i => i.InvoiceNumber).IsUnique();
+        builder.HasIndex(i => i.IdempotencyKey).IsUnique();
+        builder.HasIndex(i => i.ClinicId);
+        builder.HasIndex(i => i.SubscriptionId); // For SaaS lookups
+        builder.HasIndex(i => i.PatientId);      // For Patient History
+        builder.HasIndex(i => i.IssueDate);
+        builder.HasIndex(i => i.Status);         // For "Overdue" queries
     }
 }

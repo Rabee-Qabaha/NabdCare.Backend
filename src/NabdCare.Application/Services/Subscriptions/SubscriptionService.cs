@@ -268,17 +268,26 @@ public class SubscriptionService : ISubscriptionService
 
         var startDate = oldSub.EndDate < DateTime.UtcNow ? DateTime.UtcNow : oldSub.EndDate;
         
-        // Transaction handled inside Helper
-        var newSub = await ExecuteRenewalAsync(oldSub, type, startDate, false);
-
-        // Update old status outside of renewal transaction (Separate concern, optional)
-        if (oldSub.Status != SubscriptionStatus.Expired)
+        using var transaction = await _repository.BeginTransactionAsync();
+        try 
         {
-            oldSub.Status = SubscriptionStatus.Expired;
-            await _repository.UpdateStatusAsync(oldSub);
-        }
+            // Transaction handled here now
+            var newSub = await ExecuteRenewalAsync(oldSub, type, startDate, false);
 
-        return _mapper.Map<SubscriptionResponseDto>(newSub);
+            if (oldSub.Status != SubscriptionStatus.Expired)
+            {
+                oldSub.Status = SubscriptionStatus.Expired;
+                await _repository.UpdateStatusAsync(oldSub); // Now atomic with renewal creation
+            }
+
+            await transaction.CommitAsync();
+            return _mapper.Map<SubscriptionResponseDto>(newSub);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     // ============================================
@@ -293,18 +302,23 @@ public class SubscriptionService : ISubscriptionService
         foreach (var old in candidates)
         {
             if (await _repository.HasFutureSubscriptionAsync(old.ClinicId, old.EndDate)) continue;
+            
+            using var transaction = await _repository.BeginTransactionAsync();
             try
             {
-                // Helper handles the creation transaction
+                // 1. Create Renewal
                 await ExecuteRenewalAsync(old, old.Type, old.EndDate, true);
                 
-                // Expire old one
+                // 2. Expire Old (Now Atomic)
                 old.Status = SubscriptionStatus.Expired;
                 await _repository.UpdateStatusAsync(old);
+                
+                await transaction.CommitAsync();
                 count++;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Auto-renew failed for {Id}", old.Id);
                 // Continue to next candidate
             }
@@ -587,8 +601,8 @@ public class SubscriptionService : ISubscriptionService
             CreatedBy = isAuto ? "System" : _userContext.GetCurrentUserId() ?? "System"
         };
 
-        // WRAP IN TRANSACTION
-        using var transaction = await _repository.BeginTransactionAsync();
+        // REMOVED INTERNAL TRANSACTION to better support Atomicity in callers
+        // using var transaction = await _repository.BeginTransactionAsync();
         try
         {
             // 1. Create Subscription
@@ -610,13 +624,13 @@ public class SubscriptionService : ISubscriptionService
                 }.Where(i => i.Quantity > 0 || i.Type == InvoiceItemType.BasePlan).ToList()
             });
 
-            // 3. Commit
-            await transaction.CommitAsync();
+            // 3. Commit - MOVED TO CALLER
+            // await transaction.CommitAsync();
             _logger.LogInformation("Renewed Subscription {OldId} -> {NewId}", old.Id, sub.Id);
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            // await transaction.RollbackAsync(); // MOVED TO CALLER
             _logger.LogError(ex, "Renewal failed for {OldId}", old.Id);
             throw new DomainException("Subscription renewal failed.", ErrorCodes.OPERATION_FAILED);
         }

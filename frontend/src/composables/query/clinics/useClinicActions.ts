@@ -14,6 +14,16 @@ export function useClinicActions() {
 
   const CLINICS_KEY = ['clinics'];
 
+  // Helper to refresh specific clinic data
+  const invalidateClinicData = (id: string) => {
+    // 1. Refresh the list
+    queryClient.invalidateQueries({ queryKey: CLINICS_KEY });
+    // 2. Refresh the single clinic details (for Edit forms)
+    queryClient.invalidateQueries({ queryKey: ['clinic', id] });
+    // 3. ✅ Refresh the Dashboard Stats (New!)
+    queryClient.invalidateQueries({ queryKey: ['clinic-stats', id] });
+  };
+
   // 🆕 CREATE
   const createClinicMutation = useMutation({
     mutationFn: (data: CreateClinicRequestDto) => clinicsApi.create(data),
@@ -30,8 +40,7 @@ export function useClinicActions() {
       clinicsApi.update(payload.id, payload.data),
     onSuccess: (_, variables) => {
       toast.success('Clinic updated successfully');
-      queryClient.invalidateQueries({ queryKey: CLINICS_KEY });
-      queryClient.invalidateQueries({ queryKey: ['clinic', variables.id] });
+      invalidateClinicData(variables.id); // ✅ Uses helper
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -39,9 +48,9 @@ export function useClinicActions() {
   // 🗑 SOFT DELETE
   const softDeleteMutation = useMutation({
     mutationFn: (id: string) => clinicsApi.delete(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       toast.success('Clinic moved to trash');
-      queryClient.invalidateQueries({ queryKey: CLINICS_KEY });
+      invalidateClinicData(id);
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -59,9 +68,9 @@ export function useClinicActions() {
   // ♻ RESTORE
   const restoreMutation = useMutation({
     mutationFn: (id: string) => clinicsApi.restore(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       toast.success('Clinic restored successfully');
-      queryClient.invalidateQueries({ queryKey: CLINICS_KEY });
+      invalidateClinicData(id);
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -69,9 +78,9 @@ export function useClinicActions() {
   // ▶️ ACTIVATE
   const activateMutation = useMutation({
     mutationFn: (id: string) => clinicsApi.activate(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       toast.success('Clinic activated');
-      queryClient.invalidateQueries({ queryKey: CLINICS_KEY });
+      invalidateClinicData(id);
     },
     onError: (err) => handleErrorAndNotify(err),
   });
@@ -79,9 +88,9 @@ export function useClinicActions() {
   // ⏸️ SUSPEND
   const suspendMutation = useMutation({
     mutationFn: (id: string) => clinicsApi.suspend(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       toast.warn('Clinic suspended');
-      queryClient.invalidateQueries({ queryKey: CLINICS_KEY });
+      invalidateClinicData(id);
     },
     onError: (err) => handleErrorAndNotify(err),
   });

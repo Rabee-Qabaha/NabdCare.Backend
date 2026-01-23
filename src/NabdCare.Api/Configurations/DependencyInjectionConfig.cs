@@ -135,6 +135,9 @@ public static class DependencyInjectionConfig
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
+        services.AddScoped<IClinicDashboardRepository, ClinicDashboardRepository>();
+        services.AddScoped<IClinicDashboardService, ClinicDashboardService>();
+        
         // ===============================
         // Invoices (Billing)
         // ===============================

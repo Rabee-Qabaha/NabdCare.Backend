@@ -17,13 +17,18 @@
   ],
   "exportFields": true,
   "flattenHierarchy": true,
-  
-  "convertToClass": false,             
-  "classToInterfaceMode": true,        
-  "useNamespaces": false,              
+
+  "convertToClass": false,
+  "classToInterfaceMode": true,
+  "useNamespaces": false,
   "nullableReference": "question-mark",
-  "nullable": "question-mark",         
-  "propertyInitializers": false,       
+  "nullable": "question-mark",
+  "propertyInitializers": false,
   "customImportPath": "",
-  "stripComments": false               
+  "stripComments": false,
+
+  "customTypeMappings": {
+    "System.TimeSpan": "string",
+    "TimeSpan": "string"
+  }
 }
