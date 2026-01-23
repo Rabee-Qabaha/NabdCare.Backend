@@ -6,6 +6,8 @@
 import { Clinic } from "./clinic";
 import { Role } from "./role";
 import { UserPermission } from "./user-permission";
+import { PractitionerSchedule } from "./practitioner-schedule";
+import { Appointment } from "./appointment";
 
 export class User {
   clinicId: string;
@@ -19,4 +21,6 @@ export class User {
   createdByUserId: string;
   createdByUser: User;
   permissions: UserPermission[] = [];
+  schedules: PractitionerSchedule[] = [];
+  appointments: Appointment[] = [];
 }

@@ -1,7 +1,7 @@
 // src/api/modules/clinics.ts
 import { api } from '@/api/apiClient';
 import type {
-  // ✅ Import the generated DTO
+  ClinicDashboardStatsDto,
   ClinicFilterRequestDto,
   ClinicResponseDto,
   CreateClinicRequestDto,
@@ -15,10 +15,7 @@ export const clinicsApi = {
   // 🔍 QUERIES
   // ==========================================
 
-  // ✅ Use the generated type here
   async getAllPaged(params: ClinicFilterRequestDto) {
-    // We pass 'params' directly because the structure now matches exactly!
-    // (Assuming your generator creates camelCase properties)
     const { data } = await api.get<PaginatedResult<ClinicResponseDto>>('/clinics', {
       params: params,
     });
@@ -27,6 +24,13 @@ export const clinicsApi = {
 
   async getById(id: string) {
     const { data } = await api.get<ClinicResponseDto>(`/clinics/${id}`);
+    return data;
+  },
+
+  // ✅ NEW: Dashboard Analytics
+  // Fetches the aggregated stats for the clinic profile header & overview tab
+  async getStats(id: string) {
+    const { data } = await api.get<ClinicDashboardStatsDto>(`/clinics/${id}/stats`);
     return data;
   },
 

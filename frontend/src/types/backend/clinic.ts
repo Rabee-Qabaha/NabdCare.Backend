@@ -5,8 +5,10 @@
 
 import { ClinicSettings } from "./clinic-settings";
 import { SubscriptionStatus } from "./subscription-status";
-import { Subscription } from "./subscription";
 import { Branch } from "./branch";
+import { Subscription } from "./subscription";
+import { User } from "./user";
+import { Patient } from "./patient";
 
 export class Clinic {
   name: string = "";
@@ -21,6 +23,8 @@ export class Clinic {
   settings: ClinicSettings = {"timeZone":"UTC","currency":"USD","dateFormat":"dd/MM/yyyy","locale":"en-US","enablePatientPortal":true};
   branchCount: number = 1;
   status: SubscriptionStatus;
-  subscriptions: Subscription[] = [];
   branches: Branch[] = [];
+  subscriptions: Subscription[] = [];
+  users: User[] = [];
+  patients: Patient[] = [];
 }

@@ -12,7 +12,7 @@ export class GenerateInvoiceRequestDto {
   type: InvoiceType;
   currency: string = "USD";
   idempotencyKey: string;
-  issueDate: Date = new Date("2026-01-12T17:27:51.6635870Z");
+  issueDate: Date = new Date("2026-01-14T21:25:44.1164640Z");
   dueDate: Date;
   items: GenerateInvoiceItemDto[] = [];
   taxRate: number;

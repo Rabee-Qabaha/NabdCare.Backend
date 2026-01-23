@@ -4,11 +4,14 @@
  */
 
 import { Invoice } from "./invoice";
+import { Product } from "./product";
 import { InvoiceItemType } from "./invoice-item-type";
 
 export class InvoiceItem {
   invoiceId: string;
   invoice: Invoice;
+  productId: string;
+  product: Product;
   description: string = "";
   note: string;
   type: InvoiceItemType;

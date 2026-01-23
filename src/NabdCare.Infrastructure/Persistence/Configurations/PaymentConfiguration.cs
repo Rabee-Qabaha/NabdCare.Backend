@@ -9,7 +9,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 {
     public void Configure(EntityTypeBuilder<Payment> builder)
     {
-        // Use the table builder for the check constraint (non-obsolete)
+        // Polymorphic integrity check
         builder.ToTable(tb =>
         {
             tb.HasCheckConstraint("CK_Payment_Context",
@@ -20,46 +20,38 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 
         builder.HasKey(p => p.Id);
 
-        builder.Property(p => p.Amount)
-            .IsRequired()
-            .HasPrecision(18, 2);
+        builder.Property(p => p.Amount).IsRequired().HasPrecision(18, 2);
+        builder.Property(p => p.PaymentDate).IsRequired().HasDefaultValueSql("NOW()"); 
+        builder.Property(p => p.Status).IsRequired().HasDefaultValue(PaymentStatus.Pending);
 
-        builder.Property(p => p.PaymentDate)
-            .IsRequired()
-            .HasDefaultValueSql("NOW()");
+        // ============================================================
+        // 🔗 RELATIONSHIPS
+        // ============================================================
 
-        builder.Property(p => p.Context)
-            .IsRequired();
-
-        builder.Property(p => p.Method)
-            .IsRequired();
-
-        builder.Property(p => p.Status)
-            .IsRequired()
-            .HasDefaultValue(PaymentStatus.Pending);
-
-        // Relations
+        // Clinic (Tenant)
         builder.HasOne(p => p.Clinic)
-            .WithMany()
+            .WithMany() // Clinic does NOT have a payments list
             .HasForeignKey(p => p.ClinicId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Patient
         builder.HasOne(p => p.Patient)
-            .WithMany()
+            .WithMany() // Patient entity you provided did NOT have a 'Payments' list (only Invoices)
             .HasForeignKey(p => p.PatientId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Cheque Details (1-to-1)
         builder.HasOne(p => p.ChequeDetail)
             .WithOne(cd => cd.Payment)
             .HasForeignKey<ChequePaymentDetail>(cd => cd.PaymentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Indexes for frequent queries
+        // ============================================================
+        // ⚡ INDEXES
+        // ============================================================
         builder.HasIndex(p => new { p.Context, p.ClinicId, p.PatientId });
         builder.HasIndex(p => new { p.ClinicId, p.PaymentDate });
         builder.HasIndex(p => new { p.PatientId, p.PaymentDate });
         builder.HasIndex(p => p.PaymentDate);
-        builder.HasIndex(p => p.ClinicId);
-        builder.HasIndex(p => p.PatientId);
     }
 }

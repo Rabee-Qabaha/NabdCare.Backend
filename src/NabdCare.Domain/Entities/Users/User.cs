@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Roles;
+using NabdCare.Domain.Entities.Scheduling;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Domain.Entities.Users;
@@ -40,4 +41,6 @@ public class User : BaseEntity
     public User? CreatedByUser { get; set; }
 
     public ICollection<UserPermission> Permissions { get; set; } = new List<UserPermission>();
+    public ICollection<PractitionerSchedule> Schedules { get; set; } = new List<PractitionerSchedule>();
+    public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 }

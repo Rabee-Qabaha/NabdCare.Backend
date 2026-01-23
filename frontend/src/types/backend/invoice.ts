@@ -5,6 +5,8 @@
 
 import { Clinic } from "./clinic";
 import { Subscription } from "./subscription";
+import { Patient } from "./patient";
+import { ClinicalEncounter } from "./clinical-encounter";
 import { InvoiceStatus } from "./invoice-status";
 import { InvoiceType } from "./invoice-type";
 import { InvoiceItem } from "./invoice-item";
@@ -17,12 +19,16 @@ export class Invoice {
   clinic: Clinic;
   subscriptionId: string;
   subscription: Subscription;
+  patientId: string;
+  patient: Patient;
+  clinicalEncounterId: string;
+  clinicalEncounter: ClinicalEncounter;
   billedToName: string = "";
   billedToAddress: string;
   billedToTaxNumber: string;
   pdfUrl: string;
   hostedPaymentUrl: string;
-  issueDate: Date = new Date("2026-01-12T17:27:51.7087470Z");
+  issueDate: Date = new Date("2026-01-14T21:25:44.1594400Z");
   dueDate: Date;
   paidDate: Date;
   paymentAttemptCount: number;

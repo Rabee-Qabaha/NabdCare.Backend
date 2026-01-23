@@ -1,3 +1,4 @@
+// src/router/index.ts
 import { usePermission } from '@/composables/usePermission';
 import { useAuthStore } from '@/stores/authStore';
 import { getDefaultDashboardRoute } from '@/utils/navigation';

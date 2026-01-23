@@ -1,6 +1,8 @@
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Payments;
 using NabdCare.Domain.Entities.Subscriptions;
+using NabdCare.Domain.Entities.Patients;
+using NabdCare.Domain.Entities.Clinical;
 using NabdCare.Domain.Enums.Invoice;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -10,24 +12,35 @@ namespace NabdCare.Domain.Entities.Invoices;
 [Table("Invoices")]
 public class Invoice : BaseEntity
 {
-    // ✅ 2025 Best Practice: Human-Readable Sequential IDs
-    // e.g., "INV-2025-001" instead of a Guid
+    // ✅ IDENTITY
     [Required, MaxLength(50)]
     public string InvoiceNumber { get; set; } = string.Empty;
 
-    // ✅ 2025 Best Practice: Idempotency Key
-    // Prevents double-billing if the server crashes during generation
     [MaxLength(100)]
     public string? IdempotencyKey { get; set; }
 
+    // ✅ TENANCY
     public Guid ClinicId { get; set; }
     public Clinic Clinic { get; set; } = null!;
 
-    public Guid SubscriptionId { get; set; }
-    public Subscription Subscription { get; set; } = null!;
+    // ==========================================
+    // 🔗 POLYMORPHIC LINKS (The "Either/Or" Logic)
+    // ==========================================
+    
+    // CASE A: Billing the Clinic (SaaS Fee)
+    public Guid? SubscriptionId { get; set; }
+    public Subscription? Subscription { get; set; }
+
+    // CASE B: Billing the Patient (Medical Service)
+    public Guid? PatientId { get; set; }
+    public Patient? Patient { get; set; }
+
+    // Link to the Medical Visit (Optional)
+    public Guid? ClinicalEncounterId { get; set; }
+    public ClinicalEncounter? ClinicalEncounter { get; set; }
 
     // ==========================================
-    // 📸 IMMUTABLE SNAPSHOT
+    // 📸 IMMUTABLE SNAPSHOT (Keep this!)
     // ==========================================
     [Required, MaxLength(255)]
     public string BilledToName { get; set; } = string.Empty;
@@ -39,14 +52,9 @@ public class Invoice : BaseEntity
     // ==========================================
     // 📂 DELIVERABLES
     // ==========================================
-    
-    // ✅ 2025 Best Practice: Blob Storage URL
-    // Never generate PDFs on the fly for old invoices; store the static file.
     [MaxLength(500)]
     public string? PdfUrl { get; set; }
     
-    // ✅ 2025 Best Practice: Hosted Payment Page
-    // Link to send to customer (e.g. Stripe Hosted Invoice Page)
     [MaxLength(500)]
     public string? HostedPaymentUrl { get; set; }
 
@@ -57,18 +65,17 @@ public class Invoice : BaseEntity
     public DateTime DueDate { get; set; }
     public DateTime? PaidDate { get; set; }
     
-    // For Dunning (Retry logic)
     public int PaymentAttemptCount { get; set; } = 0;
     public DateTime? NextPaymentAttempt { get; set; }
 
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Draft;
-    public InvoiceType Type { get; set; }
+    
+    // Helps distinguish "SaaS Fee" vs "Patient Bill"
+    public InvoiceType Type { get; set; } 
 
     // ==========================================
     // 💰 FINANCIALS
     // ==========================================
-    
-    // ✅ Currency is mandatory on the Invoice itself
     [Required, MaxLength(3)]
     public string Currency { get; set; } = "USD";
 

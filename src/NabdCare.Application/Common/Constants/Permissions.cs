@@ -16,6 +16,7 @@ public static class Permissions
     [ExportTsClass(OutputDir = "constants")]
     public static class Clinics
     {
+        public const string View = "Clinics.View";
         public const string ViewAll = "Clinics.ViewAll";
         public const string ViewActive = "Clinics.ViewActive";
         public const string Search = "Clinics.Search";
@@ -29,6 +30,7 @@ public static class Permissions
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
+            [View] = "View clinic details in the system (SuperAdmin only)",
             [ViewAll] = "View all clinics in the system (SuperAdmin only)",
             [ViewActive] = "View only active clinics",
             [Search] = "Search clinics by name, email, or phone",

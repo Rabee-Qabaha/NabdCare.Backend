@@ -1,4 +1,3 @@
-// src/components/Clinic/ClinicTable.vue
 <template>
   <div class="card p-0 border-0 shadow-none h-full">
     <DataTable
@@ -38,9 +37,13 @@
               shape="circle"
             />
             <div class="flex flex-col overflow-hidden">
-              <span class="font-bold text-surface-900 dark:text-surface-0 truncate">
+              <router-link
+                :to="{ name: 'clinic-overview', params: { id: data.id } }"
+                class="font-bold text-surface-900 dark:text-surface-0 truncate hover:text-primary transition-colors cursor-pointer"
+              >
                 {{ data.name }}
-              </span>
+              </router-link>
+              
               <a
                 :href="`https://${data.slug}.nabd.care`"
                 target="_blank"
@@ -144,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useRouter } from 'vue-router'; // ✅ Added
   import { SubscriptionStatus, type ClinicResponseDto } from '@/types/backend';
   import { formatClinicCurrency, formatDate } from '@/utils/uiHelpers';
   import Avatar from 'primevue/avatar';
@@ -162,15 +166,13 @@
   }>();
 
   const emit = defineEmits(['lazy-load', 'sort', 'refresh', 'action']);
+  const router = useRouter(); // ✅ Added
 
   const menu = ref();
   const menuItems = ref<any[]>([]);
 
-  // ✅ Updated Row Styling Function
   const rowClass = (data: ClinicResponseDto) => {
     if (data && data.isDeleted) {
-      // We use !bg-red-100 to force the background color, overriding default stripes.
-      // We also set a specific darker hover state.
       return '!bg-red-100 hover:!bg-red-200 dark:!bg-red-900/40 dark:hover:!bg-red-900/60 transition-colors';
     }
     return '';
@@ -184,8 +186,15 @@
       {
         label: 'Actions',
         items: [
+          // ✅ Added Dashboard Link
           {
-            label: 'Edit',
+            label: 'View Dashboard',
+            icon: 'pi pi-chart-bar',
+            visible: !isDeleted,
+            command: () => router.push({ name: 'clinic-overview', params: { id: clinic.id } }),
+          },
+          {
+            label: 'Edit Details', // Renamed slightly for clarity
             icon: 'pi pi-pencil',
             visible: !isDeleted,
             command: () => emit('action', { type: 'edit', clinic }),

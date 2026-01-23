@@ -1,3 +1,4 @@
+// src/components/Subscription/InvoiceHistory.vue
 <script setup lang="ts">
   import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
   import { InvoiceStatus, type InvoiceDto } from '@/types/backend';

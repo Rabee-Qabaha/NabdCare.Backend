@@ -1,3 +1,4 @@
+// src/components/Subscription/InvoiceDocument.vue
 <script setup lang="ts">
   import type { InvoiceDto } from '@/types/backend';
   import { InvoiceStatus } from '@/types/backend';
