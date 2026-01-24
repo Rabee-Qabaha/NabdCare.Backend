@@ -60,7 +60,7 @@ export function useActiveSubscription(clinicId: Ref<string | null> | string | nu
     queryKey: computed(() => subscriptionsKeys.active(unref(clinicId))),
     queryFn: async () => {
       const id = unref(clinicId);
-      if (!id) return null; // Safe guard
+      if (!id) return null;
       return subscriptionsApi.getActiveForClinic(id);
     },
     enabled: computed(() => !!unref(clinicId)),
