@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useSubscriptionPlans } from '@/composables/query/subscriptions/useSubscriptions';
   import { type SubscriptionResponseDto, SubscriptionType } from '@/types/backend';
   import { formatCurrency, formatDate } from '@/utils/uiHelpers';
@@ -52,9 +53,7 @@
 </script>
 
 <template>
-  <div
-    class="bg-surface-0 dark:bg-[#27272a] rounded-xl p-6 border border-transparent dark:border-surface-700 shadow dark:shadow-sm h-full flex flex-col transition-colors duration-300"
-  >
+  <BaseCard>
     <h3
       class="text-xs font-bold text-surface-400 dark:text-surface-500 uppercase tracking-widest mb-2"
     >
@@ -91,7 +90,10 @@
             <div class="font-bold text-surface-900 dark:text-surface-0 text-sm">
               Base Subscription
             </div>
-            <div class="text-xs text-surface-500 mt-0.5">Plan core features</div>
+            <div class="text-xs text-surface-500 mt-0.5">
+              include ( {{ activePlanDef?.includedBranches }} branch /
+              {{ activePlanDef?.includedUsers }} users)
+            </div>
           </div>
         </div>
         <div class="font-bold text-surface-900 dark:text-surface-0">
@@ -109,7 +111,8 @@
           <div>
             <div class="font-bold text-surface-900 dark:text-surface-0 text-sm">Add-on Users</div>
             <div class="text-xs text-surface-500 mt-0.5">
-              ({{ paidUsers }} Paid / {{ bonusUsers }} Free)
+              ({{ formatCurrency(userPrice, currency) }} x {{ paidUsers }} Paid /
+              {{ bonusUsers }} Free)
             </div>
           </div>
         </div>
@@ -130,7 +133,8 @@
               Add-on Branches
             </div>
             <div class="text-xs text-surface-500 mt-0.5">
-              ({{ paidBranches }} Paid / {{ bonusBranches }} Free)
+              ({{ formatCurrency(branchPrice, currency) }} x {{ paidBranches }} Paid /
+              {{ bonusBranches }} Free)
             </div>
           </div>
         </div>
@@ -161,5 +165,5 @@
         </span>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

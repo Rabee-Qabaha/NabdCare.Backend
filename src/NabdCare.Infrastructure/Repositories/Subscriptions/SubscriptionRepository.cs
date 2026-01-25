@@ -34,6 +34,7 @@ public class SubscriptionRepository : ISubscriptionRepository
     {
         var now = DateTime.UtcNow;
         return await BaseQuery()
+            .Include(s => s.Invoices)
             .Where(s => s.ClinicId == clinicId 
                         && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial || s.Status == SubscriptionStatus.PastDue)
                         && s.EndDate >= now)

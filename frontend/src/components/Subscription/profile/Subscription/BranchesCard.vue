@@ -1,6 +1,8 @@
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useClinicBranches } from '@/composables/query/branches/useBranches';
   import type { SubscriptionResponseDto } from '@/types/backend';
+  import ProgressBar from 'primevue/progressbar';
   import { computed } from 'vue';
 
   const props = defineProps<{ subscription: SubscriptionResponseDto; clinicId?: string }>();
@@ -19,15 +21,13 @@
       branchesData.value?.length || 0,
       props.subscription.includedBranchesSnapshot || 0,
       props.subscription.purchasedBranches || 0,
-      (props.subscription as SubscriptionResponseDto).bonusBranches || 0,
+      (props.subscription as any).bonusBranches || 0,
     ),
   );
 </script>
 
 <template>
-  <div
-    class="bg-surface-0 dark:bg-[#27272a] rounded-xl p-6 border border-transparent dark:border-surface-700 shadow dark:shadow-sm transition-colors duration-300 flex flex-col justify-between"
-  >
+  <BaseCard>
     <div>
       <div class="flex justify-between items-start mb-4">
         <div class="flex items-center gap-3">
@@ -56,14 +56,12 @@
         </div>
       </div>
 
-      <div
-        class="relative h-2.5 bg-surface-100 dark:bg-surface-800 rounded-full w-full overflow-hidden mb-3"
-      >
-        <div
-          class="absolute top-0 left-0 h-full bg-orange-500 rounded-full transition-all duration-500"
-          :style="{ width: `${branches.percent}%` }"
-        ></div>
-      </div>
+      <ProgressBar
+        :value="branches.percent"
+        :showValue="false"
+        class="!h-2.5 !bg-surface-100 dark:!bg-surface-800 !rounded-full mb-3"
+        :pt="{ value: { class: '!bg-orange-500 !rounded-full' } }"
+      />
     </div>
 
     <div
@@ -74,5 +72,5 @@
         {{ branches.remaining }} left
       </span>
     </div>
-  </div>
+  </BaseCard>
 </template>

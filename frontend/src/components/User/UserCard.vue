@@ -1,15 +1,6 @@
 // src/components/User/UserCard.vue
 <template>
-  <div
-    class="group relative flex flex-col justify-between overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-    :class="[
-      user.isDeleted
-        ? 'border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-900/10'
-        : !user.isActive
-          ? 'bg-white dark:bg-surface-900 border-orange-200 hover:border-orange-300 dark:border-orange-800'
-          : 'bg-white dark:bg-surface-900 border-surface-200 hover:border-primary-300 dark:border-surface-700',
-    ]"
-  >
+  <BaseCard no-padding>
     <div v-if="user.isDeleted" class="absolute top-0 left-0 w-full h-1 bg-red-500 z-10"></div>
 
     <div class="absolute top-3 right-3 z-20 flex items-center gap-2 pt-2">
@@ -125,7 +116,7 @@
     </div>
 
     <div
-      class="mt-auto flex items-center justify-between p-3 border-t"
+      class="mt-auto flex items-center justify-between p-3 border-t rounded-b-xl"
       :class="[
         user.isDeleted
           ? 'border-red-100 dark:border-red-900/30 bg-white/60 dark:bg-surface-900/60'
@@ -144,10 +135,11 @@
         <slot name="actions"></slot>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import type { UserResponseDto } from '@/types/backend';
   import { formatUserDisplay } from '@/utils/users/userDisplay';
   import Avatar from 'primevue/avatar';
