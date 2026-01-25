@@ -1,5 +1,7 @@
 <script setup lang="ts">
   import SubscriptionAddonDrawer from '@/components/Subscription/profile/Subscription/SubscriptionAddonDrawer.vue';
+  import SubscriptionCancelDrawer from '@/components/Subscription/profile/Subscription/SubscriptionCancelDrawer.vue';
+  import SubscriptionRenewDrawer from '@/components/Subscription/profile/Subscription/SubscriptionRenewDrawer.vue';
   import BaseCard from '@/components/shared/BaseCard.vue';
   import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
   import type { PlanDefinition, SubscriptionResponseDto } from '@/types/backend';
@@ -15,6 +17,8 @@
   }>();
 
   const showAddonsDrawer = ref(false);
+  const showRenewDrawer = ref(false);
+  const showCancelDrawer = ref(false);
 
   // 🛡️ Safety Check: Fetch any overdue invoices (even if latest is paid)
   // We keep this query local to the header as it drives the alert
@@ -153,19 +157,23 @@
         label="Renew Subscription"
         icon="pi pi-refresh"
         class="!bg-green-500 !border-green-500 hover:!bg-green-600 !rounded-lg !font-bold w-full sm:w-auto"
+        @click="showRenewDrawer = true"
       />
       <Button
         label="Cancel Subscription"
         icon="pi pi-times"
         class="!bg-red-500 !border-red-500 hover:!bg-red-600 !rounded-lg !font-bold w-full sm:w-auto"
+        @click="showCancelDrawer = true"
       />
     </div>
 
-    <!-- Drawer Component -->
+    <!-- Drawer Components -->
     <SubscriptionAddonDrawer
       v-model:visible="showAddonsDrawer"
       :subscription="subscription"
       :plan-definition="planDefinition || null"
     />
+    <SubscriptionRenewDrawer v-model:visible="showRenewDrawer" :subscription="subscription" />
+    <SubscriptionCancelDrawer v-model:visible="showCancelDrawer" :subscription="subscription" />
   </BaseCard>
 </template>
