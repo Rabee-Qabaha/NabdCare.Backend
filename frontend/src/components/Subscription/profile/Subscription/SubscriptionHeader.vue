@@ -1,17 +1,20 @@
 <script setup lang="ts">
+  import SubscriptionAddonDrawer from '@/components/Subscription/profile/Subscription/SubscriptionAddonDrawer.vue';
   import BaseCard from '@/components/shared/BaseCard.vue';
   import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
-  import type { SubscriptionResponseDto } from '@/types/backend';
+  import type { PlanDefinition, SubscriptionResponseDto } from '@/types/backend';
   import { InvoiceStatus, SubscriptionStatus } from '@/types/backend';
   import Button from 'primevue/button';
   import Tag from 'primevue/tag';
-  import { computed } from 'vue';
+  import { computed, ref } from 'vue';
 
   const props = defineProps<{
     subscription: SubscriptionResponseDto;
     clinicId: string;
-    planName?: string | null;
+    planDefinition?: PlanDefinition | null; // Changed from planName to full object
   }>();
+
+  const showAddonsDrawer = ref(false);
 
   // 🛡️ Safety Check: Fetch any overdue invoices (even if latest is paid)
   // We keep this query local to the header as it drives the alert
@@ -93,7 +96,7 @@
       <div>
         <div class="flex items-center gap-3">
           <h2 class="text-xl font-bold text-surface-900 dark:text-surface-0">
-            {{ planName || subscription.planId }}
+            {{ planDefinition?.name || subscription.planId }}
           </h2>
           <Tag
             value="ACTIVE"
@@ -144,6 +147,7 @@
         label="Manage Add-ons"
         icon="pi pi-sliders-h"
         class="!bg-primary-500 !border-primary-500 hover:!bg-primary-600 !rounded-lg !font-bold w-full sm:w-auto"
+        @click="showAddonsDrawer = true"
       />
       <Button
         label="Renew Subscription"
@@ -156,5 +160,12 @@
         class="!bg-red-500 !border-red-500 hover:!bg-red-600 !rounded-lg !font-bold w-full sm:w-auto"
       />
     </div>
+
+    <!-- Drawer Component -->
+    <SubscriptionAddonDrawer
+      v-model:visible="showAddonsDrawer"
+      :subscription="subscription"
+      :plan-definition="planDefinition || null"
+    />
   </BaseCard>
 </template>

@@ -71,7 +71,7 @@
     <SubscriptionHeader
       :subscription="activeSub"
       :clinic-id="clinicId"
-      :plan-name="activePlanDef?.name"
+      :plan-definition="activePlanDef"
     />
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
