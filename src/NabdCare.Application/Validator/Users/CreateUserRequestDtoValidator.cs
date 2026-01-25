@@ -3,10 +3,6 @@ using NabdCare.Application.DTOs.Users;
 
 namespace NabdCare.Application.Validator.Users;
 
-/// <summary>
-/// Validator for CreateUserRequestDto.
-/// Only validates input format - business logic validation happens in service layer.
-/// </summary>
 public class CreateUserRequestDtoValidator : AbstractValidator<CreateUserRequestDto>
 {
     public CreateUserRequestDtoValidator()
@@ -31,11 +27,17 @@ public class CreateUserRequestDtoValidator : AbstractValidator<CreateUserRequest
             .Matches(@"^[a-zA-Z\s\-'.]+$")
             .WithMessage("Full name can only contain letters, spaces, hyphens, apostrophes, and periods.");
 
-        RuleFor(x => x.RoleId)
-            .NotEmpty().WithMessage("Role ID is required.");
+        RuleFor(x => x.RoleId).NotEmpty().WithMessage("Role ID is required.");
 
         RuleFor(x => x.ClinicId)
             .NotEqual(Guid.Empty).When(x => x.ClinicId.HasValue)
             .WithMessage("Invalid clinic ID.");
+
+        RuleFor(x => x.PhoneNumber).MaximumLength(20);
+        RuleFor(x => x.Address).MaximumLength(500);
+        RuleFor(x => x.JobTitle).MaximumLength(100);
+        RuleFor(x => x.ProfilePictureUrl).MaximumLength(1000);
+        RuleFor(x => x.Bio).MaximumLength(500);
+        RuleFor(x => x.LicenseNumber).MaximumLength(100);
     }
 }

@@ -5,6 +5,12 @@
 
 export class UpdateUserRequestDto {
   fullName: string = "";
+  phoneNumber: string;
+  address: string;
+  jobTitle: string;
+  profilePictureUrl: string;
+  bio: string;
+  licenseNumber: string;
   isActive: boolean = true;
   roleId: string;
 }

@@ -7,6 +7,12 @@ export class CreateUserRequestDto {
   email: string = "";
   password: string = "";
   fullName: string = "";
+  phoneNumber: string;
+  address: string;
+  jobTitle: string;
+  profilePictureUrl: string;
+  bio: string;
+  licenseNumber: string;
   roleId: string;
   clinicId: string;
 }

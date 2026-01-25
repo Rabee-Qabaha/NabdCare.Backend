@@ -7,6 +7,13 @@ export class UserResponseDto {
   id: string;
   email: string = "";
   fullName: string = "";
+  phoneNumber: string;
+  address: string;
+  jobTitle: string;
+  profilePictureUrl: string;
+  bio: string;
+  licenseNumber: string;
+  lastLoginAt: Date;
   roleId: string;
   roleName: string = "";
   roleColorCode: string;

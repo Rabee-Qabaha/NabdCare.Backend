@@ -14,5 +14,12 @@ public class UpdateUserRequestDtoValidator : AbstractValidator<UpdateUserRequest
         RuleFor(x => x.RoleId)
             .NotEmpty().WithMessage("Role ID is required.")
             .NotEqual(Guid.Empty).WithMessage("Invalid role ID.");
+        
+        RuleFor(x => x.PhoneNumber).MaximumLength(20);
+        RuleFor(x => x.Address).MaximumLength(500);
+        RuleFor(x => x.JobTitle).MaximumLength(100);
+        RuleFor(x => x.ProfilePictureUrl).MaximumLength(1000);
+        RuleFor(x => x.Bio).MaximumLength(500);
+        RuleFor(x => x.LicenseNumber).MaximumLength(100);
     }
 }

@@ -25,4 +25,6 @@ export class ClinicDashboardStatsDto {
   taxNumber: string;
   registrationNumber: string;
   settings: ClinicSettings = {"timeZone":"UTC","currency":"USD","dateFormat":"dd/MM/yyyy","locale":"en-US","enablePatientPortal":true};
+  staffGrowthRate: number;
+  patientGrowthRate: number;
 }

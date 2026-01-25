@@ -25,7 +25,8 @@ public class UserProfile : Profile
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore());
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.LastLoginAt, opt => opt.Ignore()); // System managed
 
         // UpdateUserRequestDto -> User
         CreateMap<UpdateUserRequestDto, User>()
@@ -35,6 +36,7 @@ public class UserProfile : Profile
             .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
             .ForMember(dest => dest.ClinicId, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore());
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.LastLoginAt, opt => opt.Ignore());
     }
 }

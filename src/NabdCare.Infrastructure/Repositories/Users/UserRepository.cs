@@ -460,6 +460,16 @@ public class UserRepository : IUserRepository
         return user;
     }
 
+    public async Task UpdateLastLoginAsync(Guid userId)
+    {
+        if (userId == Guid.Empty) return;
+
+        await _dbContext.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.LastLoginAt, DateTime.UtcNow));
+    }
+    
     public async Task<bool> SoftDeleteAsync(Guid userId)
     {
         if (userId == Guid.Empty)

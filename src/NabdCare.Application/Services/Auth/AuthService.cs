@@ -3,6 +3,7 @@ using NabdCare.Application.Common.Constants;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Interfaces;
 using NabdCare.Application.Interfaces.Permissions;
+using NabdCare.Application.Interfaces.Users;
 using NabdCare.Domain.Entities.Permissions;
 
 namespace NabdCare.Application.Services.Auth;
@@ -10,6 +11,7 @@ namespace NabdCare.Application.Services.Auth;
 public class AuthService : IAuthService
 {
     private readonly IAuthRepository _authRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ITokenService _tokenService;
     private readonly IPermissionService _permissionService;
     private readonly ILogger<AuthService> _logger;
@@ -18,11 +20,13 @@ public class AuthService : IAuthService
 
     public AuthService(
         IAuthRepository authRepository,
+        IUserRepository userRepository,
         ITokenService tokenService,
         IPermissionService permissionService,
         ILogger<AuthService> logger)
     {
         _authRepository = authRepository ?? throw new ArgumentNullException(nameof(authRepository));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
         _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -56,6 +60,8 @@ public class AuthService : IAuthService
                 user.Id, normalizedEmail, ip, ErrorCodes.FORBIDDEN);
             throw new UnauthorizedAccessException($"User account is inactive. Error code: {ErrorCodes.FORBIDDEN}");
         }
+
+        await _userRepository.UpdateLastLoginAsync(user.Id);
 
         _logger.LogInformation("User {UserId} ({Email}) authenticated successfully from IP {IP}", user.Id, normalizedEmail, ip);
 

@@ -109,7 +109,15 @@ public class UserService : IUserService
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = Guid.TryParse(currentUserId, out var uid) ? uid : null,
-            IsDeleted = false
+            IsDeleted = false,
+
+            // --- 🆕 New Fields Mapping ---
+            PhoneNumber = dto.PhoneNumber?.Trim(),
+            Address = dto.Address?.Trim(),
+            JobTitle = dto.JobTitle?.Trim(),
+            ProfilePictureUrl = dto.ProfilePictureUrl?.Trim(),
+            Bio = dto.Bio?.Trim(),
+            LicenseNumber = dto.LicenseNumber?.Trim()
         };
 
         user.PasswordHash = _passwordService.HashPassword(user, dto.Password);
@@ -270,6 +278,16 @@ public class UserService : IUserService
         }
 
         user.FullName = dto.FullName.Trim();
+        
+        // --- 🆕 Updating New Fields ---
+        user.PhoneNumber = dto.PhoneNumber?.Trim();
+        user.Address = dto.Address?.Trim();
+        user.JobTitle = dto.JobTitle?.Trim();
+        user.ProfilePictureUrl = dto.ProfilePictureUrl?.Trim();
+        user.Bio = dto.Bio?.Trim();
+        user.LicenseNumber = dto.LicenseNumber?.Trim();
+        // -----------------------------
+
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = _userContext.GetCurrentUserId();
 
