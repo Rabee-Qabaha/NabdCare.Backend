@@ -1,5 +1,6 @@
 // src/components/Subscription/CurrentPlanCard.vue
 <script setup lang="ts">
+  import BaseDrawer from '@/components/shared/BaseCard.vue';
   import { useSubscriptionPlans } from '@/composables/query/subscriptions/useSubscriptions';
   import type { SubscriptionResponseDto } from '@/types/backend';
   import { formatCurrency, formatDate } from '@/utils/uiHelpers';
@@ -31,7 +32,8 @@
 </script>
 
 <template>
-  <div
+  <BaseDrawer
+    no-padding
     class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col h-full relative overflow-hidden"
   >
     <div class="p-4 pb-0 flex justify-between items-start z-10 relative">
@@ -178,5 +180,5 @@
     <div
       class="absolute top-0 right-0 w-24 h-24 bg-primary-50 dark:bg-primary-900/10 rounded-bl-full -mr-8 -mt-8 pointer-events-none z-0"
     ></div>
-  </div>
+  </BaseDrawer>
 </template>

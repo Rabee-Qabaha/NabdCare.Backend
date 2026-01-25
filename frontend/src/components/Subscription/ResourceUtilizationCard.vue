@@ -1,5 +1,6 @@
 // src/components/Subscription/ResourceUtilizationCard.vue
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useClinicBranches } from '@/composables/query/branches/useBranches';
   import { useUsersPaged } from '@/composables/query/users/useUsers';
   import type { SubscriptionResponseDto } from '@/types/backend';
@@ -37,9 +38,7 @@
 </script>
 
 <template>
-  <div
-    class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-sm flex flex-col h-full"
-  >
+  <BaseCard no-padding>
     <div class="px-4 py-2 border-b border-surface-100 dark:border-surface-700">
       <h4
         class="text-[10px] font-bold text-surface-500 uppercase tracking-wider flex items-center gap-1.5"
@@ -140,5 +139,5 @@
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

@@ -1,5 +1,6 @@
 // src/components/Subscription/SubscriptionActions.vue
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useSubscriptionActions } from '@/composables/query/subscriptions/useSubscriptionActions';
   import type { SubscriptionResponseDto } from '@/types/backend';
   import { SubscriptionStatus, SubscriptionType } from '@/types/backend';
@@ -74,7 +75,8 @@
 
 <template>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div
+    <BaseCard
+      no-padding
       v-if="canPurchaseAddons && !subscription.cancelAtPeriodEnd"
       class="action-card group"
       @click="emit('edit')"
@@ -86,9 +88,10 @@
       </div>
       <span class="font-bold text-surface-900 dark:text-surface-0 text-sm">Manage Add-ons</span>
       <span class="text-xs text-surface-500 mt-1 leading-tight">Users & Branches</span>
-    </div>
+    </BaseCard>
 
-    <div
+    <BaseCard
+      no-padding
       v-if="canRenew && !subscription.cancelAtPeriodEnd"
       class="action-card group hover:border-green-500"
       @click="showRenewDialog = true"
@@ -99,9 +102,10 @@
       </div>
       <span class="font-bold text-surface-900 dark:text-surface-0 text-sm">Renew Plan</span>
       <span class="text-xs text-surface-500 mt-1 leading-tight">Extend +1 Cycle</span>
-    </div>
+    </BaseCard>
 
-    <div
+    <BaseCard
+      no-padding
       v-if="canToggleAutoRenew && !subscription.cancelAtPeriodEnd"
       class="action-card cursor-default hover:border-blue-500"
     >
@@ -120,9 +124,10 @@
           />
         </div>
       </div>
-    </div>
+    </BaseCard>
 
-    <div
+    <BaseCard
+      no-padding
       v-if="subscription.cancelAtPeriodEnd"
       class="action-card group border-green-200 hover:border-green-500 bg-green-50/50"
       @click="handleResume"
@@ -133,9 +138,10 @@
       </div>
       <span class="font-bold text-green-800 text-sm">Resume Plan</span>
       <span class="text-xs text-green-600 mt-1 leading-tight">Cancel Termination</span>
-    </div>
+    </BaseCard>
 
-    <div
+    <BaseCard
+      no-padding
       v-else-if="canCancel"
       class="action-card group hover:border-red-500"
       @click="showTerminateDialog = true"
@@ -150,7 +156,7 @@
         Cancel Plan
       </span>
       <span class="text-xs text-surface-500 mt-1 leading-tight">Stop at Period End</span>
-    </div>
+    </BaseCard>
 
     <div
       v-if="!canPurchaseAddons && !canRenew && !canToggleAutoRenew && !canCancel"
