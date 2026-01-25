@@ -10,10 +10,12 @@
       icon?: string;
       width?: string;
       noPadding?: boolean;
+      dismissable?: boolean;
     }>(),
     {
       width: 'md:!w-[480px]',
       noPadding: false,
+      dismissable: true,
     },
   );
 
@@ -34,7 +36,7 @@
     @update:visible="(v) => emit('update:visible', v)"
     position="right"
     :modal="true"
-    :dismissable="true"
+    :dismissable="dismissable"
     :showCloseIcon="false"
     :class="['!w-full !border-0 shadow-2xl', width]"
     :pt="{

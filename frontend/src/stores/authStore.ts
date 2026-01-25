@@ -142,7 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
   // ===========================
   // LOGIN
   // ===========================
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     loading.value = true;
     error.value = null;
 
@@ -156,7 +156,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (!accessToken) throw new Error('Missing accessToken');
 
       // Save token
-      tokenManager.setAccessToken(accessToken, true);
+      tokenManager.setAccessToken(accessToken, rememberMe);
 
       // Fetch user profile
       await loadCurrentUser();

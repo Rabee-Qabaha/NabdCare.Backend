@@ -1,195 +1,241 @@
 // src/components/User/UserDialog.vue
 <template>
-  <Dialog
+  <BaseDrawer
     v-model:visible="visible"
-    :modal="true"
-    :closable="!saving"
-    :style="{ width: '700px', maxWidth: '95vw' }"
-    :pt="{
-      root: { class: 'rounded-xl border-0 shadow-2xl overflow-hidden' },
-      header: {
-        class:
-          'border-b border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-white dark:bg-surface-900',
-      },
-      content: { class: 'p-0 bg-white dark:bg-surface-900' },
-      footer: {
-        class:
-          'border-t border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-50 dark:bg-surface-800',
-      },
-    }"
-    @hide="onClose"
+    :title="localUser.id ? 'Edit User' : 'Create New User'"
+    :subtitle="localUser.id ? 'Update user details and access.' : 'Add a new user to the system.'"
+    :icon="localUser.id ? 'pi pi-user-edit' : 'pi pi-user-plus'"
+    width="md:!w-[700px]"
+    :no-padding="true"
+    :dismissable="false"
+    @close="onClose"
   >
-    <template #header>
-      <div class="flex items-center gap-3">
-        <div
-          class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 shrink-0"
-        >
-          <i v-if="!localUser.id" class="pi pi-user-plus text-xl"></i>
-          <i v-else class="pi pi-user-edit text-xl"></i>
-        </div>
-        <div class="flex flex-col">
-          <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight">
-            {{ localUser.id ? 'Edit User' : 'Create New User' }}
-          </h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400">
-            {{ localUser.id ? 'Update user details and access.' : 'Add a new user to the system.' }}
-          </p>
-        </div>
-      </div>
-    </template>
+    <div class="p-6 flex flex-col gap-6">
+      <form id="user-form" autocomplete="off" @submit.prevent>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Full Name
+              <span class="text-red-500">*</span>
+            </label>
+            <InputText
+              v-model="fullName"
+              placeholder="e.g. John Doe"
+              :invalid="submitted && !isFullNameValid"
+              class="w-full"
+              name="full_name"
+              autocomplete="name"
+            />
+            <small v-if="submitted && !isFullNameValid" class="text-red-500 text-xs">
+              Name is required.
+            </small>
+          </div>
 
-    <div class="p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar" style="max-height: 650px">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-            Full Name
-            <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            v-model="fullName"
-            placeholder="e.g. John Doe"
-            :invalid="submitted && !isFullNameValid"
-            class="w-full"
-          />
-          <small v-if="submitted && !isFullNameValid" class="text-red-500 text-xs">
-            Name is required.
-          </small>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-            Email Address
-            <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            v-model="email"
-            type="email"
-            placeholder="user@example.com"
-            :invalid="submitted && (!isEmailValid || emailExistsError)"
-            class="w-full"
-            @blur="checkEmail"
-          />
-          <small v-if="emailExistsError" class="text-red-500 text-xs">Email already exists.</small>
-          <small v-if="softDeletedUser" class="text-orange-500 text-xs flex items-center gap-1">
-            User is in trash.
-            <span class="underline cursor-pointer font-bold" @click="showRestoreDialog = true">
-              Restore?
-            </span>
-          </small>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-            Role
-            <span class="text-red-500">*</span>
-          </label>
-          <RoleSelect v-model="roleId" :invalid="submitted && !isRoleSelected" class="w-full" />
-          <small v-if="submitted && !isRoleSelected" class="text-red-500 text-xs">
-            Role is required.
-          </small>
-        </div>
-
-        <div v-if="isSuperAdmin" class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">Clinic</label>
-          <ClinicSelect
-            v-model="clinicId"
-            :disabled="shouldDisableClinic"
-            class="w-full"
-            :invalid="submitted && isClinicRequired && !isClinicSelected"
-            placeholder="Select Clinic"
-          />
-          <small v-if="shouldDisableClinic" class="text-xs text-surface-500 dark:text-surface-400">
-            System roles are global.
-          </small>
-        </div>
-
-        <div v-else class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">Clinic</label>
-          <div
-            class="h-[42px] flex items-center px-3 rounded-md border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 text-surface-500 dark:text-surface-400 text-sm italic"
-          >
-            Current Clinic Only
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Email Address
+              <span class="text-red-500">*</span>
+            </label>
+            <InputText
+              v-model="email"
+              type="email"
+              placeholder="user@example.com"
+              :invalid="submitted && (!isEmailValid || emailExistsError)"
+              class="w-full"
+              @blur="checkEmail"
+              name="email"
+              autocomplete="email"
+            />
+            <small v-if="emailExistsError" class="text-red-500 text-xs">
+              Email already exists.
+            </small>
+            <small v-if="softDeletedUser" class="text-orange-500 text-xs flex items-center gap-1">
+              User is in trash.
+              <span class="underline cursor-pointer font-bold" @click="showRestoreDialog = true">
+                Restore?
+              </span>
+            </small>
           </div>
         </div>
-      </div>
 
-      <Divider class="my-0 border-surface-200 dark:border-surface-700" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Role
+              <span class="text-red-500">*</span>
+            </label>
+            <RoleSelect v-model="roleId" :invalid="submitted && !isRoleSelected" class="w-full" />
+            <small v-if="submitted && !isRoleSelected" class="text-red-500 text-xs">
+              Role is required.
+            </small>
+          </div>
 
-      <div
-        v-if="!localUser.id"
-        class="bg-surface-50 dark:bg-surface-800/50 p-4 rounded-lg border border-surface-200 dark:border-surface-700"
-      >
-        <h4 class="text-xs font-bold text-surface-500 dark:text-surface-400 uppercase mb-3">
-          Security Setup
-        </h4>
-        <UserPasswordFields
-          ref="passwordRef"
-          mode="create"
-          :submitted="submitted"
-          @update:passwords="Object.assign(passwords, $event)"
-        />
-      </div>
+          <div v-if="isSuperAdmin" class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Clinic
+            </label>
+            <ClinicSelect
+              v-model="clinicId"
+              :disabled="shouldDisableClinic"
+              class="w-full"
+              :invalid="submitted && isClinicRequired && !isClinicSelected"
+              placeholder="Select Clinic"
+            />
+            <small
+              v-if="shouldDisableClinic"
+              class="text-xs text-surface-500 dark:text-surface-400"
+            >
+              System roles are global.
+            </small>
+          </div>
 
-      <div
-        class="flex items-center justify-between p-4 rounded-lg border transition-colors"
-        :class="
-          isActive
-            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-            : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-        "
-      >
-        <div class="flex flex-col">
-          <span
-            class="text-sm font-bold"
-            :class="
-              isActive
-                ? 'text-green-700 dark:text-green-300'
-                : 'text-orange-700 dark:text-orange-300'
-            "
-          >
-            {{ isActive ? 'Active Account' : 'Inactive Account' }}
-          </span>
-          <span
-            class="text-xs opacity-80"
-            :class="
-              isActive
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-orange-600 dark:text-orange-400'
-            "
-          >
-            {{
-              isActive
-                ? 'User can log in and access the system.'
-                : 'User access is temporarily suspended.'
-            }}
-          </span>
+          <div v-else class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Clinic
+            </label>
+            <div
+              class="h-[42px] flex items-center px-3 rounded-md border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 text-surface-500 dark:text-surface-400 text-sm italic"
+            >
+              Current Clinic Only
+            </div>
+          </div>
         </div>
-        <ToggleSwitch v-model="isActive" />
-      </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Phone Number
+            </label>
+            <InputText
+              v-model="phoneNumber"
+              placeholder="e.g. +1 234 567 890"
+              class="w-full"
+              name="phone"
+              autocomplete="tel"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Job Title
+            </label>
+            <InputText
+              v-model="jobTitle"
+              placeholder="e.g. Cardiologist"
+              class="w-full"
+              name="job_title"
+              autocomplete="organization-title"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5 mt-5">
+          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+            Address
+          </label>
+          <InputText
+            v-model="address"
+            placeholder="Residential or office address"
+            class="w-full"
+            name="address"
+            autocomplete="street-address"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5 mt-5">
+          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+            License Number
+          </label>
+          <InputText
+            v-model="licenseNumber"
+            placeholder="Medical License # if applicable"
+            class="w-full"
+            name="license_number"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5 mt-5">
+          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">Bio</label>
+          <Textarea v-model="bio" rows="3" placeholder="Brief biography..." class="w-full" />
+        </div>
+
+        <Divider class="my-5 border-surface-200 dark:border-surface-700" />
+
+        <div
+          v-if="!localUser.id"
+          class="bg-surface-50 dark:bg-surface-800/50 p-4 rounded-lg border border-surface-200 dark:border-surface-700"
+        >
+          <h4 class="text-xs font-bold text-surface-500 dark:text-surface-400 uppercase mb-3">
+            Security Setup
+          </h4>
+          <UserPasswordFields
+            ref="passwordRef"
+            mode="create"
+            :submitted="submitted"
+            @update:passwords="Object.assign(passwords, $event)"
+          />
+        </div>
+
+        <div
+          class="flex items-center justify-between p-4 rounded-lg border transition-colors mt-5"
+          :class="
+            isActive
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+              : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+          "
+        >
+          <div class="flex flex-col">
+            <span
+              class="text-sm font-bold"
+              :class="
+                isActive
+                  ? 'text-green-700 dark:text-green-300'
+                  : 'text-orange-700 dark:text-orange-300'
+              "
+            >
+              {{ isActive ? 'Active Account' : 'Inactive Account' }}
+            </span>
+            <span
+              class="text-xs opacity-80"
+              :class="
+                isActive
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-orange-600 dark:text-orange-400'
+              "
+            >
+              {{
+                isActive
+                  ? 'User can log in and access the system.'
+                  : 'User access is temporarily suspended.'
+              }}
+            </span>
+          </div>
+          <ToggleSwitch v-model="isActive" />
+        </div>
+      </form>
     </div>
 
-    <template #footer>
-      <div class="flex justify-end gap-2 w-full mt-4">
+    <template #footer="{ close }">
+      <div class="flex w-full gap-3">
         <Button
           label="Cancel"
           severity="secondary"
           outlined
-          class="w-full sm:w-auto"
+          class="!w-[30%]"
           :disabled="saving"
-          @click="onClose"
+          @click="close"
         />
         <Button
           :label="localUser.id ? 'Save Changes' : 'Create User'"
           :loading="saving"
           icon="pi pi-check"
-          class="w-full sm:w-auto"
+          class="flex-1"
           @click="onSave"
         />
       </div>
     </template>
-  </Dialog>
+  </BaseDrawer>
 
   <Dialog
     v-model:visible="showRestoreDialog"
@@ -215,11 +261,13 @@
   import Dialog from 'primevue/dialog';
   import Divider from 'primevue/divider';
   import InputText from 'primevue/inputtext';
+  import Textarea from 'primevue/textarea';
   import ToggleSwitch from 'primevue/toggleswitch';
 
   import ClinicSelect from '@/components/Dropdowns/ClinicSelect.vue';
   import RoleSelect from '@/components/Dropdowns/RoleSelect.vue';
   import UserPasswordFields from '@/components/Forms/UserPasswordFields.vue';
+  import BaseDrawer from '@/components/shared/BaseDrawer.vue';
 
   import { usersApi } from '@/api/modules/users';
   import { useGroupedRoles } from '@/composables/query/useDropdownData';
@@ -269,6 +317,14 @@
     roleId,
     clinicId,
     isActive,
+    // New fields
+    phoneNumber,
+    address,
+    jobTitle,
+    bio,
+    licenseNumber,
+    profilePictureUrl,
+    // Validation
     isFullNameValid,
     isEmailValid,
     isRoleSelected,
@@ -279,11 +335,7 @@
   const passwordRef = ref<InstanceType<typeof UserPasswordFields> | null>(null);
 
   // Derived
-  const allRoles = computed(() =>
-    groupedRoles.value
-      ? [...(groupedRoles.value.systemRoles || []), ...(groupedRoles.value.clinicRoles || [])]
-      : [],
-  );
+  const allRoles = computed(() => groupedRoles.value || []);
   const selectedRole = computed(() => allRoles.value.find((r) => r.id === roleId.value));
   const shouldDisableClinic = computed(() => selectedRole.value?.isSystemRole ?? false);
   const isClinicRequired = computed(() => !selectedRole.value?.isSystemRole);
@@ -315,6 +367,13 @@
           roleId: props.user?.roleId,
           clinicId: props.user?.clinicId,
           isActive: props.user?.isActive ?? true,
+          // New fields
+          phoneNumber: props.user?.phoneNumber || '',
+          address: props.user?.address || '',
+          jobTitle: props.user?.jobTitle || '',
+          bio: props.user?.bio || '',
+          licenseNumber: props.user?.licenseNumber || '',
+          profilePictureUrl: props.user?.profilePictureUrl || '',
         };
 
         if (!localUser.value.id) {
@@ -355,6 +414,13 @@
       roleId: roleId.value,
       clinicId: clinicId.value || undefined,
       isActive: isActive.value,
+      // New fields
+      phoneNumber: phoneNumber.value?.trim(),
+      address: address.value?.trim(),
+      jobTitle: jobTitle.value?.trim(),
+      bio: bio.value?.trim(),
+      licenseNumber: licenseNumber.value?.trim(),
+      profilePictureUrl: profilePictureUrl.value?.trim(),
     };
 
     if (!localUser.value.id) {

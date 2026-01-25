@@ -36,22 +36,36 @@
         {{ user.fullName }}
       </h3>
 
-      <div class="flex items-center justify-center gap-2 mt-1 w-full">
-        <span
-          class="text-sm text-surface-500 dark:text-surface-400 truncate max-w-[180px]"
-          :title="user.email"
-        >
-          {{ user.email }}
-        </span>
-        <Button
-          v-tooltip.bottom="'Copy Email'"
-          icon="pi pi-copy"
-          text
-          rounded
-          size="small"
-          class="!h-6 !w-6 !text-surface-400 hover:!text-primary-500"
-          @click.stop="copyToClipboard(user.email)"
-        />
+      <div
+        v-if="user.jobTitle"
+        class="text-xs font-semibold text-primary-600 dark:text-primary-400 mt-1 truncate w-full px-4"
+        :title="user.jobTitle"
+      >
+        {{ user.jobTitle }}
+      </div>
+
+      <div class="flex flex-col gap-1 items-center justify-center mt-2 w-full px-2">
+        <div class="flex items-center justify-center gap-2 w-full">
+          <span
+            class="text-sm text-surface-500 dark:text-surface-400 truncate max-w-[180px]"
+            :title="user.email"
+          >
+            {{ user.email }}
+          </span>
+          <Button
+            v-tooltip.bottom="'Copy Email'"
+            icon="pi pi-copy"
+            text
+            rounded
+            size="small"
+            class="!h-6 !w-6 !text-surface-400 hover:!text-primary-500"
+            @click.stop="copyToClipboard(user.email)"
+          />
+        </div>
+
+        <div v-if="user.phoneNumber" class="flex items-center gap-1.5 text-xs text-surface-500">
+          <span>{{ user.phoneNumber }}</span>
+        </div>
       </div>
 
       <div class="flex flex-wrap justify-center gap-2 mt-3">

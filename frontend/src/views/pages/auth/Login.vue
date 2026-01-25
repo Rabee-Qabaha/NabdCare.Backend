@@ -44,7 +44,7 @@
       toast.add({
         severity: 'success',
         summary: 'Welcome Back',
-        detail: `Hello, ${user.name || user.email}!`,
+        detail: `Hello, ${user.fullName || user.email}!`,
         life: 3000,
       });
 

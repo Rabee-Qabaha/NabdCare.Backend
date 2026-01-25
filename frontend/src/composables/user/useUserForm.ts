@@ -1,7 +1,7 @@
 // src/composables/user/useUserForm.ts
-import { computed, type Ref } from 'vue';
 import type { UserResponseDto } from '@/types/backend';
-import { validateUserFullName, validateEmailFormat } from '@/utils/users/userValidation';
+import { validateEmailFormat, validateUserFullName } from '@/utils/users/userValidation';
+import { computed, type Ref } from 'vue';
 
 export function useUserForm(user: Ref<Partial<UserResponseDto>>) {
   const fullName = computed({
@@ -39,6 +39,49 @@ export function useUserForm(user: Ref<Partial<UserResponseDto>>) {
     },
   });
 
+  // NEW FIELDS
+  const phoneNumber = computed({
+    get: () => user.value.phoneNumber || '',
+    set: (val) => {
+      if (user.value) user.value.phoneNumber = val;
+    },
+  });
+
+  const address = computed({
+    get: () => user.value.address || '',
+    set: (val) => {
+      if (user.value) user.value.address = val;
+    },
+  });
+
+  const jobTitle = computed({
+    get: () => user.value.jobTitle || '',
+    set: (val) => {
+      if (user.value) user.value.jobTitle = val;
+    },
+  });
+
+  const profilePictureUrl = computed({
+    get: () => user.value.profilePictureUrl || '',
+    set: (val) => {
+      if (user.value) user.value.profilePictureUrl = val;
+    },
+  });
+
+  const bio = computed({
+    get: () => user.value.bio || '',
+    set: (val) => {
+      if (user.value) user.value.bio = val;
+    },
+  });
+
+  const licenseNumber = computed({
+    get: () => user.value.licenseNumber || '',
+    set: (val) => {
+      if (user.value) user.value.licenseNumber = val;
+    },
+  });
+
   const isFullNameValid = computed(() => validateUserFullName(fullName.value));
 
   const isEmailValid = computed(() => validateEmailFormat(email.value));
@@ -57,6 +100,14 @@ export function useUserForm(user: Ref<Partial<UserResponseDto>>) {
     roleId,
     clinicId,
     isActive,
+    // New exports
+    phoneNumber,
+    address,
+    jobTitle,
+    profilePictureUrl,
+    bio,
+    licenseNumber,
+    // Validation
     isFullNameValid,
     isEmailValid,
     isRoleSelected,

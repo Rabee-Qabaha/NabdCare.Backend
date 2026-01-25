@@ -30,11 +30,18 @@
       <div>
         <IconField class="w-full">
           <InputIcon><i class="pi pi-search" /></InputIcon>
-          <InputText
-            v-model="filtersState.global"
-            placeholder="Search users by name, email, role, or clinic..."
-            class="w-full"
-          />
+          <form autocomplete="off" @submit.prevent>
+            <!-- Hidden input to trick autofill -->
+            <input type="text" class="hidden" autocomplete="off" name="hidden-search-dummy" />
+            <InputText
+              v-model="filtersState.global"
+              placeholder="Search users by name, email, role, or clinic..."
+              class="w-full"
+              autocomplete="new-password"
+              name="user_search_query"
+              id="user_search_query"
+            />
+          </form>
         </IconField>
         <small v-if="isFetching && visibleUsers.length > 0" class="mt-1 block text-surface-500">
           Updating results...
