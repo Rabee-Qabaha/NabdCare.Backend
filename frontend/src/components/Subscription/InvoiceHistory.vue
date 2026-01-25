@@ -1,7 +1,7 @@
-// src/components/Subscription/InvoiceHistory.vue
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
-  import { InvoiceStatus, type InvoiceDto } from '@/types/backend';
+  import { InvoiceStatus, InvoiceType, type InvoiceDto } from '@/types/backend';
   import { formatCurrency, formatDate } from '@/utils/uiHelpers';
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
@@ -45,7 +45,7 @@
       clinicId: computed(() => props.clinicId || null),
       search: searchQuery,
       status: null,
-      limit: 5,
+      limit: 10,
     });
 
   // -- Computed Data --
@@ -78,14 +78,9 @@
           const entry = entries[0];
           if (entry) {
             isTriggerVisible.value = entry.isIntersecting;
-            console.log(`👁️ Visibility changed: ${entry.isIntersecting}`);
           }
         },
-        {
-          root: scrollContainer.value,
-          threshold: 0.1,
-          rootMargin: '50px',
-        },
+        { root: scrollContainer.value, threshold: 0.1, rootMargin: '50px' },
       );
 
       observer.observe(loadTrigger.value);
@@ -117,122 +112,200 @@
     const s = String(status).toLowerCase();
     if (['paid', '2', 'active'].includes(s)) return 'success';
     if (['issued', '1'].includes(s)) return 'warn';
-    if (['overdue', '3'].includes(s)) return 'danger';
+    if (['overdue', '3', 'void'].includes(s)) return 'danger';
     return 'info';
   };
+
   const getStatusLabel = (status: InvoiceStatus) => InvoiceStatus[status] || status;
+
+  const getTypeLabel = (type: InvoiceType | string) => {
+    return String(type)
+      .replace(/([A-Z])/g, ' $1')
+      .trim();
+  };
 </script>
 
 <template>
-  <div
-    class="bg-surface-0 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg flex flex-col h-[350px]"
-  >
+  <BaseCard no-padding class="flex flex-col h-full">
     <div
-      class="px-3 py-2 border-b border-surface-200 dark:border-surface-700 flex justify-between items-center shrink-0 bg-surface-50 dark:bg-surface-900 rounded-t-lg"
+      class="px-4 py-3 border-b border-surface-200 dark:border-surface-700 flex justify-between items-center shrink-0 bg-surface-50 dark:bg-surface-900 rounded-t-xl"
     >
       <div class="flex items-center gap-2">
-        <i class="pi pi-receipt text-surface-500 text-xs"></i>
-        <span class="text-xs font-bold text-surface-900 dark:text-surface-0">Billing History</span>
+        <i class="pi pi-receipt text-surface-500 text-sm"></i>
+        <span class="text-sm font-bold text-surface-900 dark:text-surface-0">Billing History</span>
       </div>
       <div class="flex items-center gap-2">
         <IconField icon-position="left">
-          <InputIcon class="pi pi-search text-surface-400 !text-[10px]" />
+          <InputIcon class="pi pi-search text-surface-400 !text-xs" />
           <InputText
             v-model="searchQuery"
             placeholder="Search #..."
-            class="!w-24 focus:!w-32 transition-all !py-1 !text-[11px] !h-7"
+            class="!w-36 focus:!w-48 transition-all !py-1.5 !text-xs !h-8"
           />
         </IconField>
         <Button
-          v-tooltip.left="'View All Invoices'"
+          v-tooltip.bottom="'View All Invoices'"
           icon="pi pi-external-link"
           text
           rounded
           size="small"
-          class="!w-7 !h-7 !text-surface-500"
+          class="!w-8 !h-8 !text-surface-500"
           @click="emit('view-all')"
         />
       </div>
     </div>
 
-    <div ref="scrollContainer" class="flex-grow overflow-y-auto relative custom-scrollbar">
-      <DataTable :value="displayInvoices" class="text-[11px] w-full" striped-rows row-hover>
+    <div
+      ref="scrollContainer"
+      class="flex-grow overflow-y-auto relative custom-scrollbar min-h-[300px]"
+    >
+      <DataTable :value="displayInvoices" class="text-xs w-full" striped-rows row-hover>
         <template #empty>
-          <div class="p-6 text-center text-surface-500 text-xs">No invoices found.</div>
+          <div class="p-8 text-center flex flex-col items-center gap-3 text-surface-500">
+            <i class="pi pi-file-excel text-4xl opacity-50"></i>
+            <span>No invoices found.</span>
+          </div>
         </template>
 
-        <Column header="Invoice #" style="min-width: 110px">
+        <Column header="Details" headerClass="text-left" bodyClass="text-left">
           <template #body="{ data }">
-            <div v-if="data._skeleton" class="flex flex-col gap-1">
-              <Skeleton width="80%" height="0.8rem" />
+            <div v-if="data._skeleton" class="flex flex-col gap-1.5">
+              <Skeleton width="70%" height="0.8rem" />
               <Skeleton width="40%" height="0.6rem" />
             </div>
-            <div v-else class="flex flex-col">
+            <div v-else class="flex flex-col gap-0.5">
               <span
-                class="font-mono font-medium text-primary-600 dark:text-primary-400 cursor-pointer hover:underline truncate"
+                class="font-mono font-bold text-primary-600 dark:text-primary-400 cursor-pointer hover:underline truncate text-[11px]"
                 @click="openPrintPreview(data)"
               >
                 {{ data.invoiceNumber }}
               </span>
-              <span class="text-[9px] text-surface-400">
-                Issued: {{ formatDate(data.issueDate) }}
+              <div class="flex items-center gap-1.5 text-[10px] text-surface-500">
+                <span class="font-medium text-surface-700 dark:text-surface-300">
+                  {{ getTypeLabel(data.type) }}
+                </span>
+                <span v-if="data.items?.length" class="text-surface-400">
+                  • {{ data.items.length }} Items
+                </span>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column
+          header="Timeline"
+          style="width: 160px"
+          headerClass="text-left"
+          bodyClass="text-left"
+        >
+          <template #body="{ data }">
+            <div v-if="data._skeleton" class="flex flex-col gap-1">
+              <Skeleton width="60%" height="0.7rem" />
+              <Skeleton width="50%" height="0.7rem" />
+            </div>
+            <div v-else class="flex flex-col gap-0.5 text-[10px]">
+              <div class="flex">
+                <span class="text-surface-500 mr-2">Issued:</span>
+                <span class="font-medium text-surface-700 dark:text-surface-200">
+                  {{ formatDate(data.issueDate) }}
+                </span>
+              </div>
+              <div v-if="data.paidDate" class="flex">
+                <span class="text-surface-500 mr-2">Paid:</span>
+                <span class="font-medium text-green-600 dark:text-green-400">
+                  {{ formatDate(data.paidDate) }}
+                </span>
+              </div>
+              <div v-else class="flex">
+                <span class="text-surface-500 mr-2">Due:</span>
+                <span
+                  class="font-bold"
+                  :class="
+                    new Date(data.dueDate) < new Date()
+                      ? 'text-red-500'
+                      : 'text-surface-700 dark:text-surface-200'
+                  "
+                >
+                  {{ formatDate(data.dueDate) }}
+                </span>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column header="Amount" style="width: 120px" headerClass="text-left" bodyClass="text-left">
+          <template #body="{ data }">
+            <div v-if="data._skeleton" class="flex flex-col gap-1 items-end">
+              <Skeleton width="50%" height="0.8rem" />
+              <Skeleton width="30%" height="0.6rem" />
+            </div>
+            <div v-else class="flex flex-col text-left">
+              <span class="font-bold text-surface-900 dark:text-surface-0">
+                {{ formatCurrency(data.totalAmount, data.currency) }}
+              </span>
+              <span v-if="data.balanceDue > 0">
+                <span class="mr-2">Due:</span>
+                <span class="text-[10px] text-red-500 font-bold">
+                  {{ formatCurrency(data.balanceDue, data.currency) }}
+                </span>
+              </span>
+              <span
+                v-else
+                class="text-[10px] text-green-600 font-medium flex items-center justify-start gap-1"
+              >
+                <i class="pi pi-check text-[9px]"></i>
+                Paid
               </span>
             </div>
           </template>
         </Column>
 
-        <Column header="Amount" style="min-width: 90px">
+        <Column header="Status" style="width: 100px" class="text-center" headerClass="text-center">
           <template #body="{ data }">
-            <div v-if="data._skeleton"><Skeleton width="60%" height="0.8rem" /></div>
-            <div v-else class="flex flex-col">
-              <span class="font-bold">{{ formatCurrency(data.totalAmount) }}</span>
-              <span v-if="data.balanceDue > 0" class="text-[9px] text-red-500 font-bold">
-                Due: {{ formatCurrency(data.balanceDue) }}
-              </span>
-              <span v-else class="text-[9px] text-green-600 font-medium">Paid Full</span>
+            <div v-if="data._skeleton" class="flex justify-center">
+              <Skeleton width="100%" height="1.2rem" border-radius="4px" />
+            </div>
+            <div v-else class="flex justify-center">
+              <Tag
+                :value="getStatusLabel(data.status)"
+                :severity="getStatusSeverity(data.status)"
+                class="text-[10px] uppercase font-bold px-2 py-0.5 min-w-[70px] justify-center"
+                rounded
+              />
             </div>
           </template>
         </Column>
 
-        <Column header="Status" style="width: 80px">
+        <Column style="width: 60px" bodyClass="text-center">
           <template #body="{ data }">
-            <div v-if="data._skeleton">
-              <Skeleton width="3rem" height="1rem" border-radius="4px" />
+            <div v-if="data._skeleton" class="flex justify-center">
+              <Skeleton shape="circle" size="1.5rem" />
             </div>
-            <Tag
-              v-else
-              :value="getStatusLabel(data.status)"
-              :severity="getStatusSeverity(data.status)"
-              class="text-[9px] uppercase font-bold px-1.5 py-0 h-4 leading-none"
-              rounded
-            />
-          </template>
-        </Column>
-
-        <Column style="width: 40px" align-frozen="right" frozen>
-          <template #body="{ data }">
-            <div v-if="data._skeleton"><Skeleton shape="circle" size="1.2rem" /></div>
-            <Button
-              v-else
-              icon="pi pi-print"
-              text
-              rounded
-              size="small"
-              class="!w-6 !h-6"
-              severity="secondary"
-              @click="openPrintPreview(data)"
-            />
+            <div v-else>
+              <Button
+                icon="pi pi-print"
+                text
+                rounded
+                size="small"
+                class="!w-8 !h-8 text-surface-500 hover:text-surface-900 dark:hover:text-surface-0"
+                @click="openPrintPreview(data)"
+                v-tooltip.left="'Print Invoice'"
+              />
+            </div>
           </template>
         </Column>
       </DataTable>
 
-      <div ref="loadTrigger" class="h-8 w-full flex items-center justify-center p-2 mt-1">
-        <i v-if="isFetchingNextPage" class="pi pi-spin pi-spinner text-primary-500 text-sm"></i>
+      <div ref="loadTrigger" class="h-10 w-full flex items-center justify-center p-2 mt-1">
+        <div v-if="isFetchingNextPage" class="flex items-center gap-2 text-surface-500 text-xs">
+          <i class="pi pi-spin pi-spinner"></i>
+          Loading more...
+        </div>
         <span
           v-else-if="!hasNextPage && displayInvoices.length > 0"
           class="text-[10px] text-surface-400 italic"
         >
-          No more records
+          End of history
         </span>
       </div>
     </div>
@@ -253,5 +326,5 @@
         @close="showPrintDialog = false"
       />
     </Dialog>
-  </div>
+  </BaseCard>
 </template>

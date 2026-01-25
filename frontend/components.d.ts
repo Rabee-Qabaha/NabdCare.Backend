@@ -18,6 +18,7 @@ declare module 'vue' {
     Badge: typeof import('primevue/badge')['default']
     BarChart: typeof import('./src/components/dashboard/BarChart.vue')['default']
     BarChartTowColumns: typeof import('./src/components/dashboard/BarChartTowColumns.vue')['default']
+    BaseCard: typeof import('./src/components/shared/BaseCard.vue')['default']
     BillingCycleCard: typeof import('./src/components/Subscription/profile/Subscription/BillingCycleCard.vue')['default']
     BranchesCard: typeof import('./src/components/Subscription/profile/Subscription/BranchesCard.vue')['default']
     BranchFormSidebar: typeof import('./src/components/Branches/BranchFormSidebar.vue')['default']

@@ -1,11 +1,8 @@
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { computed } from 'vue';
 
   // PrimeVue Imports
   import Button from 'primevue/button';
-  import Column from 'primevue/column';
-  import DataTable from 'primevue/datatable';
   import Skeleton from 'primevue/skeleton';
   import Tag from 'primevue/tag';
 
@@ -14,19 +11,32 @@
   import BranchesCard from '@/components/Subscription/profile/Subscription/BranchesCard.vue';
   import SubscriptionBreakdown from '@/components/Subscription/profile/Subscription/SubscriptionBreakdown.vue';
   import UsersCard from '@/components/Subscription/profile/Subscription/UsersCard.vue';
+  import BaseCard from '@/components/shared/BaseCard.vue';
+  import InvoiceHistory from '@/components/Subscription/InvoiceHistory.vue';
 
   // API & Composables
+  import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
   import {
     useActiveSubscription,
     useSubscriptionPlans,
   } from '@/composables/query/subscriptions/useSubscriptions';
-  import { InvoiceStatus } from '@/types/backend/invoice-status';
+  import { InvoiceStatus, SubscriptionStatus } from '@/types/backend';
 
-  const route = useRoute();
-  const clinicId = computed(() => route.params.id as string);
+  const props = defineProps<{
+    clinicId: string;
+  }>();
 
   // -- Data Fetching --
-  const { data: activeSubData, isLoading: isLoadingActive } = useActiveSubscription(clinicId);
+  const { data: activeSubData, isLoading: isLoadingActive } = useActiveSubscription(
+    computed(() => props.clinicId),
+  );
+
+  // 🛡️ Safety Check: Fetch any overdue invoices (even if latest is paid)
+  const { data: overdueInvoicesData } = useInfiniteInvoicesPaged({
+    clinicId: computed(() => props.clinicId),
+    status: InvoiceStatus.Overdue,
+    limit: 1,
+  });
 
   const { data: availablePlans } = useSubscriptionPlans();
 
@@ -51,177 +61,169 @@
     return Math.max(0, Math.ceil(diffInDays));
   });
 
-  const history = ref([
-    { id: '#INV-2023-009', billingPeriod: 'Sep 24 - Oct 23, 2023', amount: 1200.0, status: 'Paid' },
-    { id: '#INV-2023-008', billingPeriod: 'Aug 24 - Sep 23, 2023', amount: 1050.0, status: 'Paid' },
-    { id: '#INV-2023-007', billingPeriod: 'Jul 24 - Aug 23, 2023', amount: 1050.0, status: 'Paid' },
-  ]);
-
-  const formatMoney = (val: number) => {
-    if (!activeSub.value) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: activeSub.value.currency || 'USD',
-    }).format(val);
-  };
+  const hasOverdueInvoices = computed(() => {
+    const pages = overdueInvoicesData.value?.pages;
+    return pages?.[0]?.items?.length ? pages[0].items.length > 0 : false;
+  });
 
   const isPaymentActionRequired = computed(() => {
-    const status = activeSub.value?.latestInvoiceStatus;
-    return (
-      status === InvoiceStatus.Overdue ||
-      status === InvoiceStatus.PartiallyPaid ||
-      status === InvoiceStatus.Issued
-    );
+    const sub = activeSub.value;
+    if (!sub) return false;
+
+    // 1. Check Subscription Status (Primary)
+    if (sub.status === SubscriptionStatus.PastDue || sub.status === SubscriptionStatus.Suspended) {
+      return true;
+    }
+
+    // 2. Check for ANY Overdue Invoices (Safety Net)
+    if (hasOverdueInvoices.value) {
+      return true;
+    }
+
+    // 3. Check Latest Invoice Status (Backend Provided)
+    const status = sub.latestInvoiceStatus;
+    if (status) {
+      return (
+        status === InvoiceStatus.Overdue ||
+        status === InvoiceStatus.PartiallyPaid ||
+        status === InvoiceStatus.Issued
+      );
+    }
+
+    return false;
+  });
+
+  const paymentStatusLabel = computed(() => {
+    const sub = activeSub.value;
+    if (sub?.status === SubscriptionStatus.Suspended) return 'Subscription Suspended';
+    if (sub?.status === SubscriptionStatus.PastDue) return 'Payment Past Due';
+
+    if (hasOverdueInvoices.value) return 'Unpaid Invoices';
+
+    const status = sub?.latestInvoiceStatus;
+    if (!status) return 'Action Required';
+
+    if (status === InvoiceStatus.Overdue) return 'Invoice Overdue';
+    if (status === InvoiceStatus.PartiallyPaid) return 'Balance Due';
+    if (status === InvoiceStatus.Issued) return 'Payment Required';
+
+    return 'Action Required';
   });
 </script>
 
 <template>
+  <div v-if="isLoadingActive" class="space-y-6">
+    <Skeleton height="100px" borderRadius="12px" class="bg-surface-0 dark:bg-[#27272a]" />
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <Skeleton
+        height="400px"
+        borderRadius="12px"
+        class="xl:col-span-2 bg-surface-0 dark:bg-[#27272a]"
+      />
+      <Skeleton
+        height="400px"
+        borderRadius="12px"
+        class="xl:col-span-1 bg-surface-0 dark:bg-[#27272a]"
+      />
+    </div>
+  </div>
+
   <div
-    class="w-full max-w-[1600px] mx-auto p-6 md:p-8 space-y-6 bg-surface-50 dark:bg-transparent rounded-2xl font-sans"
+    v-else-if="!activeSub"
+    class="text-center p-10 bg-surface-0 dark:bg-[#27272a] rounded-xl border border-dashed border-surface-300 dark:border-surface-700"
   >
-    <div v-if="isLoadingActive" class="space-y-6">
-      <Skeleton height="100px" borderRadius="12px" class="bg-surface-0 dark:bg-[#27272a]" />
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <Skeleton
-          height="400px"
-          borderRadius="12px"
-          class="xl:col-span-2 bg-surface-0 dark:bg-[#27272a]"
-        />
-        <Skeleton
-          height="400px"
-          borderRadius="12px"
-          class="xl:col-span-1 bg-surface-0 dark:bg-[#27272a]"
-        />
-      </div>
-    </div>
+    <i class="pi pi-box text-4xl text-surface-400 mb-4"></i>
+    <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">No Active Subscription</h3>
+    <p class="text-surface-500 mb-6">This clinic does not have a subscription plan assigned.</p>
+    <Button label="Assign Plan" icon="pi pi-plus" />
+  </div>
 
-    <div
-      v-else-if="!activeSub"
-      class="text-center p-10 bg-surface-0 dark:bg-[#27272a] rounded-xl border border-dashed border-surface-300 dark:border-surface-700"
-    >
-      <i class="pi pi-box text-4xl text-surface-400 mb-4"></i>
-      <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">No Active Subscription</h3>
-      <p class="text-surface-500 mb-6">This clinic does not have a subscription plan assigned.</p>
-      <Button label="Assign Plan" icon="pi pi-plus" />
-    </div>
-
-    <div v-else>
-      <div
-        class="bg-surface-0 dark:bg-[#27272a] rounded-xl p-5 border border-transparent dark:border-surface-700 shadow dark:shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 transition-colors duration-300 mb-6"
-      >
-        <div class="flex items-center gap-4 w-full md:w-auto">
-          <div
-            class="w-12 h-12 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-600 flex items-center justify-center shadow-sm"
-          >
-            <i class="pi pi-star-fill text-xl"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-3">
-              <h2 class="text-xl font-bold text-surface-900 dark:text-surface-0">
-                {{ activePlanDef?.name || activeSub.planId }}
-              </h2>
-              <Tag
-                value="ACTIVE"
-                severity="success"
-                class="!px-2 !py-0.5 !text-[10px] !font-bold"
-                rounded
-              />
-            </div>
-            <div
-              class="flex items-center gap-2 text-surface-500 dark:text-surface-400 text-sm font-medium mt-1"
-            >
-              <i class="pi pi-calendar"></i>
-              <span>
-                Renewal in
-                <span class="text-surface-900 dark:text-surface-0 font-bold">
-                  {{ daysRemaining }} Days
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-          <div
-            v-if="isPaymentActionRequired"
-            class="flex items-center gap-2 px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-800 text-sm font-bold w-full sm:w-auto justify-center"
-          >
-            <i class="pi pi-exclamation-triangle"></i>
-            <span>Payment Action Required</span>
-          </div>
-
-          <Button
-            label="Manage Subscription"
-            icon="pi pi-cog"
-            class="!bg-emerald-500 !border-emerald-500 hover:!bg-emerald-600 !rounded-lg !font-bold w-full sm:w-auto"
-          />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div class="xl:col-span-2 flex flex-col gap-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <BranchesCard :subscription="activeSub" :clinic-id="clinicId!" />
-            <UsersCard :subscription="activeSub" :clinic-id="clinicId!" />
-          </div>
-
-          <BillingCycleCard :subscription="activeSub" :clinic-id="clinicId!" />
-        </div>
-
-        <div class="xl:col-span-1 h-full">
-          <SubscriptionBreakdown :subscription="activeSub" />
-        </div>
-      </div>
-
-      <div class="mt-6">
-        <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 mb-4 px-1">
-          Billing History
-        </h3>
+  <div v-else>
+    <BaseCard class="p-5 flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+      <div class="flex items-center gap-4 w-full md:w-auto">
         <div
-          class="bg-surface-0 dark:bg-[#27272a] rounded-xl border border-transparent dark:border-surface-700 shadow dark:shadow-sm overflow-hidden transition-colors duration-300"
+          class="w-12 h-12 rounded-lg bg-primary-100 dark:bg-primary-400/10 text-primary-600 dark:text-primary-400 flex items-center justify-center shadow-sm"
         >
-          <DataTable :value="history" class="text-sm">
-            <Column
-              field="id"
-              header="INVOICE ID"
-              class="font-medium text-surface-900 dark:text-surface-0"
-            ></Column>
-            <Column
-              field="billingPeriod"
-              header="BILLING PERIOD"
-              class="text-surface-500 dark:text-surface-400"
-            ></Column>
-            <Column field="amount" header="AMOUNT">
-              <template #body="{ data }">
-                <span class="font-bold text-primary-600 dark:text-primary-400">
-                  {{ formatMoney(data.amount) }}
-                </span>
-              </template>
-            </Column>
-            <Column field="status" header="STATUS">
-              <template #body="{ data }">
-                <Tag
-                  :value="data.status"
-                  severity="success"
-                  class="!uppercase !text-[10px] !px-2.5"
-                  rounded
-                />
-              </template>
-            </Column>
-            <Column header="ACTIONS" class="text-right">
-              <template #body>
-                <Button
-                  icon="pi pi-download"
-                  text
-                  rounded
-                  severity="secondary"
-                  class="!w-8 !h-8 !text-surface-400 hover:!text-surface-600 dark:hover:!text-surface-200"
-                />
-              </template>
-            </Column>
-          </DataTable>
+          <i class="pi pi-star-fill text-xl"></i>
+        </div>
+
+        <div>
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-surface-900 dark:text-surface-0">
+              {{ activePlanDef?.name || activeSub.planId }}
+            </h2>
+            <Tag
+              value="ACTIVE"
+              severity="success"
+              class="!px-2 !py-0.5 !text-[10px] !font-bold"
+              rounded
+            />
+          </div>
+
+          <div class="flex items-center gap-2 text-muted-color text-sm font-medium mt-1">
+            <i class="pi pi-calendar"></i>
+            <span>
+              Renewal in
+              <span class="text-surface-900 dark:text-surface-0 font-bold">
+                {{ daysRemaining }} Days
+              </span>
+            </span>
+          </div>
         </div>
       </div>
+
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <div
+          v-if="isPaymentActionRequired"
+          class="relative flex items-center gap-3 pl-3 pr-5 py-1.5 bg-gradient-to-r from-red-50 to-orange-50/50 dark:from-red-900/20 dark:to-orange-900/10 rounded-lg border border-red-200/60 dark:border-red-500/20 backdrop-blur-sm shadow-sm transition-all hover:shadow-md hover:border-red-300 dark:hover:border-red-500/30 group cursor-default"
+        >
+          <!-- Status Indicator Dot -->
+          <span class="relative flex h-2.5 w-2.5 shrink-0">
+            <span
+              class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"
+            ></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+          </span>
+
+          <div class="flex flex-col">
+            <span
+              class="text-[9px] uppercase font-bold text-red-500/70 leading-tight tracking-wider"
+            >
+              Action Required
+            </span>
+            <span
+              class="text-xs font-bold text-red-700 dark:text-red-400 leading-tight group-hover:text-red-800 dark:group-hover:text-red-300 transition-colors"
+            >
+              {{ paymentStatusLabel }}
+            </span>
+          </div>
+        </div>
+
+        <Button
+          label="Manage Subscription"
+          icon="pi pi-cog"
+          class="!bg-emerald-500 !border-emerald-500 hover:!bg-emerald-600 !rounded-lg !font-bold w-full sm:w-auto"
+        />
+      </div>
+    </BaseCard>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div class="xl:col-span-2 flex flex-col gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BranchesCard :subscription="activeSub" :clinic-id="clinicId" />
+          <UsersCard :subscription="activeSub" :clinic-id="clinicId" />
+        </div>
+
+        <BillingCycleCard :subscription="activeSub" :clinic-id="clinicId" />
+      </div>
+
+      <div class="xl:col-span-1 h-full">
+        <SubscriptionBreakdown :subscription="activeSub" />
+      </div>
+    </div>
+
+    <div class="mt-6" v-if="clinicId">
+      <InvoiceHistory :clinic-id="clinicId" @view-all="" />
     </div>
   </div>
 </template>

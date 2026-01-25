@@ -1,12 +1,5 @@
 <template>
-  <div
-    class="group relative flex flex-col justify-between overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-    :class="[
-      role.isDeleted
-        ? 'border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-900/10'
-        : 'border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 hover:border-primary-500 dark:hover:border-primary-400',
-    ]"
-  >
+  <BaseCard no-padding>
     <div v-if="role.isDeleted" class="absolute top-0 left-0 w-full h-1 bg-red-500 z-10"></div>
 
     <div class="p-5 pb-2">
@@ -83,7 +76,7 @@
       </div>
 
       <div
-        class="flex items-center justify-between p-3 border-t border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-900"
+        class="flex items-center justify-between p-3 border-t border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-900 rounded-b-xl"
       >
         <div class="flex flex-col">
           <div
@@ -102,10 +95,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import type { RoleResponseDto } from '@/types/backend';
   import Tag from 'primevue/tag';
 

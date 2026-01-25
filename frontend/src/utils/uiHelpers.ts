@@ -12,14 +12,16 @@ export function formatCurrency(
   if (value === undefined || value === null) return '-';
 
   try {
+    const isInteger = value % 1 === 0;
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency,
-      minimumFractionDigits: 2,
+      minimumFractionDigits: isInteger ? 0 : 2,
       maximumFractionDigits: 2,
     }).format(value);
   } catch (error) {
-    return `${value.toFixed(2)} ${currency}`;
+    // Fallback: simpler truncation if needed
+    return `${Number.isInteger(value) ? value : value.toFixed(2)} ${currency}`;
   }
 }
 

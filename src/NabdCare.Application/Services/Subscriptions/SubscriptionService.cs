@@ -509,17 +509,26 @@ public class SubscriptionService : ISubscriptionService
         if (!CanAccessSubscription(sub))
             throw new UnauthorizedAccessException("You do not have permission to view this subscription.");
 
-        return _mapper.Map<SubscriptionResponseDto>(sub);
+        var dto = _mapper.Map<SubscriptionResponseDto>(sub);
+        PopulateLatestInvoiceData(sub, dto);
+        
+        return dto;
     }
 
     public async Task<SubscriptionResponseDto?> GetActiveSubscriptionAsync(Guid clinicId)
     {
-        // 🔐 Security Check
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
             throw new UnauthorizedAccessException("Access denied.");
 
+        // Repository now includes Invoices (after the fix in Step 1)
         var sub = await _repository.GetActiveByClinicIdAsync(clinicId);
-        return _mapper.Map<SubscriptionResponseDto>(sub);
+        if (sub == null) return null; 
+
+        var dto = _mapper.Map<SubscriptionResponseDto>(sub);
+
+        PopulateLatestInvoiceData(sub, dto);
+
+        return dto;
     }
 
     public async Task<PaginatedResult<SubscriptionResponseDto>> GetByClinicIdPagedAsync(Guid clinicId, PaginationRequestDto p, bool i, Func<IQueryable<Subscription>, IQueryable<Subscription>>? f)
@@ -636,5 +645,23 @@ public class SubscriptionService : ISubscriptionService
         }
 
         return sub;
+    }
+    
+    private void PopulateLatestInvoiceData(Subscription sub, SubscriptionResponseDto dto)
+    {
+        if (sub.Invoices != null && sub.Invoices.Any())
+        {
+            // Find the most recent invoice based on IssueDate or CreatedAt
+            var latest = sub.Invoices
+                .OrderByDescending(x => x.IssueDate) // Or x.CreatedAt
+                .FirstOrDefault();
+
+            if (latest != null)
+            {
+                dto.LatestInvoiceId = latest.Id;
+                dto.LatestInvoiceNumber = latest.InvoiceNumber;
+                dto.LatestInvoiceStatus = latest.Status;
+            }
+        }
     }
 }

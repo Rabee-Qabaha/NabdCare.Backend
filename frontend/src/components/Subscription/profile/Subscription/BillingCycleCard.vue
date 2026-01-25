@@ -1,8 +1,10 @@
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useSubscriptionActions } from '@/composables/query/subscriptions/useSubscriptionActions';
   import type { SubscriptionResponseDto } from '@/types/backend';
+  import ProgressBar from 'primevue/progressbar';
   import ToggleSwitch from 'primevue/toggleswitch';
-  import { computed } from 'vue';
+  import { computed, onMounted, ref } from 'vue';
 
   const props = defineProps<{ subscription: SubscriptionResponseDto; clinicId?: string }>();
 
@@ -29,32 +31,35 @@
 
   const totalDays = computed(() => {
     const diff = end.value.getTime() - start.value.getTime();
-    // Prevent division by zero
     return Math.max(1, Math.ceil(diff / (1000 * 3600 * 24)));
   });
 
   const daysElapsed = computed(() => {
     const diff = now.getTime() - start.value.getTime();
     const days = Math.floor(diff / (1000 * 3600 * 24));
-    // Clamp between 0 and totalDays
     return Math.min(totalDays.value, Math.max(0, days));
   });
 
   const daysRemaining = computed(() => Math.max(0, totalDays.value - daysElapsed.value));
 
-  const progressPercent = computed(() => {
+  // The actual calculated target
+  const targetPercent = computed(() => {
     return (daysElapsed.value / totalDays.value) * 100;
   });
 
-  const handleToggle = (val: boolean) => {
-    emit('update:autoRenew', val);
-  };
+  // 1. Start at 0 to force the "empty" state initially
+  const displayedPercent = ref(0);
+
+  // 2. Animate to the target value after the component mounts
+  onMounted(() => {
+    setTimeout(() => {
+      displayedPercent.value = targetPercent.value;
+    }, 300); // 300ms delay ensures the UI is ready to animate
+  });
 </script>
 
 <template>
-  <div
-    class="bg-surface-0 dark:bg-[#27272a] rounded-xl p-6 border border-transparent dark:border-surface-700 shadow dark:shadow-sm transition-colors duration-300"
-  >
+  <BaseCard>
     <div class="flex items-center gap-3 mb-6">
       <div
         class="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-600 flex items-center justify-center"
@@ -118,14 +123,16 @@
         </span>
       </div>
 
-      <div
-        class="relative h-3 bg-surface-100 dark:bg-surface-950 rounded-full w-full overflow-hidden"
-      >
-        <div
-          class="absolute top-0 left-0 h-full bg-primary-500 rounded-full transition-all duration-500"
-          :style="{ width: `${progressPercent}%` }"
-        ></div>
-      </div>
+      <ProgressBar
+        :value="displayedPercent"
+        :showValue="false"
+        class="!h-3 !bg-surface-100 dark:!bg-surface-950 !rounded-full"
+        :pt="{
+          value: {
+            class: '!bg-primary-500 !rounded-full !transition-all !duration-1000 !ease-out',
+          },
+        }"
+      />
 
       <div
         class="flex justify-between mt-2 text-[10px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider"
@@ -137,5 +144,5 @@
         <span>{{ formatDate(end) }}</span>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

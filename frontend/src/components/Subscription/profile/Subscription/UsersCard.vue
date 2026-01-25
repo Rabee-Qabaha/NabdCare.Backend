@@ -1,11 +1,16 @@
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue';
   import { useUsersPaged } from '@/composables/query/users/useUsers';
   import type { SubscriptionResponseDto } from '@/types/backend';
+  import ProgressBar from 'primevue/progressbar';
   import { computed } from 'vue';
 
   const props = defineProps<{ subscription: SubscriptionResponseDto; clinicId?: string }>();
 
-  const { data: usersData } = useUsersPaged({ clinicId: props.clinicId, limit: 1 });
+  const { data: usersData } = useUsersPaged({
+    clinicId: computed(() => props.clinicId || null),
+    limit: 1,
+  });
 
   const calc = (used: number, base: number, purchased: number, bonus: number) => {
     const limit = base + purchased + bonus;
@@ -19,15 +24,13 @@
       usersData.value?.totalCount || 0,
       props.subscription.includedUsersSnapshot || 0,
       props.subscription.purchasedUsers || 0,
-      (props.subscription as any).bonusUsers || 0,
+      props.subscription.bonusUsers || 0,
     ),
   );
 </script>
 
 <template>
-  <div
-    class="bg-surface-0 dark:bg-[#27272a] rounded-xl p-6 border border-transparent dark:border-surface-700 shadow dark:shadow-sm transition-colors duration-300 flex flex-col justify-between"
-  >
+  <BaseCard>
     <div>
       <div class="flex justify-between items-start mb-4">
         <div class="flex items-center gap-3">
@@ -56,14 +59,12 @@
         </div>
       </div>
 
-      <div
-        class="relative h-2.5 bg-surface-100 dark:bg-surface-800 rounded-full w-full overflow-hidden mb-3"
-      >
-        <div
-          class="absolute top-0 left-0 h-full bg-primary-500 rounded-full transition-all duration-500"
-          :style="{ width: `${users.percent}%` }"
-        ></div>
-      </div>
+      <ProgressBar
+        :value="users.percent"
+        :showValue="false"
+        class="!h-2.5 !bg-surface-100 dark:!bg-surface-800 !rounded-full mb-3"
+        :pt="{ value: { class: '!bg-primary-500 !rounded-full' } }"
+      />
     </div>
 
     <div
@@ -74,5 +75,5 @@
         {{ users.remaining }} left
       </span>
     </div>
-  </div>
+  </BaseCard>
 </template>

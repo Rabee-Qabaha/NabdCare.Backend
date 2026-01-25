@@ -219,12 +219,21 @@ export function useUser(userId: Ref<string | null>) {
 export function useUsersPaged(options: {
   page?: number;
   limit?: number;
-  search?: string;
-  includeDeleted?: boolean;
-  clinicId?: string | null;
-  // Add other options if needed by widgets
+  search?: Ref<string> | string;
+  includeDeleted?: Ref<boolean> | boolean;
+  clinicId?: Ref<string | null> | string | null;
 }) {
-  const normalized = computed(() => buildParams({ ...options, cursor: null }));
+  const params = computed(() => {
+    return {
+      page: options.page,
+      limit: options.limit,
+      search: unref(options.search),
+      includeDeleted: unref(options.includeDeleted),
+      clinicId: unref(options.clinicId),
+    };
+  });
+
+  const normalized = computed(() => buildParams({ ...params.value, cursor: null }));
 
   return useQuery({
     queryKey: ['users', 'paged', normalized],
