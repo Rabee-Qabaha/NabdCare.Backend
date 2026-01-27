@@ -119,9 +119,9 @@
             <i v-else class="pi pi-shield"></i>
             {{ user.roleName }}
           </div>
-          <Tag v-if="user.isSystemRole" value="System" severity="info" rounded />
-          <Tag v-if="user.isDeleted" value="Deleted" severity="danger" rounded />
-          <Tag v-else-if="!user.isActive" value="Inactive" severity="warn" rounded />
+          <Tag v-if="user.isSystemRole" value="System" severity="info" />
+          <Tag v-if="user.isDeleted" value="Deleted" severity="danger" />
+          <Tag v-else-if="!user.isActive" value="Inactive" severity="warn" />
         </div>
 
         <div class="flex gap-4 text-xs text-surface-500">

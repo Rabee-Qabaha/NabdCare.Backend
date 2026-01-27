@@ -56,7 +56,7 @@
       </div>
 
       <div v-if="subscription.cancelAtPeriodEnd" class="flex flex-col items-end">
-        <Tag value="CANCELLING" severity="warn" class="text-[10px] font-bold mb-1" rounded />
+        <Tag value="CANCELLING" severity="warn" class="text-[10px] font-bold mb-1" />
         <span class="text-[9px] text-orange-600 font-bold">
           Ends {{ formatDate(subscription.endDate) }}
         </span>
@@ -66,7 +66,6 @@
         :value="isTrial ? 'TRIAL' : 'ACTIVE'"
         :severity="isTrial ? 'info' : 'success'"
         class="text-[10px] font-bold"
-        rounded
       />
     </div>
 

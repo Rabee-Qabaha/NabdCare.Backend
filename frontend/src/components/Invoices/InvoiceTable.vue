@@ -87,7 +87,6 @@
             :value="getStatusLabel(data.status)"
             :severity="getStatusSeverity(data.status)"
             class="text-[10px] uppercase font-bold px-2"
-            rounded
           />
         </template>
       </Column>

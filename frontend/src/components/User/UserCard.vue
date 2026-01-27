@@ -3,24 +3,28 @@
   <BaseCard no-padding class="relative">
     <div v-if="user.isDeleted" class="absolute top-0 left-0 w-full h-1 bg-red-500 z-10"></div>
 
-    <!-- LAST LOGIN (Top Left) -->
-    <div
-      class="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[9px] font-bold text-surface-500 shadow-sm"
-      title="Last time the user logged in"
-    >
-      <i class="pi pi-history text-[8px]"></i>
-      <span>{{ user.lastLoginAt ? timeAgo(user.lastLoginAt) : 'Never' }}</span>
-    </div>
-
-    <div class="absolute top-3 right-3 z-20 flex items-center gap-2 pt-2">
-      <Checkbox v-if="!user.isDeleted" v-model="selectedIds" :value="user.id" />
-
-      <span
-        v-if="user.isDeleted"
-        class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded"
+    <!-- CARD HEADER ACTIONS -->
+    <div class="absolute top-3 left-0 w-full px-3 flex justify-between items-start z-20">
+      <!-- LAST LOGIN -->
+      <div
+        class="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[9px] font-bold text-surface-500 shadow-sm"
+        title="Last time the user logged in"
       >
-        Deleted
-      </span>
+        <i class="pi pi-history text-[8px]"></i>
+        <span>{{ user.lastLoginAt ? timeAgo(user.lastLoginAt) : 'Never' }}</span>
+      </div>
+
+      <!-- CHECKBOX / DELETED BADGE -->
+      <div class="flex items-center gap-2">
+        <Checkbox v-if="!user.isDeleted" v-model="selectedIds" :value="user.id" />
+
+        <span
+          v-if="user.isDeleted"
+          class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded"
+        >
+          Deleted
+        </span>
+      </div>
     </div>
 
     <div class="p-5 flex flex-col items-center text-center relative mt-2">

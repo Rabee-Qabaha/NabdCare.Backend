@@ -115,7 +115,6 @@
                 :value="subscription.status"
                 severity="success"
                 class="!px-2 !py-0.5 !text-[10px] !font-bold uppercase"
-                rounded
               />
             </div>
           </div>

@@ -153,14 +153,12 @@
               severity="success"
               value="Active Plan"
               icon="pi pi-check-circle"
-              rounded
             />
             <Tag
               v-else
               severity="warning"
               value="Not Subscribed"
               icon="pi pi-exclamation-triangle"
-              rounded
             />
           </template>
           <Skeleton v-else width="100px" height="28px" border-radius="16px" />
