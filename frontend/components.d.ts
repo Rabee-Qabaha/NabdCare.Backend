@@ -142,6 +142,7 @@ declare module 'vue' {
     UserCard: typeof import('./src/components/User/UserCard.vue')['default']
     UserCardActions: typeof import('./src/components/User/UserCardActions.vue')['default']
     UserCardSkeleton: typeof import('./src/components/User/UserCardSkeleton.vue')['default']
+    UserDetailsDrawer: typeof import('./src/components/User/UserDetailsDrawer.vue')['default']
     UserDialog: typeof import('./src/components/User/UserDialog.vue')['default']
     UserFilters: typeof import('./src/components/User/UserFilters.vue')['default']
     UserPasswordFields: typeof import('./src/components/Forms/UserPasswordFields.vue')['default']

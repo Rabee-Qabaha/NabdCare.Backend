@@ -116,7 +116,7 @@
     </div>
 
     <template #footer>
-      <div class="w-full flex gap-4 pt-2 pb-4">
+      <div class="w-full flex gap-3 pt-2 pb-4">
         <Button
           label="Keep Plan"
           severity="secondary"
@@ -128,7 +128,7 @@
           label="Confirm Cancel"
           severity="danger"
           icon="pi pi-ban"
-          class="!h-11 !w-[70%] !font-bold"
+          class="!h-11 flex-1 !font-bold"
           :loading="cancelMutation.isPending.value"
           @click="handleCancel"
         />

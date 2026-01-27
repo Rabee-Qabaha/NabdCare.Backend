@@ -1,7 +1,16 @@
 // src/components/User/UserCard.vue
 <template>
-  <BaseCard no-padding>
+  <BaseCard no-padding class="relative">
     <div v-if="user.isDeleted" class="absolute top-0 left-0 w-full h-1 bg-red-500 z-10"></div>
+
+    <!-- LAST LOGIN (Top Left) -->
+    <div
+      class="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[9px] font-bold text-surface-500 shadow-sm"
+      title="Last time the user logged in"
+    >
+      <i class="pi pi-history text-[8px]"></i>
+      <span>{{ user.lastLoginAt ? timeAgo(user.lastLoginAt) : 'Never' }}</span>
+    </div>
 
     <div class="absolute top-3 right-3 z-20 flex items-center gap-2 pt-2">
       <Checkbox v-if="!user.isDeleted" v-model="selectedIds" :value="user.id" />
@@ -37,34 +46,27 @@
       </h3>
 
       <div
-        v-if="user.jobTitle"
         class="text-xs font-semibold text-primary-600 dark:text-primary-400 mt-1 truncate w-full px-4"
         :title="user.jobTitle"
       >
-        {{ user.jobTitle }}
+        {{ user.jobTitle || 'Staff Member' }}
       </div>
 
       <div class="flex flex-col gap-1 items-center justify-center mt-2 w-full px-2">
-        <div class="flex items-center justify-center gap-2 w-full">
+        <div
+          class="relative flex justify-center group cursor-pointer"
+          @click.stop="copyToClipboard(user.email)"
+        >
           <span
-            class="text-sm text-surface-500 dark:text-surface-400 truncate max-w-[180px]"
+            class="text-sm text-surface-500 dark:text-surface-400 truncate max-w-[180px] group-hover:text-primary-600 transition-colors text-center"
             :title="user.email"
           >
             {{ user.email }}
           </span>
-          <Button
-            v-tooltip.bottom="'Copy Email'"
-            icon="pi pi-copy"
-            text
-            rounded
-            size="small"
-            class="!h-6 !w-6 !text-surface-400 hover:!text-primary-500"
-            @click.stop="copyToClipboard(user.email)"
-          />
-        </div>
-
-        <div v-if="user.phoneNumber" class="flex items-center gap-1.5 text-xs text-surface-500">
-          <span>{{ user.phoneNumber }}</span>
+          <!-- Absolute positioned icon to not affect centering -->
+          <i
+            class="absolute -right-5 top-1/2 -translate-y-1/2 pi pi-copy text-xs text-surface-400 opacity-0 group-hover:opacity-100 transition-opacity"
+          ></i>
         </div>
       </div>
 
@@ -89,13 +91,27 @@
 
     <div class="px-5 pb-4">
       <div
-        class="rounded-lg border border-surface-100 dark:border-surface-700 p-3 flex flex-col gap-2"
+        class="group relative overflow-hidden rounded-lg border border-surface-100 dark:border-surface-700 p-3 flex flex-col gap-2"
         :class="
           user.isDeleted
             ? 'bg-white/50 dark:bg-surface-800/30'
             : 'bg-surface-50 dark:bg-surface-800/50'
         "
       >
+        <!-- Hover Overlay -->
+        <div
+          class="absolute inset-0 bg-white/80 dark:bg-surface-900/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
+          @click="drawerVisible = true"
+        >
+          <Button
+            label="View Full Profile"
+            size="small"
+            rounded
+            outlined
+            class="text-xs !bg-white dark:!bg-surface-800"
+            @click.stop="drawerVisible = true"
+          />
+        </div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-surface-500 flex items-center gap-1.5">
             <i class="pi pi-building"></i>
@@ -106,6 +122,15 @@
             :title="user.clinicName"
           >
             {{ user.clinicName || 'Global' }}
+          </span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-surface-500 flex items-center gap-1.5">
+            <i class="pi pi-phone"></i>
+            Phone
+          </span>
+          <span class="font-medium text-surface-800 dark:text-surface-200 truncate max-w-[120px]">
+            {{ user.phoneNumber || 'No phone number' }}
           </span>
         </div>
         <div class="flex items-center justify-between text-xs">
@@ -149,6 +174,8 @@
         <slot name="actions"></slot>
       </div>
     </div>
+
+    <UserDetailsDrawer v-model:visible="drawerVisible" :user="user" />
   </BaseCard>
 </template>
 
@@ -161,7 +188,8 @@
   import Checkbox from 'primevue/checkbox';
   import Tag from 'primevue/tag';
   import { useToast } from 'primevue/usetoast';
-  import { computed } from 'vue';
+  import { computed, ref } from 'vue';
+  import UserDetailsDrawer from './UserDetailsDrawer.vue';
 
   const props = defineProps<{
     user: UserResponseDto;
@@ -169,9 +197,24 @@
 
   const selectedIds = defineModel<string[]>('selected');
   const toast = useToast();
+  const drawerVisible = ref(false);
 
   const display = computed(() => formatUserDisplay(props.user));
   const initials = computed(() => display.value.initials);
+
+  const timeAgo = (date: Date | string | undefined) => {
+    if (!date) return '';
+    const now = new Date();
+    const diff = now.getTime() - new Date(date).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
+  };
 
   const avatarClass = computed(() => {
     // Kept the grayscale for deleted users as it fits the "Deleted" look well

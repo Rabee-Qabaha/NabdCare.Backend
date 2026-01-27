@@ -134,7 +134,7 @@
           label="Cancel"
           severity="secondary"
           variant="outlined"
-          class="flex-1"
+          class="!w-[30%]"
           @click="close"
         />
         <Button

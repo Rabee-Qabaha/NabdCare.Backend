@@ -269,8 +269,7 @@
               <Tag
                 :value="getStatusLabel(data.status)"
                 :severity="getStatusSeverity(data.status)"
-                class="text-[10px] uppercase font-bold px-2 py-0.5 min-w-[70px] justify-center"
-                rounded
+                class="!text-[10px] !font-bold !px-2.5 !py-0.5 rounded uppercase tracking-wide"
               />
             </div>
           </template>

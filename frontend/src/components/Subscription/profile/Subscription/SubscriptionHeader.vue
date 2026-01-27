@@ -103,10 +103,13 @@
             {{ planDefinition?.name || subscription.planId }}
           </h2>
           <Tag
-            value="ACTIVE"
-            severity="success"
-            class="!px-2 !py-0.5 !text-[10px] !font-bold"
-            rounded
+            :value="
+              props.subscription.status === SubscriptionStatus.Active ? 'ACTIVE' : 'SUSPENDED'
+            "
+            :severity="
+              props.subscription.status === SubscriptionStatus.Active ? 'success' : 'danger'
+            "
+            class="!text-[10px] !font-bold !px-2.5 !py-0.5 rounded uppercase tracking-wide"
           />
         </div>
 
