@@ -58,6 +58,7 @@
       :option-value="valueKey ?? 'id'"
       :loading="isLoading"
       filter
+      append-to="self"
       :show-clear="showClear"
       filter-placeholder="Search clinics..."
       :disabled="disabled || !!error"
@@ -67,7 +68,7 @@
       <!-- ⭐ FIXED VALUE SLOT (No 'value' used) -->
       <template #value>
         <div v-if="selectedClinic" class="flex items-center gap-2">
-          <i class="pi pi-building text-primary"></i>
+          <i class="pi pi-building text-primary-500"></i>
           <span class="truncate">{{ selectedClinic.name }}</span>
         </div>
       </template>
@@ -76,7 +77,7 @@
       <template #option="{ option }">
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2">
-            <i class="pi pi-building text-green-500"></i>
+            <i class="pi pi-building text-primary-500"></i>
             <span class="font-semibold">{{ option.name }}</span>
           </div>
           <small class="text-surface-500">{{ option.email }}</small>

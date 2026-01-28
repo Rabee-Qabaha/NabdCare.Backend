@@ -82,6 +82,7 @@
       :option-value="valueKey"
       :loading="isLoading"
       filter
+      append-to="self"
       filter-placeholder="Search roles..."
       :invalid="invalid"
       :disabled="isError"

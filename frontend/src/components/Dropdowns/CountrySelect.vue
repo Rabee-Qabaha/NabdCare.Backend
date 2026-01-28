@@ -28,6 +28,7 @@
     option-value="name"
     :placeholder="placeholder || 'Select a Country'"
     filter
+    append-to="self"
     show-clear
     class="w-full custom-country-select"
     @update:model-value="onUpdate"

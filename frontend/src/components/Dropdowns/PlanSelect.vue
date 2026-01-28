@@ -48,6 +48,7 @@
       :options="plans"
       option-label="name"
       option-value="id"
+      append-to="self"
       :loading="isLoading"
       :disabled="disabled || !!error"
       :invalid="invalid"
