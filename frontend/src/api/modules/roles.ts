@@ -23,7 +23,7 @@ export const rolesApi = {
   getPaged(
     params?: RoleFilterRequestDto,
   ): Promise<AxiosResponse<PaginatedResult<RoleResponseDto>>> {
-    return api.get('/roles/paged', { params });
+    return api.get('/roles/paged', { params: { descending: true, ...params } });
   },
 
   getSystem() {

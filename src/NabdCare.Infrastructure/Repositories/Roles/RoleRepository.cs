@@ -139,8 +139,8 @@ private IQueryable<Role> BuildQuery(RoleFilterRequestDto filter, Func<IQueryable
 
         // Ordering (Must be stable for cursor)
         query = filter.Descending
-            ? query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id)
-            : query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id);
+            ? query.OrderByDescending(r => r.DisplayOrder).ThenBy(r => r.Id)
+            : query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Id);
 
         // Fetch
         var roles = await query.Take(limit + 1).ToListAsync();
