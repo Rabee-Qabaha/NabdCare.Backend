@@ -1,4 +1,4 @@
-// src/components/User/UserDialog.vue
+// src/components/User/UserFormDrawer.vue
 <template>
   <BaseDrawer
     v-model:visible="visible"

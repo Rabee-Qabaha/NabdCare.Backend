@@ -172,7 +172,7 @@
         @reset="resetAllFilters"
       />
 
-      <UserDialog v-model:visible="dialogs.createEdit" :user="selectedUser" @save="saveUser" />
+      <UserFormDrawer v-model:visible="dialogs.createEdit" :user="selectedUser" @save="saveUser" />
 
       <ResetPasswordDialog
         v-model:visible="dialogs.resetPassword"
@@ -238,7 +238,6 @@
   import ResetPasswordDialog from '@/components/User/ResetPasswordDialog.vue';
   import UserCard from '@/components/User/UserCard.vue';
   import UserCardSkeleton from '@/components/User/UserCardSkeleton.vue';
-  import UserDialog from '@/components/User/UserDialog.vue';
   import UserFilters from '@/components/User/UserFilters.vue';
   import UserPermissionsDialog from '@/components/User/userPermissionsDialog.vue';
   import UserToolbar from '@/components/User/UserToolbar.vue';

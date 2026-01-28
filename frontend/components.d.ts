@@ -146,6 +146,7 @@ declare module 'vue' {
     UserDialog: typeof import('./src/components/User/UserDialog.vue')['default']
     UserFilters: typeof import('./src/components/User/UserFilters.vue')['default']
     UserFormDialog: typeof import('./src/components/User/UserFormDialog.vue')['default']
+    UserFormDrawer: typeof import('./src/components/User/UserFormDrawer.vue')['default']
     UserPasswordFields: typeof import('./src/components/Forms/UserPasswordFields.vue')['default']
     UserPermissionsDialog: typeof import('./src/components/User/userPermissionsDialog.vue')['default']
     UserProfileMenu: typeof import('./src/components/User/UserProfileMenu.vue')['default']

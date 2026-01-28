@@ -3,7 +3,7 @@
   import { useToast } from 'primevue/usetoast';
   import { useUserStore } from '@/stores/userStore';
   import { useAuthStore } from '@/stores/authStore';
-  import UserDialog from '@/components/User/UserDialog.vue';
+  import UserFormDrawer from '@/components/User/UserFormDrawer.vue';
   import ChangePasswordDialog from '@/components/User/ChangePasswordDialog.vue';
   import EmptyState from '@/components/EmptyState.vue';
   import { formatDate } from '@/utils/uiHelpers';
@@ -381,7 +381,7 @@
       </DataTable>
     </div>
 
-    <UserDialog v-model:visible="userDialog" :user="user" @save="saveUser" @cancel="hideDialog" />
+    <UserFormDrawer v-model:visible="userDialog" :user="user" @save="saveUser" @cancel="hideDialog" />
     <ChangePasswordDialog
       v-model:visible="changePasswordDialog"
       :user="user"
