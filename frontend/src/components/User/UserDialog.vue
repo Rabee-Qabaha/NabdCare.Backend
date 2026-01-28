@@ -80,6 +80,7 @@
               class="w-full"
               :invalid="submitted && isClinicRequired && !isClinicSelected"
               placeholder="Select Clinic"
+              clear-on-disabled
             />
             <small
               v-if="shouldDisableClinic"
@@ -270,7 +271,8 @@
   import BaseDrawer from '@/components/shared/BaseDrawer.vue';
 
   import { usersApi } from '@/api/modules/users';
-  import { useGroupedRoles } from '@/composables/query/useDropdownData';
+  // import { useGroupedRoles } from '@/composables/query/useDropdownData'; // Removed
+  import { useAllRoles } from '@/composables/query/roles/useRoles'; // Added
   import { useUserActions } from '@/composables/query/users/useUserActions';
   import { useUserForm } from '@/composables/user/useUserForm';
   import { useToastService } from '@/composables/useToastService';
@@ -301,7 +303,8 @@
   const isSuperAdmin = computed(() => authStore.isSuperAdmin);
 
   const { restoreMutation } = useUserActions();
-  const { data: groupedRoles } = useGroupedRoles();
+  // const { data: groupedRoles } = useGroupedRoles(); // Removed
+  const { data: rolesData } = useAllRoles(); // Added
 
   // Form State
   const submitted = ref(false);
@@ -335,7 +338,7 @@
   const passwordRef = ref<InstanceType<typeof UserPasswordFields> | null>(null);
 
   // Derived
-  const allRoles = computed(() => groupedRoles.value || []);
+  const allRoles = computed(() => rolesData.value || []); // Updated
   const selectedRole = computed(() => allRoles.value.find((r) => r.id === roleId.value));
   const shouldDisableClinic = computed(() => selectedRole.value?.isSystemRole ?? false);
   const isClinicRequired = computed(() => !selectedRole.value?.isSystemRole);
