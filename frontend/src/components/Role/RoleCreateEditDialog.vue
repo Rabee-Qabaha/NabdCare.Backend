@@ -1,36 +1,26 @@
 <template>
-  <Dialog
+  <BaseDrawer
     v-model:visible="visible"
-    :modal="true"
-    :closable="!isSubmitting"
-    :style="{ width: '650px', maxWidth: '95vw' }"
-    :pt="{
-      root: { class: 'rounded-xl border-0 shadow-2xl overflow-hidden' },
-      header: {
-        class:
-          'border-b border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-0 dark:bg-surface-900',
-      },
-      content: { class: 'p-0 bg-surface-0 dark:bg-surface-900' },
-      footer: {
-        class:
-          'border-t border-surface-200/50 dark:border-surface-700/50 py-4 px-6 bg-surface-50 dark:bg-surface-800',
-      },
-    }"
-    @hide="onClose"
+    :title="dialogTitle"
+    :subtitle="dialogSubtitle"
+    width="md:!w-[650px]"
+    :no-padding="true"
+    :dismissable="false"
+    @close="onClose"
   >
     <template #header>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-4">
         <div
-          class="flex items-center justify-center w-10 h-10 rounded-full shrink-0 text-white transition-all duration-300"
+          class="flex items-center justify-center w-12 h-12 rounded-xl shrink-0 text-white shadow-md transition-all duration-300 ring-2 ring-white dark:ring-surface-800 ring-offset-2 ring-offset-surface-100 dark:ring-offset-surface-900"
           :style="{ backgroundColor: form.colorCode || '#64748b' }"
         >
-          <i :class="[form.iconClass || 'pi pi-plus', 'text-lg']"></i>
+          <i :class="[form.iconClass || 'pi pi-plus', 'text-xl']"></i>
         </div>
-        <div class="flex flex-col">
-          <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight">
+        <div class="flex flex-col gap-1">
+          <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0 leading-none">
             {{ dialogTitle }}
           </h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400">
+          <p class="text-sm text-surface-500 dark:text-surface-400 leading-snug">
             {{ dialogSubtitle }}
           </p>
         </div>
@@ -38,260 +28,197 @@
     </template>
 
     <form class="flex flex-col h-full" @submit.prevent="onSubmit">
-      <div
-        class="p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar"
-        style="max-height: 600px"
-      >
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-              Role Name
-              <span class="text-red-500">*</span>
-            </label>
-            <InputText
-              v-model="form.name"
-              class="w-full"
-              :class="{ 'p-invalid': errors.name }"
-              placeholder="e.g. Senior Doctor"
-            />
-            <small v-if="errors.name" class="text-red-500 text-xs">{{ errors.name }}</small>
-          </div>
+      <div class="p-6 flex flex-col gap-8">
+        <!-- Basic Info Section -->
+        <div class="flex flex-col gap-5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+                Role Name
+                <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                v-model="form.name"
+                class="w-full"
+                :class="{ 'p-invalid': errors.name }"
+                placeholder="e.g. Senior Doctor"
+              />
+              <small v-if="errors.name" class="text-red-500 text-xs">{{ errors.name }}</small>
+            </div>
 
-          <div v-if="isSuperAdmin" class="flex flex-col gap-1.5">
-            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-              Target Clinic
-              <span class="text-surface-400 font-normal">(Optional)</span>
-            </label>
-            <ClinicSelect
-              v-model="form.clinicId"
-              placeholder="Global (System Level)"
-              class="w-full"
-              :show-clear="true"
-            />
-          </div>
-          <div v-else class="flex flex-col gap-1.5">
-            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-              Scope
-            </label>
-            <div
-              class="h-[42px] flex items-center px-3 rounded-md border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 text-surface-500 dark:text-surface-400 text-sm italic"
-            >
-              Current Clinic Only
+            <div v-if="isSuperAdmin" class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+                Target Clinic
+                <span class="text-surface-400 font-normal">(Optional)</span>
+              </label>
+              <ClinicSelect
+                v-model="form.clinicId"
+                placeholder="Global (System Level)"
+                class="w-full"
+                :show-clear="true"
+              />
+            </div>
+            <div v-else class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+                Scope
+              </label>
+              <div
+                class="h-[42px] flex items-center px-3 rounded-md border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 text-surface-500 dark:text-surface-400 text-sm italic"
+              >
+                Current Clinic Only
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-            Description
-          </label>
-          <Textarea
-            v-model="form.description"
-            rows="2"
-            auto-resize
-            class="w-full"
-            placeholder="Describe the role's responsibilities..."
-          />
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              Description
+            </label>
+            <Textarea
+              v-model="form.description"
+              rows="2"
+              auto-resize
+              class="w-full"
+              placeholder="Describe the role's responsibilities..."
+            />
+          </div>
         </div>
 
         <Divider class="my-0 border-surface-200 dark:border-surface-700" />
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div class="flex flex-col gap-2">
-            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-              Role Color
-              <span v-if="isLoadingRoles" class="text-[10px] font-normal text-surface-400 ml-2">
-                (Loading...)
-              </span>
-            </label>
+        <!-- Visual Identity Section -->
+        <div class="flex flex-col gap-6">
+          <RoleColorSelector
+            v-model="form.colorCode"
+            :colors="availableColors"
+            :loading="isLoadingRoles"
+          />
 
-            <div class="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar flex-nowrap">
-              <div
-                class="relative w-8 h-8 rounded-full border border-dashed border-surface-300 dark:border-surface-600 flex items-center justify-center text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer transition-colors shrink-0"
-                title="Custom Color"
-              >
-                <input
-                  v-model="form.colorCode"
-                  type="color"
-                  class="absolute inset-0 opacity-0 cursor-pointer"
-                />
-                <i class="pi pi-palette text-xs"></i>
-              </div>
-
-              <button
-                v-for="color in availableColors"
-                :key="color"
-                type="button"
-                class="w-8 h-8 rounded-full border border-surface-200 dark:border-surface-700 shadow-sm flex items-center justify-center cursor-pointer transition-transform hover:scale-110 shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-surface-300 dark:focus:ring-surface-600"
-                :style="{ backgroundColor: color }"
-                @click="form.colorCode = color"
-              >
-                <i
-                  v-if="form.colorCode === color"
-                  class="pi pi-check text-xs text-white font-bold shadow-sm"
-                ></i>
-              </button>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-              Role Icon
-            </label>
-            <Dropdown
-              v-model="form.iconClass"
-              :options="availableIcons"
-              option-label="label"
-              option-value="class"
-              placeholder="Select an icon"
-              class="w-full"
-              filter
-              :virtual-scroller-options="{ itemSize: 38 }"
-              :disabled="effectiveMode === 'clone'"
-              :class="{ 'opacity-70 bg-surface-50 dark:bg-surface-800': effectiveMode === 'clone' }"
-            >
-              <template #value="slotProps">
-                <div v-if="slotProps.value" class="flex items-center gap-2">
-                  <i
-                    :class="[slotProps.value, 'text-surface-600 dark:text-surface-200 text-lg']"
-                  ></i>
-                  <span>{{ getIconLabel(slotProps.value) }}</span>
-                </div>
-                <span v-else>{{ slotProps.placeholder }}</span>
-              </template>
-              <template #option="slotProps">
-                <div class="flex items-center gap-3">
-                  <i
-                    :class="[
-                      slotProps.option.class,
-                      'text-surface-500 dark:text-surface-400 text-lg w-6 text-center',
-                    ]"
-                  ></i>
-                  <span>{{ slotProps.option.label }}</span>
-                </div>
-              </template>
-            </Dropdown>
-
-            <small
-              v-if="availableIcons.length < ICON_OPTIONS.length"
-              class="text-[10px] text-surface-400"
-            >
-              Icons assigned to other roles are hidden.
-            </small>
-          </div>
+          <RoleIconSelector
+            v-model="form.iconClass"
+            :options="availableIcons"
+            :disabled="effectiveMode === 'clone'"
+            :has-hidden-icons="availableIcons.length < ICON_OPTIONS.length"
+            hidden-message="Some icons are used by other roles."
+          />
         </div>
 
+        <!-- System Configuration Section -->
         <div
           v-if="isSuperAdmin"
-          class="mt-3 p-4 bg-surface-50 dark:bg-surface-900 rounded-lg border border-surface-200 dark:border-surface-700"
+          class="rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900/50 p-5"
         >
-          <div class="flex flex-col gap-3">
-            <h4
-              class="text-[10px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-widest flex items-center gap-2"
+          <h4
+            class="text-xs font-bold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-4 flex items-center gap-2"
+          >
+            <i class="pi pi-cog text-primary-500"></i>
+            System Configuration
+          </h4>
+
+          <div class="flex flex-col gap-4">
+            <!-- Template Toggle Card -->
+            <div
+              class="flex items-center justify-between p-4 rounded-lg border border-primary-200 dark:border-primary-900/30 bg-primary-50 dark:bg-primary-900/10"
             >
-              <i class="pi pi-sliders-h text-[10px]"></i>
-              System Configuration
-            </h4>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
-                  Sort Order
-                </label>
-                <InputNumber
-                  v-model="form.displayOrder"
-                  :min="1"
-                  :max="1000"
-                  show-buttons
-                  button-layout="horizontal"
-                  :step="1"
-                  input-class="!w-full !text-center !text-xs font-medium"
-                  class="w-full"
-                  :pt="{
-                    root: { class: 'h-[36px]' },
-                    input: { class: '!py-1' },
-                    incrementButton: {
-                      class:
-                        '!w-8 !bg-white dark:!bg-surface-800 !text-surface-500 !border-surface-300',
-                    },
-                    decrementButton: {
-                      class:
-                        '!w-8 !bg-white dark:!bg-surface-800 !text-surface-500 !border-surface-300',
-                    },
-                  }"
+              <div class="flex flex-col gap-1">
+                <label
+                  for="isTemplate"
+                  class="text-sm font-bold text-primary-800 dark:text-primary-400 cursor-pointer"
                 >
-                  <template #incrementbuttonicon><i class="pi pi-plus text-[10px]" /></template>
-                  <template #decrementbuttonicon><i class="pi pi-minus text-[10px]" /></template>
-                </InputNumber>
-              </div>
-
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
-                  Role Behavior
+                  Save as Template
                 </label>
-
-                <div
-                  class="h-[36px] flex items-center px-3 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 hover:border-primary-500 dark:hover:border-primary-400 transition-all cursor-pointer group select-none"
-                  @click="form.isTemplate = !form.isTemplate"
-                >
-                  <Checkbox
-                    v-model="form.isTemplate"
-                    binary
-                    input-id="isTemplate"
-                    class="pointer-events-none scale-75 -ml-1"
-                  />
-                  <label
-                    class="ml-2 text-xs font-medium text-surface-700 dark:text-surface-200 cursor-pointer group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"
-                  >
-                    System Template
-                  </label>
-
-                  <span v-if="form.isTemplate" class="ml-auto flex h-2 w-2">
-                    <span
-                      class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75"
-                    ></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                </div>
+                <p class="text-xs text-primary-600 dark:text-primary-500/80">
+                  This role will be used as a template for setting up new clinics.
+                </p>
               </div>
+              <ToggleSwitch
+                v-model="form.isTemplate"
+                input-id="isTemplate"
+                :pt="{
+                  root: {
+                    class:
+                      'w-12 h-7 [&_.p-toggleswitch-slider]:bg-primary-200 [&.p-toggleswitch-checked_.p-toggleswitch-slider]:bg-primary-500',
+                  },
+                }"
+              />
+            </div>
+
+            <!-- Display Order -->
+            <div
+              class="flex items-center justify-between p-4 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-800"
+            >
+              <div class="flex flex-col gap-0.5">
+                <label class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+                  Display Order
+                </label>
+                <p class="text-xs text-surface-500 dark:text-surface-400">
+                  Determines the sorting priority in lists.
+                </p>
+              </div>
+              <InputNumber
+                v-model="form.displayOrder"
+                :min="1"
+                :max="1000"
+                show-buttons
+                button-layout="horizontal"
+                :step="1"
+                input-class="!w-16 !text-center !text-sm font-medium border-0 bg-transparent"
+                class="w-auto border border-surface-300 dark:border-surface-600 rounded-md overflow-hidden"
+                :pt="{
+                  root: { class: 'h-[36px]' },
+                  input: { class: '!py-1' },
+                  incrementButton: {
+                    class:
+                      '!w-8 !bg-surface-50 dark:!bg-surface-700 !text-surface-600 dark:!text-surface-300 !border-l !border-surface-300 dark:!border-surface-600 hover:!bg-surface-100 dark:hover:!bg-surface-600',
+                  },
+                  decrementButton: {
+                    class:
+                      '!w-8 !bg-surface-50 dark:!bg-surface-700 !text-surface-600 dark:!text-surface-300 !border-r !border-surface-300 dark:!border-surface-600 hover:!bg-surface-100 dark:hover:!bg-surface-600',
+                  },
+                }"
+              >
+                <template #incrementbuttonicon><i class="pi pi-plus text-[10px]" /></template>
+                <template #decrementbuttonicon><i class="pi pi-minus text-[10px]" /></template>
+              </InputNumber>
             </div>
           </div>
         </div>
       </div>
     </form>
 
-    <template #footer>
-      <div class="flex justify-end gap-2 w-full mt-4">
+    <template #footer="{ close }">
+      <div class="flex gap-3 w-full">
         <Button
           label="Cancel"
           severity="secondary"
           outlined
-          class="w-full sm:w-auto"
+          class="!w-[30%]"
           :disabled="isSubmitting"
-          @click="onClose"
+          @click="close"
         />
         <Button
           :label="submitButtonLabel"
           :loading="isSubmitting"
           icon="pi pi-check"
-          class="w-full sm:w-auto"
+          class="flex-1"
           @click="onSubmit"
         />
       </div>
     </template>
-  </Dialog>
+  </BaseDrawer>
 </template>
 
 <script setup lang="ts">
   import ClinicSelect from '@/components/Dropdowns/ClinicSelect.vue';
+  import RoleColorSelector from '@/components/Role/RoleColorSelector.vue';
+  import RoleIconSelector from '@/components/Role/RoleIconSelector.vue';
+  import BaseDrawer from '@/components/shared/BaseDrawer.vue';
   import Button from 'primevue/button';
-  import Checkbox from 'primevue/checkbox';
-  import Dialog from 'primevue/dialog';
   import Divider from 'primevue/divider';
-  import Dropdown from 'primevue/dropdown';
   import InputNumber from 'primevue/inputnumber';
   import InputText from 'primevue/inputtext';
   import Textarea from 'primevue/textarea';
+  import ToggleSwitch from 'primevue/toggleswitch';
 
   import { rolesApi } from '@/api/modules/roles';
   import { useRoleActions } from '@/composables/query/roles/useRoleActions';
@@ -299,10 +226,6 @@
   import type { CloneRoleRequestDto, RoleResponseDto } from '@/types/backend';
   import { useQuery } from '@tanstack/vue-query';
   import { computed, reactive, ref, watch } from 'vue';
-
-  // ... (Keep all script logic exactly the same as before) ...
-  // Just copy-paste the previous script block here.
-  // The logic remains identical, only the template structure changed.
 
   // ---------- Props & Emits ----------
 
@@ -323,22 +246,29 @@
   // ---------- Data ----------
 
   const COLOR_PALETTE = [
-    '#3B82F6',
-    '#10B981',
-    '#F59E0B',
-    '#EF4444',
-    '#8B5CF6',
-    '#06B6D4',
-    '#EC4899',
-    '#6B7280',
-    '#14B8A6',
-    '#6366F1',
-    '#D946EF',
-    '#F43F5E',
-    '#84CC16',
-    '#EAB308',
-    '#F97316',
-    '#78716C',
+    '#3B82F6', // Blue
+    '#10B981', // Emerald
+    '#F59E0B', // Amber
+    '#EF4444', // Red
+    '#8B5CF6', // Violet
+    '#06B6D4', // Cyan
+    '#EC4899', // Pink
+    '#6B7280', // Gray
+    '#14B8A6', // Teal
+    '#6366F1', // Indigo
+    '#D946EF', // Fuchsia
+    '#F43F5E', // Rose
+    '#84CC16', // Lime
+    '#EAB308', // Yellow
+    '#F97316', // Orange
+    '#78716C', // Stone
+    '#22C55E', // Green
+    '#0EA5E9', // Sky
+    '#A855F7', // Purple
+    '#FB7185', // Rose-400
+    '#2DD4BF', // Teal-400
+    '#94A3B8', // Slate
+    '#FBbf24', // Amber-400
   ];
 
   const ICON_OPTIONS = [
@@ -392,6 +322,10 @@
     { label: 'Bolt', class: 'pi pi-bolt' },
     { label: 'Alert', class: 'pi pi-exclamation-triangle' },
     { label: 'Info', class: 'pi pi-info-circle' },
+    // New Icons
+    { label: 'Home', class: 'pi pi-home' },
+    { label: 'Filter', class: 'pi pi-filter' },
+    { label: 'List', class: 'pi pi-list' },
   ];
 
   // ---------- Store & Logic ----------
@@ -455,7 +389,15 @@
   const { data: allRoles, isLoading: isLoadingRoles } = useQuery({
     queryKey: ['roles-list-all'],
     queryFn: async () => {
-      const res = await rolesApi.getAll({ includeDeleted: false });
+      // Fix: Add defaults for mandatory fields in RoleFilterRequestDto
+      const res = await rolesApi.getAll({
+        includeDeleted: false,
+        limit: 1000,
+        cursor: '',
+        sortBy: '',
+        descending: false,
+        filter: '',
+      });
       return res.data || [];
     },
     enabled: visible,
@@ -496,10 +438,6 @@
 
   // ---------- Helpers ----------
 
-  function getIconLabel(cls: string) {
-    return ICON_OPTIONS.find((i) => i.class === cls)?.label || 'Custom Icon';
-  }
-
   function setRandomDefaults() {
     const colors = availableColors.value;
     const icons = availableIcons.value;
@@ -536,7 +474,7 @@
   function loadFromRole(role: RoleResponseDto, isClone = false) {
     form.name = isClone ? `${role.name} (Copy)` : role.name || '';
     form.description = role.description ?? null;
-    form.isTemplate = role.isTemplate ?? false;
+    form.isTemplate = isClone ? false : (role.isTemplate ?? false);
     form.clinicId = role.clinicId ?? null;
 
     if (isClone) {
