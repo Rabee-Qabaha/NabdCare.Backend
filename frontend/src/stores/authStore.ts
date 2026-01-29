@@ -95,16 +95,26 @@ export const useAuthStore = defineStore('auth', () => {
   // ===========================
   // INIT AUTH (APP STARTUP)
   // ===========================
+  // ===========================
+  // INIT AUTH (APP STARTUP)
+  // ===========================
   const initAuth = async () => {
     console.log('🔄 Initializing auth...');
 
     isInitialized.value = false;
     isPermissionsLoaded.value = false;
 
-    const token = tokenManager.getAccessToken();
+    let token = tokenManager.getAccessToken();
 
+    // 1. If no token or token expired, try silent refresh
+    if (!token || isTokenExpired(token)) {
+      console.log('ℹ️ No valid token found in memory/storage — attempting silent refresh');
+      token = await tokenManager.refreshAccessToken();
+    }
+
+    // 2. If still no token, we are guest
     if (!token) {
-      console.log('ℹ️ No access token — guest mode');
+      console.log('ℹ️ Silent refresh failed or no session — guest mode');
       currentUser.value = null;
       permissions.value = [];
       isPermissionsLoaded.value = true;
@@ -112,8 +122,10 @@ export const useAuthStore = defineStore('auth', () => {
       return;
     }
 
+    // 3. We have a valid token (either from storage or fresh from refresh)
+    // Double check expiry just to be safe, though refresh should give a fresh one
     if (isTokenExpired(token)) {
-      console.log('⚠️ Token expired — clearing');
+      console.log('⚠️ Token expired even after check — clearing');
       tokenManager.clearTokens();
       currentUser.value = null;
       permissions.value = [];
