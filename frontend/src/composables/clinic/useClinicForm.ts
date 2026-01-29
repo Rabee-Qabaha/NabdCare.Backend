@@ -15,6 +15,9 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
   const registrationNumber = ref('');
   const timeZone = ref('UTC');
   const currency = ref('USD');
+  const dateFormat = ref('dd/MM/yyyy');
+  const locale = ref('en-US');
+  const enablePatientPortal = ref(false);
 
   const validate = () => {
     const result = clinicSchema.safeParse(getFormData());
@@ -45,6 +48,9 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
       registrationNumber.value = data.registrationNumber || '';
       timeZone.value = data.settings?.timeZone || 'UTC';
       currency.value = data.settings?.currency || 'USD';
+      dateFormat.value = data.settings?.dateFormat || 'dd/MM/yyyy';
+      locale.value = data.settings?.locale || 'en-US';
+      enablePatientPortal.value = data.settings?.enablePatientPortal || false;
     } else {
       resetToDefaults();
     }
@@ -62,6 +68,9 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
     registrationNumber.value = '';
     timeZone.value = 'UTC';
     currency.value = 'USD';
+    dateFormat.value = 'dd/MM/yyyy';
+    locale.value = 'en-US';
+    enablePatientPortal.value = false;
   }
 
   function getFormData() {
@@ -78,6 +87,9 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
       settings: {
         timeZone: timeZone.value,
         currency: currency.value,
+        dateFormat: dateFormat.value,
+        locale: locale.value,
+        enablePatientPortal: enablePatientPortal.value,
       },
     };
   }
@@ -97,5 +109,8 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
     initForm,
     getFormData,
     validate,
+    dateFormat,
+    locale,
+    enablePatientPortal,
   };
 }

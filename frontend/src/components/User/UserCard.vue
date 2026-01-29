@@ -187,7 +187,6 @@
   import BaseCard from '@/components/shared/BaseCard.vue';
   import type { UserResponseDto } from '@/types/backend';
   import { formatUserDisplay } from '@/utils/users/userDisplay';
-  import Avatar from 'primevue/avatar';
   import Button from 'primevue/button';
   import Checkbox from 'primevue/checkbox';
   import Tag from 'primevue/tag';

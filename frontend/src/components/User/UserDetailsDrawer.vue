@@ -88,12 +88,12 @@
       <div class="flex flex-col items-center text-center pb-2 pt-2">
         <div class="relative inline-block mb-4">
           <Avatar
-            :image="user.profilePictureUrl"
+            :image="user.profilePictureUrl || undefined"
             :label="!user.profilePictureUrl ? initials : undefined"
             size="xlarge"
             shape="circle"
             class="!w-24 !h-24 !text-3xl font-bold shadow-lg"
-            :class="avatarClass"
+            :class="user.profilePictureUrl ? '' : avatarClass"
           />
           <span
             class="absolute bottom-1 right-1 block w-5 h-5 rounded-full ring-4 ring-white dark:ring-surface-900"

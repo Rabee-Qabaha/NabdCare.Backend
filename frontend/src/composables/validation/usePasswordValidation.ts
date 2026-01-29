@@ -15,7 +15,7 @@ export interface PasswordSecurityChecks {
 }
 
 export interface FieldTouched {
-  currentPassword?: boolean; 
+  currentPassword?: boolean;
   newPassword: boolean;
   confirmPassword: boolean;
 }
@@ -57,9 +57,8 @@ export function usePasswordValidation(includeCurrent = false) {
     return s.minLength && s.uppercase && s.lowercase && s.digit && s.specialChar;
   });
 
-  const doPasswordsMatch = computed<boolean>(() =>
-    passwords.newPassword === passwords.confirmPassword &&
-    passwords.confirmPassword !== ''
+  const doPasswordsMatch = computed<boolean>(
+    () => passwords.newPassword === passwords.confirmPassword && passwords.confirmPassword !== '',
   );
 
   // ========================================
@@ -104,6 +103,12 @@ export function usePasswordValidation(includeCurrent = false) {
     fieldTouched[key] = true;
   }
 
+  function markAllFieldsTouched() {
+    (Object.keys(fieldTouched) as Array<keyof FieldTouched>).forEach((key) => {
+      fieldTouched[key] = true;
+    });
+  }
+
   function resetPasswords() {
     if (includeCurrent) passwords.currentPassword = '';
     passwords.newPassword = '';
@@ -125,6 +130,7 @@ export function usePasswordValidation(includeCurrent = false) {
     getFieldError,
     getFieldErrorMessage,
     markFieldTouched,
+    markAllFieldsTouched,
     resetPasswords,
   };
 }

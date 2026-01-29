@@ -30,6 +30,7 @@
     getFieldError,
     getFieldErrorMessage,
     markFieldTouched,
+    markAllFieldsTouched,
     resetPasswords,
   } = usePasswordValidation();
 
@@ -37,6 +38,14 @@
   watch(passwords, () => {
     emit('update:passwords', passwords);
   });
+
+  watch(
+    () => props.submitted,
+    (val) => {
+      if (val) markAllFieldsTouched();
+    },
+    { immediate: true },
+  );
 
   const requiresCurrentPassword = computed(() => props.mode === 'change');
 

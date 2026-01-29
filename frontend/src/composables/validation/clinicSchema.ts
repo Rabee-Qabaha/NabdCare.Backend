@@ -36,7 +36,12 @@ export const clinicSchema = z.object({
 
   email: z.string().trim().email('Invalid email format').min(1, 'Email is required'),
   phone: z.string().trim().min(1, 'Phone number is required').max(20, 'Phone is too long'),
-  // address: z.string().trim().min(5, 'Full address is required').max(500, 'Address is too long'),
+  address: z
+    .string()
+    .trim()
+    .min(1, 'Address is required.')
+    .min(5, 'Address must be at least 5 characters long.')
+    .max(500, 'Address cannot exceed 500 characters.'),
   website: z.string().trim().url('Invalid URL').optional().or(z.literal('')),
   logoUrl: z.string().trim().url('Invalid Logo URL').optional().or(z.literal('')),
 

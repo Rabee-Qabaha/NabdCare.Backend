@@ -30,7 +30,11 @@ public class CreateClinicValidator : AbstractValidator<CreateClinicRequestDto>
             .EmailAddress();
 
         RuleFor(x => x.Phone).NotEmpty().MaximumLength(20);
-        RuleFor(x => x.Address).NotEmpty().MaximumLength(500);
+        
+        RuleFor(x => x.Address)
+            .NotEmpty().WithMessage("Address is required.")
+            .MinimumLength(5).WithMessage("Address must be at least 5 characters long.")
+            .MaximumLength(500).WithMessage("Address cannot exceed 500 characters.");
 
         // Branding Validation
         RuleFor(x => x.Website)

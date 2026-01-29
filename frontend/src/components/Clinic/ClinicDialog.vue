@@ -1,282 +1,402 @@
 <template>
-  <Dialog
-    v-model:visible="isVisible"
-    modal
-    :dismissable-mask="!saving"
-    :style="{ width: '750px', maxWidth: '95vw' }"
-    :pt="{
-      root: {
-        class:
-          'rounded-xl border border-surface-200 dark:border-surface-700 shadow-2xl overflow-hidden bg-surface-0 dark:bg-surface-900',
-      },
-      header: {
-        class:
-          'border-b border-surface-200 dark:border-surface-700 py-4 px-6 bg-surface-50 dark:bg-surface-800',
-      },
-      content: { class: 'p-6 bg-surface-0 dark:bg-surface-900' },
-      footer: {
-        class:
-          'border-t border-surface-200 dark:border-surface-700 py-4 px-6 bg-surface-50 dark:bg-surface-800',
-      },
-    }"
-    @hide="onClose"
+  <BaseDrawer
+    :visible="visible"
+    :loading="saving"
+    width="md:!w-[650px]"
+    :no-padding="true"
+    :dismissable="false"
+    @update:visible="$emit('update:visible', $event)"
+    @save="onSave"
+    @cancel="onClose"
   >
     <template #header>
-      <div class="flex items-center gap-4 text-left">
+      <div class="flex items-center gap-4">
         <div
-          class="flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 shrink-0 border border-primary-200 dark:border-primary-700/50"
+          class="flex items-center justify-center w-12 h-12 rounded-xl shrink-0 text-white shadow-md transition-all duration-300 ring-2 ring-white dark:ring-surface-800 ring-offset-2 ring-offset-surface-100 dark:ring-offset-surface-900 bg-primary-500"
         >
-          <i :class="['pi text-xl', isEditMode ? 'pi-pencil' : 'pi-building']"></i>
+          <i :class="[isEditMode ? 'pi pi-pencil' : 'pi pi-building', 'text-xl']"></i>
         </div>
-        <div class="flex flex-col">
-          <h3 class="text-lg font-bold text-surface-900 dark:text-surface-0 leading-tight">
+        <div class="flex flex-col gap-1">
+          <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0 leading-none">
             {{ isEditMode ? 'Clinic Settings' : 'Register Clinic' }}
           </h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-            Define the clinic's identity and contact details.
+          <p class="text-sm text-surface-500 dark:text-surface-400 leading-snug">
+            {{
+              isEditMode
+                ? 'Manage clinic details and configuration.'
+                : 'Create a new clinic workspace.'
+            }}
           </p>
         </div>
       </div>
     </template>
 
-    <div
-      class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left overflow-y-auto max-h-[60vh] custom-scrollbar px-1"
-    >
-      <div
-        v-if="errors.global"
-        class="md:col-span-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg text-sm flex items-center gap-2"
-      >
-        <i class="pi pi-exclamation-circle"></i>
-        {{ errors.global }}
-      </div>
-
-      <div class="md:col-span-2 mt-2">
-        <h4 class="text-xs font-bold text-surface-400 uppercase tracking-wider">
-          Identity & Branding
-        </h4>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold">
-          Clinic Name
-          <span class="text-red-500">*</span>
-        </label>
-        <InputText
-          v-model="name"
-          :invalid="submitted && !!errors.name"
-          placeholder="e.g. Nabd Medical Center"
-          class="w-full"
-          @input="errors.name = ''"
-        />
-        <small v-if="submitted && errors.name" class="text-red-500 text-xs">
-          {{ errors.name }}
-        </small>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold">
-          Subdomain
-          <span class="text-red-500">*</span>
-        </label>
-        <InputGroup>
-          <InputGroupAddon><i class="pi pi-globe"></i></InputGroupAddon>
-          <InputText
-            v-model="slug"
-            :invalid="submitted && !!errors.slug"
-            placeholder="clinic-name"
-            @input="onSlugInputChange"
-          />
-          <InputGroupAddon class="text-xs">.nabd.care</InputGroupAddon>
-        </InputGroup>
-        <small v-if="submitted && errors.slug" class="text-red-500 text-xs">
-          {{ errors.slug }}
-        </small>
-      </div>
-
-      <div
-        class="md:col-span-2 flex items-center gap-4 p-4 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700"
-      >
-        <div
-          class="w-16 h-16 rounded-lg bg-white dark:bg-surface-900 border flex items-center justify-center overflow-hidden shrink-0"
+    <div class="p-6 flex flex-col gap-6 h-full custom-scrollbar">
+      <!-- 1. Identity Section -->
+      <div class="flex flex-col gap-4">
+        <h3
+          class="flex items-center gap-2 text-xs font-bold text-surface-500 uppercase tracking-wider"
         >
-          <img v-if="logoUrl" :src="logoUrl" class="w-full h-full object-cover" />
-          <i v-else class="pi pi-image text-2xl text-surface-300"></i>
+          <i class="pi pi-id-card text-sm"></i>
+          Identity
+        </h3>
+
+        <!-- Row 1: Name & Subdomain -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold">
+              Clinic Name
+              <span class="text-red-500">*</span>
+            </label>
+            <InputText
+              v-model="name"
+              :invalid="submitted && !!errors.name"
+              placeholder="e.g. Nabd Medical Center"
+              class="w-full"
+              @input="errors.name = ''"
+            />
+            <small v-if="submitted && errors.name" class="text-red-500 text-xs">
+              {{ errors.name }}
+            </small>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold">
+              Subdomain
+              <span class="text-red-500">*</span>
+            </label>
+            <InputGroup>
+              <InputGroupAddon><i class="pi pi-globe"></i></InputGroupAddon>
+              <InputText
+                v-model="slug"
+                :invalid="submitted && !!errors.slug"
+                placeholder="clinic-name"
+                @input="onSlugInputChange"
+              />
+              <InputGroupAddon class="text-xs">.nabd.care</InputGroupAddon>
+            </InputGroup>
+            <small v-if="submitted && errors.slug" class="text-red-500 text-xs">
+              {{ errors.slug }}
+            </small>
+          </div>
         </div>
-        <div class="flex-grow flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-surface-500 uppercase">Logo URL</label>
-          <InputText
-            v-model="logoUrl"
-            :invalid="submitted && !!errors.logoUrl"
-            placeholder="https://..."
-            class="w-full p-inputtext-sm"
-            @input="errors.logoUrl = ''"
-          />
-          <small v-if="submitted && errors.logoUrl" class="text-red-500 text-xs">
-            {{ errors.logoUrl }}
-          </small>
-        </div>
-      </div>
 
-      <div class="md:col-span-2 mt-4">
-        <h4 class="text-xs font-bold text-surface-400 uppercase tracking-wider">
-          Contact Information
-        </h4>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold">
-          Official Email
-          <span class="text-red-500">*</span>
-        </label>
-        <InputText
-          v-model="email"
-          :invalid="submitted && !!errors.email"
-          type="email"
-          placeholder="admin@clinic.com"
-          class="w-full"
-          @input="errors.email = ''"
-        />
-        <small v-if="submitted && errors.email" class="text-red-500 text-xs">
-          {{ errors.email }}
-        </small>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold">
-          Phone Number
-          <span class="text-red-500">*</span>
-        </label>
-        <InputText
-          v-model="phone"
-          :invalid="submitted && !!errors.phone"
-          placeholder="+970 ..."
-          class="w-full"
-          @input="errors.phone = ''"
-        />
-        <small v-if="submitted && errors.phone" class="text-red-500 text-xs">
-          {{ errors.phone }}
-        </small>
-      </div>
-
-      <div
-        class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-surface-100 dark:border-surface-700"
-      >
-        <div class="md:col-span-2 flex flex-col gap-2">
-          <label class="text-xs font-bold text-surface-500 uppercase">
-            Street / Building
-            <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            v-model="splitStreet"
-            :invalid="submitted && !!errors.address"
-            placeholder="Street"
-            class="w-full"
-            @input="errors.address = ''"
-          />
-        </div>
+        <!-- Row 2: Visual Identity (Logo) -->
         <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold text-surface-500 uppercase">
-            City
-            <span class="text-red-500">*</span>
-          </label>
-          <InputText
-            v-model="splitCity"
-            placeholder="City"
-            class="w-full"
-            @input="errors.address = ''"
-          />
+          <label class="text-xs font-semibold">Brand Identity</label>
+          <div
+            class="flex items-center gap-4 p-3 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50"
+          >
+            <!-- Logo Preview -->
+            <div
+              class="w-16 h-16 rounded-lg bg-surface-0 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 flex items-center justify-center overflow-hidden shrink-0 shadow-sm"
+            >
+              <img v-if="logoUrl" :src="logoUrl" class="w-full h-full object-cover" />
+              <i v-else class="pi pi-image text-2xl text-surface-300"></i>
+            </div>
+
+            <!-- Input Area -->
+            <div class="flex-grow flex flex-col gap-1.5">
+              <label class="text-[10px] font-bold uppercase text-surface-500">Logo Image URL</label>
+              <InputText
+                v-model="logoUrl"
+                placeholder="https://example.com/logo.png"
+                class="w-full p-inputtext-sm"
+              />
+              <p class="text-[10px] text-surface-400">
+                Provide a direct link to your clinic's logo (PNG or JPG recommended).
+              </p>
+            </div>
+          </div>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold text-surface-500 uppercase">Postal Code</label>
-          <InputText v-model="splitPostalCode" placeholder="Code" class="w-full" />
-        </div>
-        <div class="flex flex-col gap-2 md:col-span-4">
-          <label class="text-xs font-bold text-surface-500 uppercase">
-            Country
-            <span class="text-red-500">*</span>
-          </label>
-          <CountrySelect
-            v-model="splitCountry"
-            :class="{ 'p-invalid': submitted && !!errors.address }"
-            @change="errors.address = ''"
-          />
-        </div>
-        <small v-if="submitted && errors.address" class="text-red-500 text-xs col-span-4">
-          {{ errors.address }}
-        </small>
       </div>
 
-      <div
-        class="md:col-span-2 mt-4 pt-4 border-t border-surface-100 dark:border-surface-700 grid grid-cols-2 gap-4"
-      >
-        <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold text-surface-500 uppercase">Currency</label>
-          <InputText v-model="currency" placeholder="USD" class="w-full" />
+      <!-- 2. Contact Information -->
+      <div class="flex flex-col gap-4">
+        <h3
+          class="flex items-center gap-2 text-xs font-bold text-surface-500 uppercase tracking-wider"
+        >
+          <i class="pi pi-address-book text-sm"></i>
+          Contact Info
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold">
+              Official Email
+              <span class="text-red-500">*</span>
+            </label>
+            <InputText
+              v-model="email"
+              type="email"
+              :invalid="submitted && !!errors.email"
+              class="w-full"
+            />
+            <small v-if="submitted && errors.email" class="text-red-500 text-xs">
+              {{ errors.email }}
+            </small>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold">
+              Phone
+              <span class="text-red-500">*</span>
+            </label>
+            <InputText v-model="phone" :invalid="submitted && !!errors.phone" class="w-full" />
+            <small v-if="submitted && errors.phone" class="text-red-500 text-xs">
+              {{ errors.phone }}
+            </small>
+          </div>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold text-surface-500 uppercase">Timezone</label>
-          <Select
-            v-model="timeZone"
-            :options="['Asia/Hebron', 'Asia/Jerusalem', 'UTC']"
-            class="w-full"
-          />
+
+        <!-- Address Grid -->
+        <div
+          class="p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700 flex flex-col gap-3"
+        >
+          <div class="grid grid-cols-3 gap-3">
+            <div class="col-span-3">
+              <label class="text-[10px] font-bold uppercase text-surface-500">
+                Street / Address
+                <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                v-model="splitStreet"
+                :invalid="submitted && !!errors.street"
+                placeholder="123 Main St"
+                class="w-full p-inputtext-sm mt-1"
+              />
+            </div>
+            <div class="col-span-2">
+              <label class="text-[10px] font-bold uppercase text-surface-500">
+                City
+                <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                v-model="splitCity"
+                :invalid="submitted && !!errors.city"
+                placeholder="City"
+                class="w-full p-inputtext-sm mt-1"
+              />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase text-surface-500">
+                Zip Code
+                <span class="text-red-500">*</span>
+              </label>
+              <InputText
+                v-model="splitPostalCode"
+                :invalid="submitted && !!errors.zip"
+                placeholder="00000"
+                class="w-full p-inputtext-sm mt-1"
+              />
+            </div>
+            <div class="col-span-3">
+              <label class="text-[10px] font-bold uppercase text-surface-500">
+                Country
+                <span class="text-red-500">*</span>
+              </label>
+              <CountrySelect
+                v-model="splitCountry"
+                :invalid="submitted && !!errors.country"
+                class="w-full mt-1"
+                placeholder="Select Country"
+                append-to="self"
+              />
+              <small v-if="submitted && errors.address" class="text-red-500 text-xs">
+                {{ errors.address }}
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Branding & Legal (New Fields) -->
+      <div class="flex flex-col gap-4">
+        <h3
+          class="flex items-center gap-2 text-xs font-bold text-surface-500 uppercase tracking-wider"
+        >
+          <i class="pi pi-briefcase text-sm"></i>
+          Legal & Branding
+        </h3>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">Website</label>
+          <InputGroup>
+            <InputGroupAddon><i class="pi pi-link"></i></InputGroupAddon>
+            <InputText v-model="website" placeholder="www.clinic.com" />
+          </InputGroup>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold">Tax Number</label>
+            <InputText v-model="taxNumber" placeholder="TAX-123456" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold">Registration No.</label>
+            <InputText v-model="registrationNumber" placeholder="REG-987654" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. System Configuration -->
+      <div class="flex flex-col gap-4">
+        <h3
+          class="flex items-center gap-2 text-xs font-bold text-surface-500 uppercase tracking-wider"
+        >
+          <i class="pi pi-cog text-sm"></i>
+          System Configuration
+        </h3>
+
+        <!-- Patient Portal Card -->
+        <div
+          class="flex items-center justify-between p-4 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-900 shadow-sm"
+        >
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0"
+            >
+              <i class="pi pi-user text-lg"></i>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-sm font-semibold text-surface-900 dark:text-surface-0">
+                Patient Portal
+              </span>
+              <span class="text-xs text-surface-500 dark:text-surface-400">
+                Allow patients to access their records online.
+              </span>
+            </div>
+          </div>
+          <ToggleSwitch v-model="enablePatientPortal" />
+        </div>
+
+        <!-- Regional Settings Grid -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Timezone -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
+              <i class="pi pi-clock mr-1 text-surface-400"></i>
+              Timezone
+            </label>
+            <Select
+              v-model="timeZone"
+              :options="TIMEZONE_OPTIONS"
+              class="w-full"
+              append-to="self"
+            />
+          </div>
+
+          <!-- Currency -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
+              <i class="pi pi-money-bill mr-1 text-surface-400"></i>
+              Currency
+            </label>
+            <Select
+              v-model="currency"
+              :options="CURRENCY_OPTIONS"
+              option-label="label"
+              option-value="value"
+              class="w-full"
+              append-to="self"
+            />
+          </div>
+
+          <!-- Date Format -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
+              <i class="pi pi-calendar mr-1 text-surface-400"></i>
+              Date Format
+            </label>
+            <Select
+              v-model="dateFormat"
+              :options="DATE_FORMAT_OPTIONS"
+              class="w-full"
+              append-to="self"
+            />
+          </div>
+
+          <!-- Locale -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
+              <i class="pi pi-globe mr-1 text-surface-400"></i>
+              Locale
+            </label>
+            <Select
+              v-model="locale"
+              :options="LOCALE_OPTIONS"
+              option-label="label"
+              option-value="value"
+              class="w-full"
+              append-to="self"
+            />
+          </div>
         </div>
       </div>
     </div>
 
-    <template #footer>
-      <div class="flex justify-end gap-2 w-full mt-2">
-        <Button label="Cancel" severity="secondary" text :disabled="saving" @click="onClose" />
+    <template #footer="{ close }">
+      <div class="flex gap-3 w-full">
         <Button
-          :label="isEditMode ? 'Update Profile' : 'Create Clinic'"
-          icon="pi pi-check"
+          label="Cancel"
+          severity="secondary"
+          outlined
+          class="!w-[30%]"
+          :disabled="saving"
+          @click="close"
+        />
+        <Button
+          :label="isEditMode ? 'Save Changes' : 'Create Clinic'"
           :loading="saving"
+          icon="pi pi-check"
+          class="flex-1"
           @click="onSave"
         />
       </div>
     </template>
-  </Dialog>
+  </BaseDrawer>
 </template>
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
 
-  // 1. Logic & State Management
-  import { useClinicForm } from '@/composables/clinic/useClinicForm';
-  import { useClinicActions } from '@/composables/query/clinics/useClinicActions';
-  import type { ClinicResponseDto } from '@/types/backend';
-
-  // 2. Error & Notification Handling
-  import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
-  import { useToastService } from '@/composables/useToastService';
-  import { getFieldErrors } from '@/utils/errorHandler'; // ✅ The bridge between API error -> Form fields
-
-  // 3. UI Components
+  // Components
   import CountrySelect from '@/components/Dropdowns/CountrySelect.vue';
-  import Button from 'primevue/button';
-  import Dialog from 'primevue/dialog';
+  import BaseDrawer from '@/components/shared/BaseDrawer.vue';
   import InputGroup from 'primevue/inputgroup';
   import InputGroupAddon from 'primevue/inputgroupaddon';
   import InputText from 'primevue/inputtext';
   import Select from 'primevue/select';
+  import ToggleSwitch from 'primevue/toggleswitch';
+
+  // Composables & Types
+  import { useClinicForm } from '@/composables/clinic/useClinicForm';
+  import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
+  import { useClinicActions } from '@/composables/query/clinics/useClinicActions';
+  import { useToastService } from '@/composables/useToastService';
+  import type { ClinicResponseDto } from '@/types/backend';
+  import {
+    CURRENCY_OPTIONS,
+    DATE_FORMAT_OPTIONS,
+    LOCALE_OPTIONS,
+    TIMEZONE_OPTIONS,
+  } from '@/utils/constants';
+  import { getFieldErrors } from '@/utils/errorHandler';
 
   const props = defineProps<{ visible: boolean; clinic?: ClinicResponseDto | null }>();
   const emit = defineEmits(['update:visible', 'saved']);
 
-  // Composable setup
   const toast = useToastService();
   const { handleErrorAndNotify } = useErrorHandler();
   const { createClinicMutation, updateClinicMutation } = useClinicActions();
 
-  const isVisible = computed({ get: () => props.visible, set: (v) => emit('update:visible', v) });
   const isEditMode = computed(() => !!props.clinic?.id);
-
-  const localClinic = ref<Partial<ClinicResponseDto>>({});
   const saving = ref(false);
   const submitted = ref(false);
-  const errors = ref<Record<string, string>>({}); // Maps field names to error messages
+  const errors = ref<Record<string, string>>({});
+  const localClinic = ref<Partial<ClinicResponseDto>>({});
 
-  // Address Construction
+  // Address split
   const splitStreet = ref('');
   const splitCity = ref('');
   const splitPostalCode = ref('');
@@ -288,94 +408,75 @@
     email,
     phone,
     address,
+    website,
     logoUrl,
-    currency,
+    taxNumber,
+    registrationNumber,
     timeZone,
+    currency,
+    dateFormat,
+    locale,
+    enablePatientPortal,
     initForm,
     getFormData,
     validate,
   } = useClinicForm(localClinic);
 
-  // ✅ Clear Slug Error on Typing
   const onSlugInputChange = (e: any) => {
     slug.value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    if (errors.value.slug) {
-      errors.value.slug = '';
-    }
+    if (errors.value.slug) errors.value.slug = '';
   };
 
-  // ============================================
-  // 💾 SAVE HANDLER (Core Logic)
-  // ============================================
   async function onSave() {
     submitted.value = true;
     errors.value = {};
 
-    // 1. Handle Address Construction
+    // Reconstruct Address
     const countryName = splitCountry.value || '';
-
     address.value = [splitStreet.value, splitCity.value, splitPostalCode.value, countryName]
       .filter((p) => p && p.trim() !== '')
       .join(', ');
 
-    // 2. Frontend Validation
+    // Validate split parts manually
+    const addressErrors: Record<string, string> = {};
+    if (!splitStreet.value?.trim()) addressErrors.street = 'Street is required';
+    if (!splitCity.value?.trim()) addressErrors.city = 'City is required';
+    if (!splitPostalCode.value?.trim()) addressErrors.zip = 'Zip Code is required';
+    if (!splitCountry.value) addressErrors.country = 'Country is required';
+
     const validation = validate();
-    if (!validation.isValid) {
-      errors.value = validation.errors;
+    if (!validation.isValid || Object.keys(addressErrors).length > 0) {
+      errors.value = { ...validation.errors, ...addressErrors };
       toast.error('Please fix the highlighted errors.');
       return;
     }
 
     saving.value = true;
-
     try {
-      const rawPayload = getFormData();
+      const payload = getFormData();
 
-      // 🛠️ FIX: Inject missing required DTO properties with defaults
-      const payload = {
-        ...rawPayload,
-        settings: {
-          ...rawPayload.settings,
-          dateFormat: 'YYYY-MM-DD',
-          locale: 'en-US',
-          enablePatientPortal: false,
-        },
-      };
-
-      // 3. Execute Mutation
       if (isEditMode.value && props.clinic?.id) {
-        await updateClinicMutation.mutateAsync({
-          id: props.clinic.id,
-          data: payload,
-        });
+        await updateClinicMutation.mutateAsync({ id: props.clinic.id, data: payload });
         toast.success('Clinic updated successfully');
       } else {
         await createClinicMutation.mutateAsync(payload);
         toast.success('Clinic created successfully');
       }
-
       emit('saved');
       onClose();
     } catch (err: any) {
       const serverErrors = getFieldErrors(err);
-
-      if (Object.keys(serverErrors).length > 0) {
-        errors.value = serverErrors;
-      } else {
-        handleErrorAndNotify(err);
-      }
+      if (Object.keys(serverErrors).length > 0) errors.value = serverErrors;
+      else handleErrorAndNotify(err);
     } finally {
       saving.value = false;
     }
   }
 
   function onClose() {
-    if (!saving.value) isVisible.value = false;
+    if (!saving.value) emit('update:visible', false);
   }
 
-  // ============================================
-  // 👁️ WATCHERS (Init Form)
-  // ============================================
   watch(
     () => props.visible,
     (val) => {
@@ -383,13 +484,11 @@
         submitted.value = false;
         initForm(props.clinic);
 
-        // Parse Address String into fields
+        // Parse Address
         if (props.clinic?.address) {
           const parts = props.clinic.address.split(',').map((p) => p.trim());
-
-          // Simple right-to-left parsing assumption
-          if (parts.length >= 1) splitPostalCode.value = parts.pop() || '';
           if (parts.length >= 1) splitCountry.value = parts.pop() || '';
+          if (parts.length >= 1) splitPostalCode.value = parts.pop() || '';
           if (parts.length >= 1) splitCity.value = parts.pop() || '';
           if (parts.length >= 1) splitStreet.value = parts.join(', ');
         } else {
@@ -405,16 +504,3 @@
     },
   );
 </script>
-
-<style scoped>
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--p-surface-300);
-    border-radius: 10px;
-  }
-</style>
