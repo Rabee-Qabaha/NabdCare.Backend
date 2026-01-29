@@ -131,6 +131,11 @@
       icon: 'pi pi-desktop',
       command: () => router.push({ name: 'clinic-subscription', params: { id: props.id } }),
     },
+    {
+      label: 'Branches',
+      icon: 'pi pi-building',
+      command: () => router.push({ name: 'clinic-branches', params: { id: props.id } }),
+    },
   ]);
 
   const activeTabIndex = ref(0);
@@ -141,6 +146,8 @@
     (newRouteName) => {
       if (newRouteName === 'clinic-subscription') {
         activeTabIndex.value = 1;
+      } else if (newRouteName === 'clinic-branches') {
+        activeTabIndex.value = 2;
       } else {
         activeTabIndex.value = 0;
       }

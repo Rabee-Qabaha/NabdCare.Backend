@@ -86,13 +86,21 @@ export const superadminRoutes: RouteRecordRaw[] = [
           {
             path: 'subscription',
             name: 'clinic-subscription',
-            // Placeholder: Create this file next or it will fail to load
             component: () => import('@/views/admin/clinics/dashboard/tabs/ClinicSubscription.vue'),
             meta: {
               title: 'Clinic Subscription',
             },
           },
-          // Future Tabs: Users, Branches...
+          // 3. Branches Tab
+          {
+            path: 'branches',
+            name: 'clinic-branches',
+            component: () => import('@/views/admin/clinics/dashboard/tabs/ClinicBranches.vue'),
+            meta: {
+              title: 'Clinic Branches',
+            },
+          },
+          // Future Tabs: Users...
         ],
       },
     ],

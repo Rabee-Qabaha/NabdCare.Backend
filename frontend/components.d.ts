@@ -22,6 +22,7 @@ declare module 'vue' {
     BaseCard: typeof import('./src/components/shared/BaseCard.vue')['default']
     BaseDrawer: typeof import('./src/components/shared/BaseDrawer.vue')['default']
     BillingCycleCard: typeof import('./src/components/Subscription/profile/Subscription/BillingCycleCard.vue')['default']
+    BranchCard: typeof import('./src/components/Subscription/profile/Branch/BranchCard.vue')['default']
     BranchesCard: typeof import('./src/components/Subscription/profile/Subscription/BranchesCard.vue')['default']
     BranchFormSidebar: typeof import('./src/components/Branches/BranchFormSidebar.vue')['default']
     BranchManagerDialog: typeof import('./src/components/Branches/BranchManagerDialog.vue')['default']
