@@ -1,6 +1,6 @@
 <template>
   <div
-    class="card bg-surface-0 dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800"
+    class="card bg-surface-0 dark:bg-surface-900 p-6 rounded-lg border border-surface-200 dark:border-surface-800"
   >
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <div class="flex items-center gap-3">
@@ -63,7 +63,7 @@
 
     <div
       v-else
-      class="text-center p-12 bg-surface-50 dark:bg-surface-800/50 rounded-2xl border border-dashed border-surface-200 dark:border-surface-700"
+      class="text-center p-12 bg-surface-50 dark:bg-surface-800/50 rounded-lg border border-dashed border-surface-200 dark:border-surface-700"
     >
       <div class="flex flex-col items-center gap-3">
         <div
@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
   import BranchFormSidebar from '@/components/Branches/BranchFormSidebar.vue';
-  import BranchCard from '@/components/Subscription/profile/Branch/BranchCard.vue';
+  import BranchCard from '@/components/Clinic/profile/Branch/BranchCard.vue';
   import { useBranchActions } from '@/composables/query/branches/useBranchActions';
   import { useClinicBranches } from '@/composables/query/branches/useBranches';
   import { useToastService } from '@/composables/useToastService';

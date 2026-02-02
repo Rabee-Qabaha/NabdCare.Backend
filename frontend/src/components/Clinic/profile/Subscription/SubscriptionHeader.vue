@@ -1,7 +1,7 @@
 <script setup lang="ts">
-  import SubscriptionAddonDrawer from '@/components/Subscription/profile/Subscription/SubscriptionAddonDrawer.vue';
-  import SubscriptionCancelDrawer from '@/components/Subscription/profile/Subscription/SubscriptionCancelDrawer.vue';
-  import SubscriptionRenewDrawer from '@/components/Subscription/profile/Subscription/SubscriptionRenewDrawer.vue';
+  import SubscriptionAddonDrawer from '@/components/Clinic/profile/Subscription/SubscriptionAddonDrawer.vue';
+  import SubscriptionCancelDrawer from '@/components/Clinic/profile/Subscription/SubscriptionCancelDrawer.vue';
+  import SubscriptionRenewDrawer from '@/components/Clinic/profile/Subscription/SubscriptionRenewDrawer.vue';
   import BaseCard from '@/components/shared/BaseCard.vue';
   import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
   import type { PlanDefinition, SubscriptionResponseDto } from '@/types/backend';

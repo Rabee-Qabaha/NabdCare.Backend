@@ -7,11 +7,11 @@
   } from '@/composables/query/subscriptions/useSubscriptions';
 
   // Custom Components
-  import BillingCycleCard from '@/components/Subscription/profile/Subscription/BillingCycleCard.vue';
-  import BranchesCard from '@/components/Subscription/profile/Subscription/BranchesCard.vue';
-  import SubscriptionBreakdown from '@/components/Subscription/profile/Subscription/SubscriptionBreakdown.vue';
-  import SubscriptionHeader from '@/components/Subscription/profile/Subscription/SubscriptionHeader.vue';
-  import UsersCard from '@/components/Subscription/profile/Subscription/UsersCard.vue';
+  import BillingCycleCard from '@/components/Clinic/profile/Subscription/BillingCycleCard.vue';
+  import BranchesCard from '@/components/Clinic/profile/Subscription/BranchesCard.vue';
+  import SubscriptionBreakdown from '@/components/Clinic/profile/Subscription/SubscriptionBreakdown.vue';
+  import SubscriptionHeader from '@/components/Clinic/profile/Subscription/SubscriptionHeader.vue';
+  import UsersCard from '@/components/Clinic/profile/Subscription/UsersCard.vue';
   import InvoiceHistory from '@/components/Subscription/InvoiceHistory.vue';
   import Button from 'primevue/button';
   import Skeleton from 'primevue/skeleton';

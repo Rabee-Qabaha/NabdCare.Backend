@@ -38,12 +38,10 @@
 </template>
 
 <script setup lang="ts">
-  import AdministratorProfileCard from '@/components/Subscription/profile/Overview/AdministratorProfileCard.vue';
-  import BusinessIdentityCard from '@/components/Subscription/profile/Overview/BusinessIdentityCard.vue';
-  import KpiStatsGrid from '@/components/Subscription/profile/Overview/KpiStatsGrid.vue';
-  import OverdueInvoiceAlert from '@/components/Subscription/profile/Overview/OverdueInvoiceAlert.vue';
-  import ResourceUtilizationCard from '@/components/Subscription/profile/Overview/ResourceUtilizationCard.vue';
-  import SubscriptionHealthCard from '@/components/Subscription/profile/Overview/SubscriptionHealthCard.vue';
+  import AdministratorProfileCard from '@/components/Clinic/profile/Overview/AdministratorProfileCard.vue';
+  import OverdueInvoiceAlert from '@/components/Clinic/profile/Overview/OverdueInvoiceAlert.vue';
+  import ResourceUtilizationCard from '@/components/Clinic/profile/Overview/ResourceUtilizationCard.vue';
+  import SubscriptionHealthCard from '@/components/Clinic/profile/Overview/SubscriptionHealthCard.vue';
   import type { ClinicDashboardStatsDto } from '@/types/backend';
 
   // Define properties with potential growth rates added

@@ -1,6 +1,8 @@
 <template>
-  <div
-    class="relative flex flex-col md:flex-row items-start md:items-center p-6 bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-2xl hover:shadow-lg transition-all duration-300 group"
+  <BaseCard
+    no-padding
+    class="relative !flex-col md:!flex-row md:!items-center p-6 group"
+    :class="{ 'opacity-70 grayscale !bg-surface-50 dark:!bg-surface-900/50': !branch.isActive }"
   >
     <!-- Left: Icon & Main Info -->
     <div class="flex items-start gap-5 flex-1 w-full">
@@ -107,10 +109,11 @@
         />
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
+  import BaseCard from '@/components/shared/BaseCard.vue'; // Correct path for BaseCard
   import type { BranchResponseDto } from '@/types/backend';
   import Button from 'primevue/button';
   import Tag from 'primevue/tag';
