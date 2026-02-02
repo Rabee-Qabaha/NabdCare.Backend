@@ -10,7 +10,7 @@ import { ClinicalEncounter } from "./clinical-encounter";
 import { InvoiceStatus } from "./invoice-status";
 import { InvoiceType } from "./invoice-type";
 import { InvoiceItem } from "./invoice-item";
-import { Payment } from "./payment";
+import { PaymentAllocation } from "./payment-allocation";
 
 export class Invoice {
   invoiceNumber: string = "";
@@ -28,7 +28,7 @@ export class Invoice {
   billedToTaxNumber: string;
   pdfUrl: string;
   hostedPaymentUrl: string;
-  issueDate: Date = new Date("2026-01-25T21:15:25.1109100Z");
+  issueDate: Date = new Date("2026-02-02T21:24:33.3101720Z");
   dueDate: Date;
   paidDate: Date;
   paymentAttemptCount: number;
@@ -43,5 +43,5 @@ export class Invoice {
   paidAmount: number;
   balanceDue: number;
   items: InvoiceItem[] = [];
-  payments: Payment[] = [];
+  paymentAllocations: PaymentAllocation[] = [];
 }

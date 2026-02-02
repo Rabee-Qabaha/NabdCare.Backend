@@ -11,4 +11,5 @@ export enum InvoiceStatus {
   Overdue = "Overdue",
   Void = "Void",
   Uncollectible = "Uncollectible",
+  Sent = "Sent",
 }

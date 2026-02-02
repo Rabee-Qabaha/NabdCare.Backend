@@ -6,6 +6,7 @@
 import { InvoiceStatus } from "./invoice-status";
 import { InvoiceType } from "./invoice-type";
 import { InvoiceItemDto } from "./invoice-item-dto";
+import { PaymentAllocationDto } from "./payment-allocation-dto";
 
 export class InvoiceDto {
   id: string;
@@ -29,4 +30,5 @@ export class InvoiceDto {
   paidAmount: number;
   balanceDue: number;
   items: InvoiceItemDto[] = [];
+  payments: PaymentAllocationDto[] = [];
 }

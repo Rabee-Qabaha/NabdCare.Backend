@@ -44,4 +44,11 @@ export class ErrorCodes {
   static readonly sUBSCRIPTION_EXPIRED: string = "SUBSCRIPTION_EXPIRED";
   static readonly fEATURE_NOT_ENABLED: string = "FEATURE_NOT_ENABLED";
   static readonly aCCOUNT_SUSPENDED: string = "ACCOUNT_SUSPENDED";
+  static readonly iNSUFFICIENT_FUNDS: string = "INSUFFICIENT_FUNDS";
+  static readonly oVERPAYMENT: string = "OVERPAYMENT";
+  static readonly pAYMENT_FAILED: string = "PAYMENT_FAILED";
+  static readonly iNVOICE_ALREADY_PAID: string = "INVOICE_ALREADY_PAID";
+  static readonly iNVOICE_VOIDED: string = "INVOICE_VOIDED";
+  static readonly cHEQUE_BOUNCED: string = "CHEQUE_BOUNCED";
+  static readonly iNVALID_REFUND_AMOUNT: string = "INVALID_REFUND_AMOUNT";
 }

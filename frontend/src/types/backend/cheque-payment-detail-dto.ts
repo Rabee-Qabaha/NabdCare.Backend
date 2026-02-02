@@ -3,12 +3,9 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
-import { Payment } from "./payment";
 import { ChequeStatus } from "./cheque-status";
 
-export class ChequePaymentDetail {
-  paymentId: string;
-  payment: Payment;
+export class ChequePaymentDetailDto {
   chequeNumber: string = "";
   bankName: string = "";
   branch: string = "";
@@ -17,5 +14,5 @@ export class ChequePaymentDetail {
   amount: number;
   status: ChequeStatus;
   clearedDate: Date;
-  imageUrl: string = "";
+  imageUrl: string;
 }

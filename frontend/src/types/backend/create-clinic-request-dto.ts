@@ -10,7 +10,7 @@ export class CreateClinicRequestDto {
   slug: string = "";
   email: string = "";
   phone: string;
-  address: string;
+  address: string = "";
   logoUrl: string;
   website: string;
   taxNumber: string;

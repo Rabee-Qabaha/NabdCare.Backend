@@ -4,27 +4,23 @@
  */
 
 import { PaymentContext } from "./payment-context";
-import { Clinic } from "./clinic";
-import { Patient } from "./patient";
 import { PaymentMethod } from "./payment-method";
 import { PaymentStatus } from "./payment-status";
-import { ChequePaymentDetail } from "./cheque-payment-detail";
-import { PaymentAllocation } from "./payment-allocation";
+import { ChequePaymentDetailDto } from "./cheque-payment-detail-dto";
+import { PaymentAllocationDto } from "./payment-allocation-dto";
 
-export class Payment {
+export class PaymentDto {
+  id: string;
   context: PaymentContext;
   clinicId: string;
-  clinic: Clinic;
   patientId: string;
-  patient: Patient;
   amount: number;
-  refundedAmount: number;
-  paymentDate: Date = new Date("2026-02-02T21:24:33.3068570Z");
+  unallocatedAmount: number;
+  paymentDate: Date;
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId: string;
   notes: string;
-  chequeDetail: ChequePaymentDetail;
-  allocations: PaymentAllocation[] = [];
-  unallocatedAmount: number;
+  chequeDetail: ChequePaymentDetailDto;
+  allocations: PaymentAllocationDto[] = [];
 }
