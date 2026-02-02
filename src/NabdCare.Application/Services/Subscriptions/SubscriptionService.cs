@@ -9,6 +9,7 @@ using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Application.Interfaces.Invoices;
 using NabdCare.Application.Interfaces.Subscriptions;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Constants;
 using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Enums;
@@ -25,6 +26,7 @@ public class SubscriptionService : ISubscriptionService
     private readonly ITenantContext _tenantContext;
     private readonly IMapper _mapper;
     private readonly ILogger<SubscriptionService> _logger;
+    private readonly IAccessPolicy<Subscription> _policy; // ✅ New
 
     public SubscriptionService(
         ISubscriptionRepository repository,
@@ -33,7 +35,8 @@ public class SubscriptionService : ISubscriptionService
         IUserContext userContext,
         ITenantContext tenantContext,
         IMapper mapper,
-        ILogger<SubscriptionService> logger)
+        ILogger<SubscriptionService> logger,
+        IAccessPolicy<Subscription> policy) // ✅ New
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _clinicRepository = clinicRepository ?? throw new ArgumentNullException(nameof(clinicRepository));
@@ -42,6 +45,7 @@ public class SubscriptionService : ISubscriptionService
         _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _policy = policy ?? throw new ArgumentNullException(nameof(policy));
     }
 
     // ============================================
@@ -49,11 +53,8 @@ public class SubscriptionService : ISubscriptionService
     // ============================================
     public async Task<SubscriptionResponseDto> CreateSubscriptionAsync(CreateSubscriptionRequestDto dto)
     {
-        // 🔐 Security: Enforce Tenant Scope
         if (!_tenantContext.IsSuperAdmin)
         {
-            // If not SuperAdmin, can only create for own clinic (Self-Service)
-            // Note: Endpoints usually force this, but we enforce it here too.
             if (dto.ClinicId != _tenantContext.ClinicId)
             {
                 _logger.LogWarning("User {UserId} tried to create subscription for another clinic {TargetClinic}", _userContext.GetCurrentUserId(), dto.ClinicId);
@@ -61,7 +62,6 @@ public class SubscriptionService : ISubscriptionService
             }
         }
 
-        // 1. Validation & Setup
         var clinic = await _clinicRepository.GetEntityByIdAsync(dto.ClinicId);
         if (clinic == null) 
             throw new DomainException($"Clinic {dto.ClinicId} not found.", ErrorCodes.CLINIC_NOT_FOUND);
@@ -70,14 +70,12 @@ public class SubscriptionService : ISubscriptionService
         if (plan == null) 
             throw new DomainException($"Invalid Plan ID: {dto.PlanId}", ErrorCodes.INVALID_ARGUMENT, "PlanId");
 
-        // 2. Logic Calculation
         decimal totalFee = plan.BaseFee
                            + (dto.ExtraBranches * plan.BranchPrice)
                            + (dto.ExtraUsers * plan.UserPrice);
 
         var startDate = dto.CustomStartDate ?? DateTime.UtcNow;
 
-        // 3. Prepare Entities (In Memory)
         var sub = new Subscription
         {
             Id = Guid.NewGuid(),
@@ -91,7 +89,6 @@ public class SubscriptionService : ISubscriptionService
             Fee = totalFee,
             Status = plan.Id == "TRIAL" ? SubscriptionStatus.Trial : SubscriptionStatus.Active,
 
-            // Snapshots & Limits
             IncludedBranchesSnapshot = plan.IncludedBranches,
             PurchasedBranches = dto.ExtraBranches,
             BonusBranches = dto.BonusBranches,
@@ -105,19 +102,15 @@ public class SubscriptionService : ISubscriptionService
             CreatedBy = _userContext.GetCurrentUserId() ?? "System"
         };
 
-        // 4. Execution with Transaction
         using var transaction = await _repository.BeginTransactionAsync();
         try
         {
-            // A. Create Subscription
             await _repository.CreateAsync(sub);
 
-            // B. Update Clinic State
             clinic.Status = sub.Status;
             clinic.BranchCount = sub.MaxBranches;
             await _clinicRepository.UpdateAsync(clinic);
 
-            // C. Generate Invoice
             if (sub.Fee > 0)
             {
                 await _invoiceService.GenerateInvoiceAsync(new GenerateInvoiceRequestDto
@@ -136,7 +129,6 @@ public class SubscriptionService : ISubscriptionService
                 });
             }
 
-            // D. Commit
             await transaction.CommitAsync();
             _logger.LogInformation("Created Subscription {Id} for Clinic {ClinicId}", sub.Id, clinic.Id);
         }
@@ -158,8 +150,8 @@ public class SubscriptionService : ISubscriptionService
         var sub = await _repository.GetByIdAsync(id);
         if (sub == null) return null;
 
-        // 🔐 Security Check
-        if (!CanAccessSubscription(sub))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", sub))
             throw new UnauthorizedAccessException("You do not have permission to modify this subscription.");
 
         var plan = SubscriptionPlans.GetById(sub.PlanId);
@@ -171,7 +163,6 @@ public class SubscriptionService : ISubscriptionService
         using var transaction = await _repository.BeginTransactionAsync();
         try
         {
-            // 1. Proration Logic (Revenue Capture)
             if (sub.Status == SubscriptionStatus.Active && sub.EndDate > now)
             {
                 var items = new List<GenerateInvoiceItemDto>();
@@ -208,7 +199,6 @@ public class SubscriptionService : ISubscriptionService
                 }
             }
 
-            // 2. Apply Updates
             sub.PurchasedBranches = dto.ExtraBranches;
             sub.PurchasedUsers = dto.ExtraUsers;
             sub.BonusBranches = dto.BonusBranches;
@@ -226,7 +216,6 @@ public class SubscriptionService : ISubscriptionService
 
             await _repository.UpdateAsync(sub);
 
-            // 3. Sync Clinic Entity
             if (sub.Status == SubscriptionStatus.Active)
             {
                 var clinic = await _clinicRepository.GetEntityByIdAsync(sub.ClinicId);
@@ -259,8 +248,8 @@ public class SubscriptionService : ISubscriptionService
         if (oldSub == null) 
             throw new DomainException("Original subscription not found.", ErrorCodes.NOT_FOUND);
         
-        // 🔐 Security Check
-        if (!CanAccessSubscription(oldSub))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", oldSub))
             throw new UnauthorizedAccessException("You do not have permission to renew this subscription.");
 
         if (await _repository.HasFutureSubscriptionAsync(oldSub.ClinicId, oldSub.EndDate))
@@ -271,13 +260,12 @@ public class SubscriptionService : ISubscriptionService
         using var transaction = await _repository.BeginTransactionAsync();
         try 
         {
-            // Transaction handled here now
             var newSub = await ExecuteRenewalAsync(oldSub, type, startDate, false);
 
             if (oldSub.Status != SubscriptionStatus.Expired)
             {
                 oldSub.Status = SubscriptionStatus.Expired;
-                await _repository.UpdateStatusAsync(oldSub); // Now atomic with renewal creation
+                await _repository.UpdateStatusAsync(oldSub); 
             }
 
             await transaction.CommitAsync();
@@ -293,7 +281,6 @@ public class SubscriptionService : ISubscriptionService
     // ============================================
     // 4. LIFECYCLE / JOBS (Per-Item Transactions)
     // ============================================
-    // NOTE: Background jobs (System) generally bypass strict Tenant Checks since they run as System.
     
     public async Task<int> ProcessAutoRenewalsAsync(DateTime nowUtc)
     {
@@ -306,10 +293,8 @@ public class SubscriptionService : ISubscriptionService
             using var transaction = await _repository.BeginTransactionAsync();
             try
             {
-                // 1. Create Renewal
                 await ExecuteRenewalAsync(old, old.Type, old.EndDate, true);
                 
-                // 2. Expire Old (Now Atomic)
                 old.Status = SubscriptionStatus.Expired;
                 await _repository.UpdateStatusAsync(old);
                 
@@ -320,7 +305,6 @@ public class SubscriptionService : ISubscriptionService
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Auto-renew failed for {Id}", old.Id);
-                // Continue to next candidate
             }
         }
         return count;
@@ -372,7 +356,6 @@ public class SubscriptionService : ISubscriptionService
                 sub.Status = SubscriptionStatus.Expired;
                 await _repository.UpdateStatusAsync(sub);
 
-                // If no future subscription takes over, expire the clinic too
                 if (!hasFuture)
                 {
                     var clinic = await _clinicRepository.GetEntityByIdAsync(sub.ClinicId);
@@ -404,11 +387,9 @@ public class SubscriptionService : ISubscriptionService
             using var transaction = await _repository.BeginTransactionAsync();
             try
             {
-                // 1. Activate New
                 sub.Status = SubscriptionStatus.Active;
                 await _repository.UpdateStatusAsync(sub);
 
-                // 2. Expire Old
                 if (sub.PreviousSubscriptionId.HasValue)
                 {
                     var prev = await _repository.GetByIdAsync(sub.PreviousSubscriptionId.Value);
@@ -419,7 +400,6 @@ public class SubscriptionService : ISubscriptionService
                     }
                 }
 
-                // 3. Sync Clinic
                 var clinic = await _clinicRepository.GetEntityByIdAsync(sub.ClinicId);
                 if (clinic != null)
                 {
@@ -448,8 +428,8 @@ public class SubscriptionService : ISubscriptionService
         var sub = await _repository.GetByIdAsync(id);
         if (sub == null) return false;
 
-        // 🔐 Security Check
-        if (!CanAccessSubscription(sub))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "delete", sub))
             throw new UnauthorizedAccessException("You do not have permission to cancel this subscription.");
 
         sub.CancelAtPeriodEnd = true;
@@ -480,8 +460,8 @@ public class SubscriptionService : ISubscriptionService
         var sub = await _repository.GetByIdAsync(id);
         if (sub == null) return null;
 
-        // 🔐 Security Check
-        if (!CanAccessSubscription(sub))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", sub))
             throw new UnauthorizedAccessException("Permission denied.");
 
         sub.AutoRenew = enable;
@@ -505,8 +485,8 @@ public class SubscriptionService : ISubscriptionService
         var sub = await _repository.GetByIdAsync(id, includePayments, true);
         if (sub == null) return null;
 
-        // 🔐 Security Check
-        if (!CanAccessSubscription(sub))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "read", sub))
             throw new UnauthorizedAccessException("You do not have permission to view this subscription.");
 
         var dto = _mapper.Map<SubscriptionResponseDto>(sub);
@@ -520,7 +500,6 @@ public class SubscriptionService : ISubscriptionService
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
             throw new UnauthorizedAccessException("Access denied.");
 
-        // Repository now includes Invoices (after the fix in Step 1)
         var sub = await _repository.GetActiveByClinicIdAsync(clinicId);
         if (sub == null) return null; 
 
@@ -533,7 +512,6 @@ public class SubscriptionService : ISubscriptionService
 
     public async Task<PaginatedResult<SubscriptionResponseDto>> GetByClinicIdPagedAsync(Guid clinicId, PaginationRequestDto p, bool i, Func<IQueryable<Subscription>, IQueryable<Subscription>>? f)
     {
-        // 🔐 Security Check
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
             throw new UnauthorizedAccessException("Access denied.");
 
@@ -548,7 +526,6 @@ public class SubscriptionService : ISubscriptionService
         return MapPaged(await _repository.GetAllPagedAsync(p, i, f));
     }
 
-    // Note: GetPagedAsync (generic) should probably be protected or removed if not used by SuperAdmin only logic
     public async Task<PaginatedResult<SubscriptionResponseDto>> GetPagedAsync(PaginationRequestDto p, bool i, Func<IQueryable<Subscription>, IQueryable<Subscription>>? f)
     {
         if (!_tenantContext.IsSuperAdmin)
@@ -572,12 +549,6 @@ public class SubscriptionService : ISubscriptionService
     // 7. PRIVATE HELPERS (Transactional & Security)
     // ============================================
     
-    private bool CanAccessSubscription(Subscription sub)
-    {
-        if (_tenantContext.IsSuperAdmin) return true;
-        return sub.ClinicId == _tenantContext.ClinicId;
-    }
-
     private async Task<Subscription> ExecuteRenewalAsync(Subscription old, SubscriptionType type, DateTime start, bool isAuto)
     {
         var plan = SubscriptionPlans.GetById(old.PlanId) 
@@ -610,14 +581,10 @@ public class SubscriptionService : ISubscriptionService
             CreatedBy = isAuto ? "System" : _userContext.GetCurrentUserId() ?? "System"
         };
 
-        // REMOVED INTERNAL TRANSACTION to better support Atomicity in callers
-        // using var transaction = await _repository.BeginTransactionAsync();
         try
         {
-            // 1. Create Subscription
             await _repository.CreateAsync(sub);
 
-            // 2. Generate Invoice
             await _invoiceService.GenerateInvoiceAsync(new GenerateInvoiceRequestDto
             {
                 ClinicId = sub.ClinicId,
@@ -633,13 +600,10 @@ public class SubscriptionService : ISubscriptionService
                 }.Where(i => i.Quantity > 0 || i.Type == InvoiceItemType.BasePlan).ToList()
             });
 
-            // 3. Commit - MOVED TO CALLER
-            // await transaction.CommitAsync();
             _logger.LogInformation("Renewed Subscription {OldId} -> {NewId}", old.Id, sub.Id);
         }
         catch (Exception ex)
         {
-            // await transaction.RollbackAsync(); // MOVED TO CALLER
             _logger.LogError(ex, "Renewal failed for {OldId}", old.Id);
             throw new DomainException("Subscription renewal failed.", ErrorCodes.OPERATION_FAILED);
         }
@@ -651,9 +615,8 @@ public class SubscriptionService : ISubscriptionService
     {
         if (sub.Invoices != null && sub.Invoices.Any())
         {
-            // Find the most recent invoice based on IssueDate or CreatedAt
             var latest = sub.Invoices
-                .OrderByDescending(x => x.IssueDate) // Or x.CreatedAt
+                .OrderByDescending(x => x.IssueDate)
                 .FirstOrDefault();
 
             if (latest != null)

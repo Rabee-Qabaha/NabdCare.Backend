@@ -11,7 +11,10 @@ public class BranchPolicy : IAccessPolicy<Branch>
         // 1. SuperAdmin can do anything
         if (user.IsSuperAdmin) return Task.FromResult(true);
 
-        // 2. Clinic Admin can only access branches BELONGING to their clinic
+        // 2. Allow list access (filtering happens in Repo)
+        if (branch == null) return Task.FromResult(true);
+
+        // 3. Clinic Admin can only access branches BELONGING to their clinic
         if (user.ClinicId.HasValue && branch.ClinicId == user.ClinicId.Value)
         {
             return Task.FromResult(true);

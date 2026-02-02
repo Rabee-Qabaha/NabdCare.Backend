@@ -21,21 +21,30 @@ public class SubscriptionPolicy : IAccessPolicy<Subscription>
             return Task.FromResult(false);
 
         // 4. Action-specific rules for Clinic Admins
-        switch (action)
+        // Standardizing action names: "read", "write", "delete"
+        switch (action.ToLower())
         {
+            case "read":
             case "view":
-            case "viewActive":
             case "list":
                 return Task.FromResult(true); // Can see own
 
-            case "edit": // Clinic Admins usually can't edit plan details, only SuperAdmin
-                return Task.FromResult(false); 
+            case "write": 
+            case "edit":
+            case "update":
+            case "renew":
+                // Clinic Admins can usually RENEW or UPGRADE (Write), but maybe not change core details.
+                // For now, we allow it if they own it, relying on Service validation for specific fields.
+                return Task.FromResult(true); 
 
-            case "create": // Only SuperAdmin creates subs manually
-                return Task.FromResult(false);
-
-            case "cancel": // Clinic Admin might be allowed to cancel
+            case "create": 
+                // Only SuperAdmin creates subs manually via API, but Clinic Admin might trigger "Purchase"
+                // which creates a sub. If the service calls this policy for a NEW sub, resource.ClinicId matches.
                 return Task.FromResult(true);
+
+            case "delete":
+            case "cancel": 
+                return Task.FromResult(true); // Can cancel own
 
             default:
                 return Task.FromResult(false);

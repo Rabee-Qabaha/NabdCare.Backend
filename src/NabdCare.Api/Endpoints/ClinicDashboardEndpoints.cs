@@ -17,7 +17,7 @@ public static class ClinicDashboardEndpoints
                 var stats = await service.GetStatsAsync(id);
                 return Results.Ok(stats);
             })
-            .RequirePermission(Permissions.Clinics.View)
+            .RequirePermission(Permissions.Reports.ViewDashboard)
             .WithName("GetClinicDashboardStats")
             .WithOpenApi(operation => new(operation)
             {

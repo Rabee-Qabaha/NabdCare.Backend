@@ -22,6 +22,7 @@ public class ClinicService : IClinicService
     private readonly IMapper _mapper;
     private readonly ILogger<ClinicService> _logger;
     private readonly IPermissionEvaluator _permissionEvaluator;
+    private readonly IAccessPolicy<Clinic> _policy;
 
     public ClinicService(
         IClinicRepository clinicRepository,
@@ -29,7 +30,8 @@ public class ClinicService : IClinicService
         IUserContext userContext,
         IMapper mapper,
         ILogger<ClinicService> logger,
-        IPermissionEvaluator permissionEvaluator)
+        IPermissionEvaluator permissionEvaluator,
+        IAccessPolicy<Clinic> policy)
     {
         _clinicRepository = clinicRepository ?? throw new ArgumentNullException(nameof(clinicRepository));
         _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
@@ -37,6 +39,7 @@ public class ClinicService : IClinicService
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
+        _policy = policy ?? throw new ArgumentNullException(nameof(policy));
     }
 
     // ============================================
@@ -50,24 +53,10 @@ public class ClinicService : IClinicService
         var clinic = await _clinicRepository.GetByIdAsync(id);
         if (clinic == null) return null;
 
-        // 1. SuperAdmin Bypass
-        if (_tenantContext.IsSuperAdmin)
-        {
-            return _mapper.Map<ClinicResponseDto>(clinic);
-        }
-
-        // 2. Tenant Context Check (Must belong to this clinic)
-        if (_tenantContext.ClinicId != id)
+        if (!await _policy.EvaluateAsync(_tenantContext, "read", clinic))
         {
             _logger.LogWarning("User {UserId} attempted to view clinic {ClinicId} without permission.", _userContext.GetCurrentUserId(), id);
-            return null;
-        }
-
-        // 3. Role Permission Check (Must have Clinic.View)
-        if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Clinic.View))
-        {
-             _logger.LogWarning("User {UserId} belongs to clinic {ClinicId} but lacks Clinic.View permission.", _userContext.GetCurrentUserId(), id);
-             return null;
+            return null; 
         }
 
         return _mapper.Map<ClinicResponseDto>(clinic);
@@ -77,11 +66,9 @@ public class ClinicService : IClinicService
     {
         if (filters == null) throw new ArgumentNullException(nameof(filters));
         
-        // Security: Only SuperAdmins can view global lists
         if (!_tenantContext.IsSuperAdmin)
              throw new UnauthorizedAccessException("Only SuperAdmin can view the global clinic list.");
 
-        // Force 'Deleted' filter off if not admin (double safety)
         if (!_tenantContext.IsSuperAdmin) filters.IncludeDeleted = false;
 
         var abacFilter = new Func<IQueryable<Clinic>, IQueryable<Clinic>>(query =>
@@ -158,7 +145,6 @@ public class ClinicService : IClinicService
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
         
-        // Stats are usually an Admin feature
         if (!_tenantContext.IsSuperAdmin) throw new UnauthorizedAccessException("Access denied.");
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
@@ -219,7 +205,6 @@ public class ClinicService : IClinicService
         clinic.Status = SubscriptionStatus.Inactive; 
         clinic.BranchCount = 1; 
 
-        // Auto-create Main Branch
         var mainBranch = new Branch
         {
             Id = Guid.NewGuid(),
@@ -252,19 +237,9 @@ public class ClinicService : IClinicService
         var clinic = await _clinicRepository.GetByIdAsync(id);
         if (clinic == null) return null; 
 
-        // 🛡️ SECURITY
-        if (!_tenantContext.IsSuperAdmin)
-        {
-            // 1. Ownership
-            if (_tenantContext.ClinicId != id)
-                throw new UnauthorizedAccessException("You can only update your own clinic.");
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", clinic))
+             throw new UnauthorizedAccessException("You lack permissions to edit this clinic.");
 
-            // 2. Permission
-            if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Clinic.Edit))
-                 throw new UnauthorizedAccessException("You lack permissions to edit clinic details.");
-        }
-
-        // 🔍 UNIQUENESS CHECKS (Excluding self)
         if (await _clinicRepository.ExistsByNameAsync(dto.Name, id))
             throw new DomainException($"Name '{dto.Name}' is already taken.", ErrorCodes.DUPLICATE_NAME, "name");
         
@@ -278,7 +253,6 @@ public class ClinicService : IClinicService
         clinic.UpdatedAt = DateTime.UtcNow;
         clinic.UpdatedBy = _userContext.GetCurrentUserId();
 
-        // Sync Main Branch details
         if (clinic.Branches.Any())
         {
             var mainBranch = clinic.Branches.FirstOrDefault(b => b.IsMain);
@@ -308,7 +282,6 @@ public class ClinicService : IClinicService
         clinic.UpdatedAt = DateTime.UtcNow;
         clinic.UpdatedBy = _userContext.GetCurrentUserId();
 
-        // Sync active subscription status if applicable
         var sub = GetCurrentOrLatestSubscription(clinic);
         if (sub != null)
         {
@@ -367,10 +340,8 @@ public class ClinicService : IClinicService
         var now = DateTime.UtcNow;
         var activeSubscriptions = clinic.Subscriptions.Where(s => !s.IsDeleted).ToList();
         
-        // Try getting currently active
         var current = activeSubscriptions.FirstOrDefault(s => s.StartDate <= now && s.EndDate >= now);
         
-        // Fallback to latest created
         return current ?? activeSubscriptions.OrderByDescending(s => s.StartDate).FirstOrDefault();
     }
 }

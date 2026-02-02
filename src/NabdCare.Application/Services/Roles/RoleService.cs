@@ -19,6 +19,7 @@ public class RoleService : IRoleService
     private readonly IMapper _mapper;
     private readonly ILogger<RoleService> _logger;
     private readonly IPermissionEvaluator _permissionEvaluator;
+    private readonly IAccessPolicy<Role> _policy; // ✅ New
 
     public RoleService(
         IRoleRepository roleRepository,
@@ -26,7 +27,8 @@ public class RoleService : IRoleService
         IUserContext userContext,
         IMapper mapper,
         ILogger<RoleService> logger,
-        IPermissionEvaluator permissionEvaluator)
+        IPermissionEvaluator permissionEvaluator,
+        IAccessPolicy<Role> policy) // ✅ New
     {
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
         _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
@@ -34,6 +36,7 @@ public class RoleService : IRoleService
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
+        _policy = policy ?? throw new ArgumentNullException(nameof(policy));
     }
 
     // =================================================================
@@ -42,42 +45,34 @@ public class RoleService : IRoleService
 
     public async Task<IEnumerable<RoleResponseDto>> GetAllRolesAsync(RoleFilterRequestDto filter)
     {
-        // 1. Security Scope
         if (!_tenantContext.IsSuperAdmin)
         {
             filter.ClinicId = _tenantContext.ClinicId;
             
-            // 🔐 PERMISSION CHECK
             if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.ViewAll))
                 throw new UnauthorizedAccessException("You lack permissions to view roles.");
         }
 
-        // 2. ABAC Filter
         Func<IQueryable<Role>, IQueryable<Role>> abacFilter = query =>
             _permissionEvaluator.FilterRoles(query, Common.Constants.Permissions.Roles.ViewAll, _userContext);
 
-        // 3. Call Unified Repository Method
         var roles = await _roleRepository.GetAllRolesAsync(filter, abacFilter);
         return await MapRolesToDtos(roles);
     }
 
     public async Task<PaginatedResult<RoleResponseDto>> GetAllPagedAsync(RoleFilterRequestDto filter)
     {
-        // 1. Security Scope
         if (!_tenantContext.IsSuperAdmin)
         {
             filter.ClinicId = _tenantContext.ClinicId;
 
-            // 🔐 PERMISSION CHECK
             if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.ViewAll))
                 throw new UnauthorizedAccessException("You lack permissions to view roles.");
         }
 
-        // 2. ABAC Filter
         Func<IQueryable<Role>, IQueryable<Role>> abacFilter = query =>
             _permissionEvaluator.FilterRoles(query, Common.Constants.Permissions.Roles.ViewAll, _userContext);
 
-        // 3. Call Unified Repository Method
         var result = await _roleRepository.GetAllPagedAsync(filter, abacFilter);
         
         var items = await MapRolesToDtos(result.Items);
@@ -96,7 +91,6 @@ public class RoleService : IRoleService
         if (!_tenantContext.IsSuperAdmin)
             throw new UnauthorizedAccessException("Only SuperAdmin can view system roles.");
             
-        // 🔐 PERMISSION CHECK (SuperAdmin usually has all, but good to be explicit)
         if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.ViewSystem))
              throw new UnauthorizedAccessException("You lack permissions to view system roles.");
 
@@ -106,7 +100,6 @@ public class RoleService : IRoleService
 
     public async Task<IEnumerable<RoleResponseDto>> GetTemplateRolesAsync()
     {
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.ViewTemplates))
              throw new UnauthorizedAccessException("You lack permissions to view template roles.");
 
@@ -121,11 +114,10 @@ public class RoleService : IRoleService
         var role = await _roleRepository.GetRoleByIdAsync(id);
         if (role == null) return null;
 
-        // 1. Scope Check
-        if (!CanAccessRole(role))
-            throw new UnauthorizedAccessException("You don't have permission to view this role (Scope).");
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "read", role))
+            throw new UnauthorizedAccessException("You don't have permission to view this role.");
 
-        // 🔐 2. PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.View))
              throw new UnauthorizedAccessException("You lack permissions to view role details.");
 
@@ -143,10 +135,10 @@ public class RoleService : IRoleService
         var role = await _roleRepository.GetRoleByIdAsync(roleId);
         if (role == null) throw new DomainException($"Role {roleId} not found.", ErrorCodes.ROLE_NOT_FOUND);
 
-        if (!CanAccessRole(role))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "read", role))
             throw new UnauthorizedAccessException("You don't have permission to view this role's permissions.");
             
-        // 🔐 PERMISSION CHECK (Uses 'View' or specific 'ViewPermissions' if you had one)
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.View))
              throw new UnauthorizedAccessException("You lack permissions to view role permissions.");
 
@@ -162,14 +154,11 @@ public class RoleService : IRoleService
     {
         if (dto == null) throw new ArgumentNullException(nameof(dto));
         
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Create))
              throw new UnauthorizedAccessException("You lack permissions to create roles.");
         
-        // 1. Validate Permissions & Scope
         var targetClinicId = await ValidateCreateRolePermissions(dto);
 
-        // 2. Validate Uniqueness
         if (await _roleRepository.RoleNameExistsAsync(dto.Name, targetClinicId))
             throw new DomainException($"Role '{dto.Name}' already exists.", ErrorCodes.DUPLICATE_NAME, "Name");
 
@@ -195,7 +184,6 @@ public class RoleService : IRoleService
     {
         if (templateRoleId == Guid.Empty) throw new ArgumentException("Template ID required", nameof(templateRoleId));
 
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Clone))
              throw new UnauthorizedAccessException("You lack permissions to clone roles.");
 
@@ -205,10 +193,9 @@ public class RoleService : IRoleService
 
         var targetClinicId = await ValidateCloneRolePermissions(dto.ClinicId);
 
-        // Logic for System/Template flags
         bool isSystemRole = false;
         bool isTemplate = false;
-        if (targetClinicId == null) // SuperAdmin creating global role
+        if (targetClinicId == null) 
         {
             if (templateRole.IsSystemRole) isSystemRole = true;
             else isTemplate = true;
@@ -254,19 +241,18 @@ public class RoleService : IRoleService
         if (dto == null) throw new ArgumentNullException(nameof(dto));
 
         var role = await _roleRepository.GetRoleByIdAsync(id);
-        if (role == null) return null; // 404
+        if (role == null) return null; 
 
         if (role.IsSystemRole && !_tenantContext.IsSuperAdmin)
             throw new DomainException("Cannot update system roles.", ErrorCodes.INVALID_OPERATION);
 
-        if (!CanAccessRole(role))
-            throw new UnauthorizedAccessException("You don't have permission to update this role (Scope).");
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", role))
+            throw new UnauthorizedAccessException("You don't have permission to update this role.");
             
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Edit))
              throw new UnauthorizedAccessException("You lack permissions to edit roles.");
 
-        // Check Name Uniqueness if changed
         if (!string.Equals(role.Name, dto.Name, StringComparison.OrdinalIgnoreCase))
         {
              if (await _roleRepository.RoleNameExistsAsync(dto.Name, role.ClinicId))
@@ -296,10 +282,10 @@ public class RoleService : IRoleService
         if (role.IsSystemRole)
             throw new DomainException("Cannot delete system roles.", ErrorCodes.INVALID_OPERATION);
 
-        if (!CanAccessRole(role))
-            throw new UnauthorizedAccessException("Permission denied (Scope).");
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "delete", role))
+            throw new UnauthorizedAccessException("Permission denied.");
             
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Delete))
              throw new UnauthorizedAccessException("You lack permissions to delete roles.");
 
@@ -314,7 +300,6 @@ public class RoleService : IRoleService
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
         
-        // 🔐 PERMISSION CHECK (Strict)
         if (!_tenantContext.IsSuperAdmin)
         {
              if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.HardDelete))
@@ -328,7 +313,10 @@ public class RoleService : IRoleService
             throw new DomainException("Role must be soft-deleted first.", ErrorCodes.INVALID_OPERATION);
 
         if (role.IsSystemRole) throw new DomainException("Cannot delete system roles.", ErrorCodes.INVALID_OPERATION);
-        if (!CanAccessRole(role)) throw new UnauthorizedAccessException("Permission denied.");
+        
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "delete", role)) 
+            throw new UnauthorizedAccessException("Permission denied.");
 
         return await _roleRepository.HardDeleteRoleAsync(id); 
     }
@@ -343,10 +331,10 @@ public class RoleService : IRoleService
         if (!role.IsDeleted)
             throw new DomainException("Role is not deleted.", ErrorCodes.INVALID_OPERATION);
 
-        if (!CanAccessRole(role))
-            throw new UnauthorizedAccessException("Permission denied (Scope).");
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", role))
+            throw new UnauthorizedAccessException("Permission denied.");
             
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Restore))
              throw new UnauthorizedAccessException("You lack permissions to restore roles.");
 
@@ -364,14 +352,15 @@ public class RoleService : IRoleService
     {
         if (roleId == Guid.Empty || permissionId == Guid.Empty) throw new ArgumentException("Invalid IDs");
         
-        // 🔐 PERMISSION CHECK (Usually guarded by 'AppPermissions.Assign' in Endpoint, but good to check access to Role)
-        // Here we just check if they can EDIT the role essentially
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Edit))
              throw new UnauthorizedAccessException("You lack permissions to modify role permissions.");
         
         var role = await _roleRepository.GetRoleByIdAsync(roleId);
         if (role == null) throw new DomainException($"Role {roleId} not found.", ErrorCodes.ROLE_NOT_FOUND);
-        if (!CanAccessRole(role)) throw new UnauthorizedAccessException("Access denied.");
+        
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", role)) 
+            throw new UnauthorizedAccessException("Access denied.");
 
         return await _roleRepository.AssignPermissionToRoleAsync(roleId, permissionId);
     }
@@ -380,20 +369,21 @@ public class RoleService : IRoleService
     {
         if (roleId == Guid.Empty || permissionId == Guid.Empty) throw new ArgumentException("Invalid IDs");
         
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Edit))
              throw new UnauthorizedAccessException("You lack permissions to modify role permissions.");
         
         var role = await _roleRepository.GetRoleByIdAsync(roleId);
         if (role == null) throw new DomainException($"Role {roleId} not found.", ErrorCodes.ROLE_NOT_FOUND);
-        if (!CanAccessRole(role)) throw new UnauthorizedAccessException("Access denied.");
+        
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", role)) 
+            throw new UnauthorizedAccessException("Access denied.");
 
         return await _roleRepository.RemovePermissionFromRoleAsync(roleId, permissionId);
     }
 
     public async Task<int> BulkAssignPermissionsAsync(Guid roleId, IEnumerable<Guid> permissionIds)
     {
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Edit))
              throw new UnauthorizedAccessException("You lack permissions to modify role permissions.");
 
@@ -406,13 +396,15 @@ public class RoleService : IRoleService
     {
         if (permissionIds == null) throw new ArgumentNullException(nameof(permissionIds));
         
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Roles.Edit))
              throw new UnauthorizedAccessException("You lack permissions to modify role permissions.");
         
         var role = await _roleRepository.GetRoleByIdAsync(roleId);
         if (role == null) throw new DomainException($"Role {roleId} not found.", ErrorCodes.ROLE_NOT_FOUND);
-        if (!CanAccessRole(role)) throw new UnauthorizedAccessException("Access denied.");
+        
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", role)) 
+            throw new UnauthorizedAccessException("Access denied.");
 
         return await _roleRepository.SyncRolePermissionsAsync(roleId, permissionIds.ToList());
     }
@@ -432,15 +424,6 @@ public class RoleService : IRoleService
             dtos.Add(dto);
         }
         return dtos;
-    }
-
-    private bool CanAccessRole(Role? role)
-    {
-        if (role == null) return false;
-        if (_tenantContext.IsSuperAdmin) return true;
-        if (role.IsSystemRole) return false;
-        if (role.IsTemplate) return true;
-        return role.ClinicId.HasValue && role.ClinicId == _tenantContext.ClinicId;
     }
 
     private async Task CopyPermissionsFromTemplate(Guid targetRoleId, Guid templateRoleId)

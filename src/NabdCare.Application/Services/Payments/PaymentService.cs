@@ -2,6 +2,7 @@ using AutoMapper;
 using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
 using NabdCare.Application.Common.Exceptions;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Payments;
 using NabdCare.Application.Interfaces.Invoices;
 using NabdCare.Application.Interfaces.Payments;
@@ -38,7 +39,6 @@ public class PaymentService : IPaymentService
     {
         var payment = _mapper.Map<Payment>(request);
         
-        // Ensure ClinicId is set from context if not provided (or override it for security)
         if (_tenantContext.ClinicId.HasValue)
         {
             payment.ClinicId = _tenantContext.ClinicId.Value;
@@ -79,7 +79,6 @@ public class PaymentService : IPaymentService
         var invoice = await _invoiceRepository.GetByIdAsync(invoiceId);
         if (invoice == null) throw new KeyNotFoundException("Invoice not found");
 
-        // Note: Invoice policy check could be added here too, but usually payment ownership implies invoice access in same clinic.
         if (invoice.ClinicId != payment.ClinicId)
              throw new DomainException(ErrorCodes.INVALID_OPERATION, "Payment and Invoice must belong to the same clinic.");
 
@@ -309,7 +308,7 @@ public class PaymentService : IPaymentService
     public async Task<PaymentDto> GetPaymentByIdAsync(Guid id)
     {
         var payment = await _paymentRepository.GetByIdAsync(id, includeChequeDetails: true);
-        if (payment == null) return null; // Or throw KeyNotFound, but null is standard for GetById
+        if (payment == null) return null; 
 
         if (!await _policy.EvaluateAsync(_tenantContext, "read", payment))
             throw new UnauthorizedAccessException("Access denied to this payment.");
@@ -317,21 +316,24 @@ public class PaymentService : IPaymentService
         return _mapper.Map<PaymentDto>(payment);
     }
 
-    public async Task<IEnumerable<PaymentDto>> GetPaymentsByClinicAsync(Guid clinicId)
+    public async Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaginationRequestDto pagination)
     {
-        // Policy check for list access is usually done via filtering (ABAC)
-        // Here we assume the caller (Endpoint) has validated that the user can access this clinic's data
-        // OR we enforce it here:
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
              throw new UnauthorizedAccessException("Access denied to this clinic's payments.");
 
-        var payments = await _paymentRepository.GetByClinicIdAsync(clinicId, includeChequeDetails: true);
-        return _mapper.Map<IEnumerable<PaymentDto>>(payments);
+        var result = await _paymentRepository.GetByClinicIdPagedAsync(clinicId, pagination, includeChequeDetails: true);
+        
+        return new PaginatedResult<PaymentDto>
+        {
+            Items = _mapper.Map<IEnumerable<PaymentDto>>(result.Items),
+            TotalCount = result.TotalCount,
+            HasMore = result.HasMore,
+            NextCursor = result.NextCursor
+        };
     }
 
     public async Task<IEnumerable<PaymentDto>> GetPaymentsByPatientAsync(Guid patientId)
     {
-        // Similar check for patient ownership if needed
         var payments = await _paymentRepository.GetByPatientIdAsync(patientId, includeChequeDetails: true);
         return _mapper.Map<IEnumerable<PaymentDto>>(payments);
     }

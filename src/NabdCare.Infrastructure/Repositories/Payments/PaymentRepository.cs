@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Payments;
 using NabdCare.Domain.Entities.Payments;
 using NabdCare.Infrastructure.Persistence;
@@ -56,6 +57,56 @@ public class PaymentRepository : IPaymentRepository
         }
 
         return await query.ToListAsync();
+    }
+
+    public async Task<PaginatedResult<Payment>> GetByClinicIdPagedAsync(Guid clinicId, PaginationRequestDto pagination, bool includeChequeDetails = false)
+    {
+        var query = _context.Payments
+            .Where(p => p.ClinicId == clinicId)
+            .Include(p => p.Allocations)
+            .AsQueryable();
+
+        if (includeChequeDetails)
+        {
+            query = query.Include(p => p.ChequeDetail);
+        }
+
+        // Sorting (Default: Newest First)
+        query = query.OrderByDescending(p => p.PaymentDate).ThenByDescending(p => p.Id);
+
+        // Cursor Pagination Logic
+        var limit = Math.Clamp(pagination.Limit, 1, 100);
+
+        if (!string.IsNullOrWhiteSpace(pagination.Cursor))
+        {
+            var parts = pagination.Cursor.Split('_', 2);
+            if (parts.Length == 2 && long.TryParse(parts[0], out var ticks) && Guid.TryParse(parts[1], out var cursorId))
+            {
+                var cursorDate = new DateTime(ticks, DateTimeKind.Utc);
+                query = query.Where(p => p.PaymentDate < cursorDate || (p.PaymentDate == cursorDate && p.Id < cursorId));
+            }
+        }
+
+        var pageItems = await query.Take(limit + 1).ToListAsync();
+        var hasMore = pageItems.Count > limit;
+        var items = pageItems.Take(limit).ToList();
+
+        string? nextCursor = null;
+        if (hasMore && items.Count > 0)
+        {
+            var last = items.Last();
+            nextCursor = $"{last.PaymentDate.Ticks}_{last.Id}";
+        }
+
+        var totalCount = await _context.Payments.CountAsync(p => p.ClinicId == clinicId);
+
+        return new PaginatedResult<Payment>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            HasMore = hasMore,
+            NextCursor = nextCursor
+        };
     }
 
     public async Task<IEnumerable<Payment>> GetByPatientIdAsync(Guid patientId, bool includeChequeDetails = false)

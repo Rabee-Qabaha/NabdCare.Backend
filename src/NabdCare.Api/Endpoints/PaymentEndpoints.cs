@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
 using NabdCare.Application.Common.Constants;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.DTOs.Payments;
 using NabdCare.Application.Interfaces.Payments;
 using NabdCare.Domain.Entities.Payments;
@@ -51,10 +52,11 @@ public static class PaymentEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // GET PAYMENTS BY CLINIC (B2B / B2C)
+        // GET PAYMENTS BY CLINIC (B2B / B2C) - PAGED
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}", async (
                 Guid clinicId, 
+                [AsParameters] PaginationRequestDto pagination,
                 [FromServices] IPaymentService service,
                 [FromServices] ITenantContext tenantContext) =>
             {
@@ -63,14 +65,14 @@ public static class PaymentEndpoints
                     return Results.Forbid();
                 }
 
-                var payments = await service.GetPaymentsByClinicAsync(clinicId);
+                var payments = await service.GetPaymentsByClinicPagedAsync(clinicId, pagination);
                 return Results.Ok(payments);
             })
             .RequireAuthorization()
             .RequirePermission(Permissions.Payments.View)
             .WithName("GetClinicPayments")
-            .WithSummary("Get all payments for a specific clinic")
-            .Produces<IEnumerable<PaymentDto>>()
+            .WithSummary("Get all payments for a specific clinic (Paged)")
+            .Produces<PaginatedResult<PaymentDto>>()
             .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================

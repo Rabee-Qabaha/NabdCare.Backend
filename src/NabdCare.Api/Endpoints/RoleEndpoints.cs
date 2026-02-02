@@ -92,17 +92,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Roles.View)
-        .WithAbac(
-            Permissions.Roles.View,
-            "view",
-            async ctx =>
-            {
-                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
-                var idStr = ctx.Request.RouteValues["id"]?.ToString();
-                return Guid.TryParse(idStr, out var rid)
-                    ? await svc.GetRoleByIdAsync(rid)
-                    : null;
-            })
         .WithName("GetRoleById");
 
         // ============================================
@@ -164,17 +153,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Roles.Edit)
-        .WithAbac(
-            Permissions.Roles.Edit,
-            "edit",
-            async ctx =>
-            {
-                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
-                var idStr = ctx.Request.RouteValues["id"]?.ToString();
-                return Guid.TryParse(idStr, out var rid)
-                    ? await svc.GetRoleByIdAsync(rid)
-                    : null;
-            })
         .WithName("UpdateRole");
 
         // ============================================
@@ -189,17 +167,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Roles.Delete)
-        .WithAbac(
-            Permissions.Roles.Delete,
-            "delete",
-            async ctx =>
-            {
-                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
-                var idStr = ctx.Request.RouteValues["id"]?.ToString();
-                return Guid.TryParse(idStr, out var rid)
-                    ? await svc.GetRoleByIdAsync(rid)
-                    : null;
-            })
         .WithName("SoftDeleteRole");
 
         // ============================================
@@ -214,17 +181,6 @@ public static class RoleEndpoints
             })
             .RequireAuthorization()
             .RequirePermission(Permissions.Roles.HardDelete)
-            .WithAbac<RoleResponseDto>(
-                Permissions.Roles.HardDelete,
-                "hardDelete",
-                async ctx =>
-                {
-                    var service = ctx.RequestServices.GetRequiredService<IRoleService>();
-                    var idStr = ctx.Request.RouteValues["id"]?.ToString();
-                    return Guid.TryParse(idStr, out var rid)
-                        ? await service.GetRoleByIdAsync(rid) 
-                        : null;
-                })
             .WithName("HardDeleteRole");
 
         // ============================================
@@ -239,17 +195,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.Roles.Restore)
-        .WithAbac(
-            Permissions.Roles.Restore,
-            "restore",
-            async ctx =>
-            {
-                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
-                var idStr = ctx.Request.RouteValues["id"]?.ToString();
-                return Guid.TryParse(idStr, out var rid)
-                    ? await svc.GetRoleByIdAsync(rid)
-                    : null;
-            })
         .WithName("RestoreRole");
 
         // ============================================
@@ -264,10 +209,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.View)
-        .WithAbac<Role>(
-            Permissions.AppPermissions.View,
-            "viewPermissions",
-            r => r as Role)
         .WithName("GetRolePermissions");
 
         // ============================================
@@ -283,17 +224,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.Assign)
-        .WithAbac(
-            Permissions.AppPermissions.Assign,
-            "assignPermission",
-            async ctx =>
-            {
-                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
-                var idStr = ctx.Request.RouteValues["roleId"]?.ToString();
-                return Guid.TryParse(idStr, out var rid)
-                    ? await svc.GetRoleByIdAsync(rid)
-                    : null;
-            })
         .WithName("AssignPermission");
 
         // ============================================
@@ -309,17 +239,6 @@ public static class RoleEndpoints
         })
         .RequireAuthorization()
         .RequirePermission(Permissions.AppPermissions.Revoke)
-        .WithAbac(
-            Permissions.AppPermissions.Revoke,
-            "revokePermission",
-            async ctx =>
-            {
-                var svc = ctx.RequestServices.GetRequiredService<IRoleService>();
-                var idStr = ctx.Request.RouteValues["roleId"]?.ToString();
-                return Guid.TryParse(idStr, out var rid)
-                    ? await svc.GetRoleByIdAsync(rid)
-                    : null;
-            })
         .WithName("RemovePermission");
     }
 }

@@ -24,24 +24,18 @@ public static class UserEndpoints
             [FromServices] IValidator<CreateUserRequestDto> validator,
             [FromServices] ITenantContext tenantContext) =>
         {
-            // 1. Validation
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid) throw new ValidationException(validation.Errors);
 
-            // 2. Enforce Tenant Scope
             if (!tenantContext.IsSuperAdmin)
             {
-                // Clinic Admins can ONLY create users for their own clinic
                 dto.ClinicId = tenantContext.ClinicId!.Value;
             }
 
-            // 3. Create (Service handles Permissions, Limits & Logic)
             var user = await userService.CreateUserAsync(dto);
             return Results.Created($"/api/users/{user.Id}", user);
         })
         .RequireAuthorization()
-        // Note: We don't use .RequirePermission here because the Service handles the 
-        // complex "SuperAdmin vs ClinicAdmin" permission check internally.
         .WithName("CreateUser")
         .Produces<UserResponseDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
@@ -67,19 +61,8 @@ public static class UserEndpoints
             Guid clinicId,
             [AsParameters] PaginationRequestDto request,
             [FromQuery] bool includeDeleted,
-            [FromServices] IUserService userService,
-            [FromServices] ITenantContext tenantContext,
-            [FromServices] IPermissionEvaluator perms) =>
+            [FromServices] IUserService userService) =>
         {
-            // 🔐 Security: System Admin OR Own Clinic with Permission
-            var isSystem = tenantContext.IsSuperAdmin;
-            var isOwner = tenantContext.ClinicId == clinicId;
-
-            if (!isSystem && !isOwner) return Results.Forbid();
-            
-            if (isOwner && !await perms.HasAsync(Permissions.Users.View))
-                return Results.Forbid();
-
             var result = await userService.GetByClinicIdPagedAsync(clinicId, request.Limit, request.Cursor, includeDeleted);
             return Results.Ok(result);
         })
@@ -91,24 +74,12 @@ public static class UserEndpoints
         // ============================================
         group.MapGet("/{id:guid}", async (
             Guid id,
-            [FromServices] IUserService userService,
-            [FromServices] ITenantContext tenant,
-            [FromServices] IUserContext userCtx,
-            [FromServices] IPermissionEvaluator perms) =>
+            [FromServices] IUserService userService) =>
         {
             var user = await userService.GetUserByIdAsync(id);
             if (user == null) return Results.NotFound();
 
-            // 🔐 Security: Self OR Admin OR Viewer in same clinic
-            var isSelf = user.Id.ToString() == userCtx.GetCurrentUserId();
-            var isSystem = tenant.IsSuperAdmin;
-            var isSameClinic = tenant.ClinicId == user.ClinicId;
-            var hasViewPerm = await perms.HasAsync(Permissions.Users.ViewDetails);
-
-            if (isSelf || isSystem || (isSameClinic && hasViewPerm))
-                return Results.Ok(user);
-
-            return Results.Forbid();
+            return Results.Ok(user);
         })
         .RequireAuthorization()
         .WithName("GetUserById");
@@ -117,10 +88,8 @@ public static class UserEndpoints
         // 👤 GET CURRENT USER (Me)
         // ============================================
         group.MapGet("/me", async (
-            [FromServices] IUserService userService,
-            [FromServices] IUserContext userContext) =>
+            [FromServices] IUserService userService) =>
         {
-            // No ID check needed, Service gets it from Context
             var user = await userService.GetCurrentUserAsync();
             return user != null ? Results.Ok(user) : Results.Unauthorized();
         })
@@ -139,7 +108,7 @@ public static class UserEndpoints
             var (exists, isDeleted, userId) = await userService.EmailExistsDetailedAsync(email);
             return Results.Ok(new { Exists = exists, IsDeleted = isDeleted, UserId = userId });
         })
-        .RequireAuthorization() // Or .AllowAnonymous() if used during public registration
+        .RequireAuthorization()
         .WithName("CheckEmailStatus");
 
         // ============================================
@@ -149,7 +118,6 @@ public static class UserEndpoints
             Guid id,
             [FromServices] IUserService userService) =>
         {
-            // Service handles Permissions (Restore) and Limits (Subscription)
             var restored = await userService.RestoreUserAsync(id);
             return restored != null ? Results.Ok(restored) : Results.NotFound();
         })

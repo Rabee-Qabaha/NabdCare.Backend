@@ -47,26 +47,16 @@ public static class ClinicEndpoints
             Guid id,
             [FromBody] UpdateClinicRequestDto dto,
             [FromServices] IClinicService service,
-            [FromServices] IValidator<UpdateClinicRequestDto> validator,
-            [FromServices] ITenantContext tenantContext,
-            [FromServices] IPermissionEvaluator perms) => // ✅ Inject Evaluator
+            [FromServices] IValidator<UpdateClinicRequestDto> validator) =>
         {
             if (id == Guid.Empty) return Results.BadRequest(new { Error = "Invalid clinic ID" });
 
-            // 1. Check Permissions (OR Logic)
-            // Allow if user is SuperAdmin/SystemAdmin (Clinics.Edit) OR Owner (Clinic.Edit)
-            var isSystemAdmin = await perms.HasAsync(Permissions.Clinics.Edit);
-            var isClinicOwner = await perms.HasAsync(Permissions.Clinic.Edit) && tenantContext.ClinicId == id;
-
-            if (!isSystemAdmin && !isClinicOwner)
-                return Results.Forbid();
-
-            // 2. Validate DTO
+            // 1. Validate DTO
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 throw new FluentValidation.ValidationException(validation.Errors);
 
-            // 3. Call Service (Service performs strict ownership checks for tenants)
+            // 2. Call Service (Service performs strict ownership checks via Policy)
             var updated = await service.UpdateClinicAsync(id, dto);
             
             return updated != null 
@@ -74,8 +64,6 @@ public static class ClinicEndpoints
                 : Results.NotFound();
         })
         .RequireAuthorization()
-        // ❌ REMOVED: .RequirePermission(Permissions.Clinics.Edit) 
-        // We handle the permission check inside because it's conditional.
         .WithName("UpdateClinic")
         .Produces<ClinicResponseDto>()
         .Produces(StatusCodes.Status400BadRequest)
@@ -107,29 +95,15 @@ public static class ClinicEndpoints
         // ============================================
         group.MapGet("/{id:guid}", async (
             Guid id,
-            [FromServices] IClinicService service,
-            [FromServices] ITenantContext tenantContext,
-            [FromServices] IPermissionEvaluator perms) =>
+            [FromServices] IClinicService service) =>
         {
-            // 1. Check Permissions (OR Logic)
-            // Allow if System View OR Own Clinic View
-            var isSystemViewer = await perms.HasAsync(Permissions.Clinics.ViewAll);
-            var isClinicViewer = await perms.HasAsync(Permissions.Clinic.View) && tenantContext.ClinicId == id;
-
-            if (!isSystemViewer && !isClinicViewer)
-                return Results.Forbid();
-
+            // Service handles security check via Policy
             var clinic = await service.GetClinicByIdAsync(id);
             if (clinic == null) return Results.NotFound();
 
-            // Double check security (Service handles it, but endpoint filter is good practice)
-            if (tenantContext.IsSuperAdmin || isSystemViewer || tenantContext.ClinicId == id)
-                return Results.Ok(clinic);
-
-            return Results.Forbid();
+            return Results.Ok(clinic);
         })
         .RequireAuthorization()
-        // ❌ REMOVED: .RequirePermission(Permissions.Clinics.ViewAll)
         .WithName("GetClinicById");
 
         // ============================================
@@ -230,17 +204,5 @@ public static class ClinicEndpoints
         .RequireAuthorization()
         .RequirePermission(Permissions.Clinics.HardDelete)
         .WithName("HardDeleteClinic");
-
-        // ============================================
-        // STATISTICS
-        // ============================================
-        // group.MapGet("/{id:guid}/stats", async (Guid id, [FromServices] IClinicService service) =>
-        // {
-        //     var stats = await service.GetClinicStatisticsAsync(id);
-        //     return stats != null ? Results.Ok(stats) : Results.NotFound();
-        // })
-        // .RequireAuthorization()
-        // .RequirePermission(Permissions.Clinics.ViewStats)
-        // .WithName("GetClinicStatistics");
     }
 }

@@ -25,6 +25,7 @@ public class UserService : IUserService
     private readonly IMapper _mapper;
     private readonly ILogger<UserService> _logger;
     private readonly IPermissionEvaluator _permissionEvaluator;
+    private readonly IAccessPolicy<User> _policy; 
 
     public UserService(
         IUserRepository userRepository,
@@ -35,7 +36,8 @@ public class UserService : IUserService
         IUserContext userContext,
         IMapper mapper,
         ILogger<UserService> logger,
-        IPermissionEvaluator permissionEvaluator)
+        IPermissionEvaluator permissionEvaluator,
+        IAccessPolicy<User> policy) 
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
@@ -46,6 +48,7 @@ public class UserService : IUserService
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _permissionEvaluator = permissionEvaluator ?? throw new ArgumentNullException(nameof(permissionEvaluator));
+        _policy = policy ?? throw new ArgumentNullException(nameof(policy));
     }
 
     // =========================================================================
@@ -55,7 +58,6 @@ public class UserService : IUserService
     {
         if (dto == null) throw new ArgumentNullException(nameof(dto));
 
-        // 🔐 PERMISSION CHECK
         if (!_tenantContext.IsSuperAdmin)
         {
             if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.Create))
@@ -64,16 +66,13 @@ public class UserService : IUserService
 
         var currentUserId = _userContext.GetCurrentUserId();
 
-        // 0. Proactive Duplicate Check
         if (await _userRepository.EmailExistsIncludingDeletedAsync(dto.Email.Trim()))
         {
             throw new DomainException($"User with email '{dto.Email}' already exists.", ErrorCodes.DUPLICATE_EMAIL, "Email");
         }
 
-        // 1. Resolve Target Clinic
         var targetClinicId = await ValidateAndGetTargetClinicId(dto.ClinicId, dto.RoleId);
 
-        // 2. Validate Role Integrity
         await ValidateRoleAssignment(dto.RoleId, targetClinicId);
 
         // =================================================================
@@ -111,7 +110,6 @@ public class UserService : IUserService
             CreatedByUserId = Guid.TryParse(currentUserId, out var uid) ? uid : null,
             IsDeleted = false,
 
-            // --- 🆕 New Fields Mapping ---
             PhoneNumber = dto.PhoneNumber?.Trim(),
             Address = dto.Address?.Trim(),
             JobTitle = dto.JobTitle?.Trim(),
@@ -139,43 +137,28 @@ public class UserService : IUserService
         var user = await _userRepository.GetByIdAsync(id);
         if (user == null) return null;
 
-        // 🔐 Security: System Admin OR Owner of Clinic OR Self
-        var isSelf = user.Id.ToString() == _userContext.GetCurrentUserId();
-        if (!isSelf && !CanAccessUser(user))
+        // ✅ Use Policy (Handles Self, Admin, Owner, and Permission checks)
+        if (!await _policy.EvaluateAsync(_tenantContext, "read", user))
              throw new UnauthorizedAccessException("You don't have permission to view this user.");
-
-        // 🔐 Permission Check (if not self)
-        if (!isSelf && !_tenantContext.IsSuperAdmin)
-        {
-            if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.ViewDetails))
-                 throw new UnauthorizedAccessException("You lack permissions to view user details.");
-        }
 
         return _mapper.Map<UserResponseDto>(user);
     }
 
     public async Task<PaginatedResult<UserResponseDto>> GetAllPagedAsync(UserFilterRequestDto filter)
     {
-        // 1. Enforce Clinic Scoping (Security)
         if (!_tenantContext.IsSuperAdmin)
         {
-            // Non-SuperAdmins MUST be restricted to their own clinic
-            // We override whatever the frontend sent
             filter.ClinicId = _tenantContext.ClinicId; 
 
-            // Check permission
             if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.View))
                 throw new UnauthorizedAccessException("You lack permissions to view users.");
         }
     
-        // 2. Define ABAC Filter (Fine-grained row security if needed)
-        // Even if filter.ClinicId is set above, ABAC acts as a safety net
         Func<IQueryable<User>, IQueryable<User>> abacFilter = query =>
         {
             return _permissionEvaluator.FilterUsers(query, Common.Constants.Permissions.Users.ViewAll, _userContext);
         };
 
-        // 3. Call Repository
         var result = await _userRepository.GetAllPagedAsync(filter, abacFilter);
         return result.ToPaginatedDto<User, UserResponseDto>(_mapper);
     }
@@ -187,7 +170,6 @@ public class UserService : IUserService
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
             throw new UnauthorizedAccessException("You don't have permission to view users from this clinic.");
 
-        // 🔐 Permission Check: Must have 'Users.View'
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.View))
              throw new UnauthorizedAccessException("You lack permissions to view users.");
 
@@ -213,7 +195,6 @@ public class UserService : IUserService
     public async Task<(bool exists, bool isDeleted, Guid? userId)> EmailExistsDetailedAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(email)) throw new ArgumentException("Email required", nameof(email));
-        // Typically public or low-privilege
         var user = await _userRepository.GetByEmailIncludingDeletedAsync(email.Trim().ToLowerInvariant());
         if (user == null) return (false, false, null);
         return (true, user.IsDeleted, user.Id);
@@ -230,14 +211,13 @@ public class UserService : IUserService
         var user = await _userRepository.GetByIdForRestorationAsync(id);
         if (user == null || !user.IsDeleted) return null;
 
-        // 🔐 Permission: Users.Restore
-        if (!CanManageUser(user.ClinicId))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", user))
             throw new UnauthorizedAccessException("You don't have permission to restore this user.");
             
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.Restore))
              throw new UnauthorizedAccessException("You lack permissions to restore users.");
 
-        // 🛑 GATEKEEPER
         if (user.ClinicId.HasValue)
         {
             var clinicId = user.ClinicId.Value;
@@ -266,27 +246,17 @@ public class UserService : IUserService
         var user = await _userRepository.GetByIdAsync(id);
         if (user == null) return null;
 
-        // 🔐 Allow Self-Update OR Permission Update
-        var isSelf = user.Id.ToString() == _userContext.GetCurrentUserId();
-        if (!isSelf)
-        {
-            if (!CanManageUser(user.ClinicId))
-                throw new UnauthorizedAccessException("Access denied.");
-                
-            if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.Edit))
-                 throw new UnauthorizedAccessException("You lack permissions to edit other users.");
-        }
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", user))
+             throw new UnauthorizedAccessException("You lack permissions to edit this user.");
 
         user.FullName = dto.FullName.Trim();
-        
-        // --- 🆕 Updating New Fields ---
         user.PhoneNumber = dto.PhoneNumber?.Trim();
         user.Address = dto.Address?.Trim();
         user.JobTitle = dto.JobTitle?.Trim();
         user.ProfilePictureUrl = dto.ProfilePictureUrl?.Trim();
         user.Bio = dto.Bio?.Trim();
         user.LicenseNumber = dto.LicenseNumber?.Trim();
-        // -----------------------------
 
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = _userContext.GetCurrentUserId();
@@ -300,14 +270,14 @@ public class UserService : IUserService
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
         if (roleId == Guid.Empty) throw new ArgumentException("Role ID required", nameof(roleId));
 
-        // 🔐 Permission: Users.ChangeRole
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.ChangeRole))
              throw new UnauthorizedAccessException("You lack permissions to change user roles.");
 
         var user = await _userRepository.GetByIdAsync(id);
         if (user == null) return null;
 
-        if (!CanManageUser(user.ClinicId))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", user))
             throw new UnauthorizedAccessException("Access denied.");
 
         await ValidateRoleAssignment(roleId, user.ClinicId);
@@ -334,7 +304,6 @@ public class UserService : IUserService
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
 
-        // 🔐 Permission: Users.Activate
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.Activate))
              throw new UnauthorizedAccessException($"You lack permissions to {(isActive ? "activate" : "deactivate")} users.");
 
@@ -345,7 +314,8 @@ public class UserService : IUserService
         if (!isActive && user.Id.ToString() == currentUserId)
              throw new DomainException("You cannot deactivate your own account.", ErrorCodes.INVALID_OPERATION);
 
-        if (!CanManageUser(user.ClinicId))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", user))
             throw new UnauthorizedAccessException("Access denied.");
 
         user.IsActive = isActive;
@@ -360,7 +330,6 @@ public class UserService : IUserService
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
 
-        // 🔐 Permission: Users.Delete
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.Delete))
              throw new UnauthorizedAccessException("You lack permissions to delete users.");
 
@@ -371,7 +340,8 @@ public class UserService : IUserService
         if (user.Id.ToString() == currentUserId)
             throw new DomainException("You cannot delete your own account.", ErrorCodes.INVALID_OPERATION);
 
-        if (!CanManageUser(user.ClinicId))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "delete", user))
             throw new UnauthorizedAccessException("Access denied.");
 
         return await _userRepository.SoftDeleteAsync(id);
@@ -381,10 +351,8 @@ public class UserService : IUserService
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
 
-        // 🔐 Strict Permission: Users.HardDelete (Usually SuperAdmin only)
         if (!_tenantContext.IsSuperAdmin)
         {
-             // Even if they have the permission, we might want to restrict this further
              if (!await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.HardDelete))
                  throw new UnauthorizedAccessException("Only SuperAdmin can permanently delete users.");
         }
@@ -405,7 +373,6 @@ public class UserService : IUserService
 
         var currentUserId = _userContext.GetCurrentUserId();
         
-        // Self-Service Only (Use ResetPassword for admins)
         if (id.ToString() != currentUserId)
             throw new UnauthorizedAccessException("You can only change your own password.");
 
@@ -427,14 +394,14 @@ public class UserService : IUserService
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
         
-        // 🔐 Permission: Users.ResetPassword
         if (!_tenantContext.IsSuperAdmin && !await _permissionEvaluator.HasAsync(Common.Constants.Permissions.Users.ResetPassword))
              throw new UnauthorizedAccessException("You lack permissions to reset passwords.");
 
         var user = await _userRepository.GetByIdAsync(id);
         if (user == null) throw new KeyNotFoundException($"User {id} not found");
 
-        if (!CanManageUser(user.ClinicId))
+        // ✅ Use Policy
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", user))
             throw new UnauthorizedAccessException("Permission denied.");
 
         user.PasswordHash = _passwordService.HashPassword(user, dto.NewPassword);
@@ -448,19 +415,6 @@ public class UserService : IUserService
     // ============================================
     // PRIVATE HELPERS
     // ============================================
-
-    private bool CanAccessUser(User? user)
-    {
-        if (user == null) return false;
-        if (_tenantContext.IsSuperAdmin) return true;
-        return user.ClinicId.HasValue && user.ClinicId == _tenantContext.ClinicId;
-    }
-
-    private bool CanManageUser(Guid? targetClinicId)
-    {
-        if (_tenantContext.IsSuperAdmin) return true;
-        return targetClinicId.HasValue && targetClinicId == _tenantContext.ClinicId;
-    }
 
     private async Task<Guid?> ValidateAndGetTargetClinicId(Guid? requestedClinicId, Guid roleId)
     {
