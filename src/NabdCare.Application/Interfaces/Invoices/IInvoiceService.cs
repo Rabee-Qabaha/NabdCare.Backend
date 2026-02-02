@@ -12,6 +12,7 @@ public interface IInvoiceService
     Task<InvoiceDto?> GetByIdAsync(Guid id);
     Task<PaginatedResult<InvoiceDto>> GetPagedAsync(InvoiceListRequestDto request);
     
-    Task<InvoiceDto?> MarkAsPaidAsync(Guid id, decimal amount, DateTime paidDate);
     Task<InvoiceDto?> VoidInvoiceAsync(Guid id);
+    
+    Task<InvoiceDto?> WriteOffInvoiceAsync(Guid id, string reason);
 }

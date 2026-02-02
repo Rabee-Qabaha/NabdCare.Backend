@@ -326,6 +326,7 @@ public static class Permissions
     public static class Payments
     {
         public const string View = "Payments.View";
+        public const string ViewAll = "Payments.ViewAll"; // ✅ New: SuperAdmin view all
         public const string Create = "Payments.Create";
         public const string Edit = "Payments.Edit";
         public const string Delete = "Payments.Delete";
@@ -333,17 +334,26 @@ public static class Permissions
         public const string Process = "Payments.Process";
         public const string Refund = "Payments.Refund";
         public const string ViewReports = "Payments.ViewReports";
+        public const string Allocate = "Payments.Allocate"; 
+        public const string ManageCheques = "Payments.ManageCheques"; // ✅ New: Manage Cheque Status
+        public const string ViewReceipts = "Payments.ViewReceipts"; // ✅ New: View Receipts
+        public const string Cancel = "Payments.Cancel"; // ✅ New: Cancel (Void) Payment
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
-            [View] = "View payment records",
+            [View] = "View payment records for own clinic",
+            [ViewAll] = "View all payment records across system (SuperAdmin)",
             [Create] = "Create payment entries",
             [Edit] = "Edit payment information",
             [Delete] = "Soft delete payment records",
             [HardDelete] = "Permanently delete payment records",
             [Process] = "Process new payments",
             [Refund] = "Issue payment refunds",
-            [ViewReports] = "View financial payment reports"
+            [ViewReports] = "View financial payment reports",
+            [Allocate] = "Allocate existing payments to invoices",
+            [ManageCheques] = "Manage cheque status (Clear, Bounce, Cancel)",
+            [ViewReceipts] = "View and download payment receipts",
+            [Cancel] = "Void a payment (reverse allocations and mark as failed)"
         };
     }
 
@@ -355,17 +365,23 @@ public static class Permissions
     {
         public const string View = "Invoices.View";
         public const string ViewAll = "Invoices.ViewAll";
+        public const string Create = "Invoices.Create"; 
+        public const string Edit = "Invoices.Edit";
         public const string Pay = "Invoices.Pay";
         public const string Download = "Invoices.Download";
         public const string Void = "Invoices.Void";
+        public const string WriteOff = "Invoices.WriteOff"; // ✅ New: Write Off Bad Debt
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
             [View] = "View invoices belonging to own clinic",
             [ViewAll] = "View all invoices in the system (SuperAdmin only)",
+            [Create] = "Create new invoices",
+            [Edit] = "Edit existing invoices",
             [Pay] = "Process payments for invoices",
             [Download] = "Download invoice PDF",
-            [Void] = "Void an issued invoice (Admin only)"
+            [Void] = "Void an issued invoice (Admin only)",
+            [WriteOff] = "Mark an invoice as uncollectible (Bad Debt)"
         };
     }
 

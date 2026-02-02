@@ -86,6 +86,11 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Invoices.ViewAll,
                 Permissions.Invoices.Void,
                 Permissions.Invoices.Download,
+                Permissions.Invoices.WriteOff, // ✅ NEW: Bad Debt
+
+                Permissions.Payments.ViewAll, // ✅ NEW: View all payments
+                Permissions.Payments.Refund,
+                Permissions.Payments.ManageCheques, // ✅ NEW: Manage Cheques
 
                 Permissions.AppPermissions.View,
                 Permissions.Reports.ViewDashboard,
@@ -115,16 +120,19 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Clinics.ViewAll,
                 
                 // Financials
-                Permissions.Payments.View,
+                Permissions.Payments.ViewAll, // ✅ NEW
                 Permissions.Payments.Process,
                 Permissions.Payments.Refund,
                 Permissions.Payments.ViewReports,
+                Permissions.Payments.ManageCheques, // ✅ NEW
+                Permissions.Payments.Cancel, // ✅ NEW
                 
                 // Invoices
                 Permissions.Invoices.ViewAll,
                 Permissions.Invoices.Pay,
                 Permissions.Invoices.Download,
                 Permissions.Invoices.Void,
+                Permissions.Invoices.WriteOff, // ✅ NEW
                 
                 Permissions.Reports.ViewFinancialReports
             });
@@ -142,13 +150,13 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Clinic.View,
                 Permissions.Clinic.Edit,
 
-                // 🌳 BRANCHES (Updated with new Actions)
+                // 🌳 BRANCHES
                 Permissions.Branches.View,
                 Permissions.Branches.Create, 
                 Permissions.Branches.Edit,
                 Permissions.Branches.Delete,
-                Permissions.Branches.ToggleStatus, // ✅ NEW
-                Permissions.Branches.SetMain,      // ✅ NEW
+                Permissions.Branches.ToggleStatus, 
+                Permissions.Branches.SetMain,      
 
                 // Subscriptions & Billing
                 Permissions.Subscriptions.View,
@@ -180,10 +188,16 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Appointments.View,
                 Permissions.Appointments.Create,
                 
-                // Payments
+                // Payments (Own Clinic)
                 Permissions.Payments.View,
                 Permissions.Payments.Create,
-                Permissions.Reports.ViewDashboard
+                Permissions.Payments.Allocate, // ✅ NEW
+                Permissions.Payments.Refund,   // ✅ NEW (Self-Refund?)
+                Permissions.Payments.Cancel,   // ✅ NEW
+                Permissions.Payments.ViewReceipts, // ✅ NEW
+                
+                Permissions.Reports.ViewDashboard,
+                Permissions.Reports.ViewFinancialReports // ✅ NEW
             });
         }
 
@@ -223,9 +237,14 @@ public class RolePermissionsSeeder : ISingleSeeder
                 Permissions.Patients.View,
                 Permissions.Patients.Create,
                 Permissions.Patients.Edit,
+                
+                // Payments
                 Permissions.Payments.View,
                 Permissions.Payments.Create,
-                Permissions.Payments.Process
+                Permissions.Payments.Process,
+                Permissions.Payments.ViewReceipts, // ✅ NEW
+                Permissions.Invoices.View,
+                Permissions.Invoices.Download
             });
         }
 

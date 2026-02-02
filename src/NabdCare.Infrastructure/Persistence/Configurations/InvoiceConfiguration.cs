@@ -10,7 +10,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
     {
         builder.ToTable("Invoices", t =>
         {
-            // ✅ Constraint: Invoice must act as EITHER SaaS Bill OR Patient Bill (not both, not neither)
+            // Constraint: Invoice must act as EITHER SaaS Bill OR Patient Bill (not both, not neither)
             // Checks that SubscriptionId is set OR PatientId is set.
             t.HasCheckConstraint("CK_Invoice_Polymorphic", 
                 "(\"SubscriptionId\" IS NOT NULL AND \"PatientId\" IS NULL) OR " +
@@ -51,13 +51,13 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
 
         // Case A: SaaS Subscription
         builder.HasOne(i => i.Subscription)
-            .WithMany(s => s.Invoices) // ✅ Explicit mapping
+            .WithMany(s => s.Invoices)
             .HasForeignKey(i => i.SubscriptionId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // Case B: Patient Bill
         builder.HasOne(i => i.Patient)
-            .WithMany(p => p.Invoices) // ✅ Explicit mapping to Patient.Invoices
+            .WithMany(p => p.Invoices)
             .HasForeignKey(i => i.PatientId)
             .OnDelete(DeleteBehavior.Restrict);
 
@@ -73,9 +73,11 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasForeignKey(item => item.InvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
         
-        // Payments
-        builder.HasMany(i => i.Payments)
-             .WithOne(/* If Payment has InvoiceId? Your current entity didn't show it */);
+        // Payment Allocations (Replaces direct Payments list)
+        builder.HasMany(i => i.PaymentAllocations)
+             .WithOne(pa => pa.Invoice)
+             .HasForeignKey(pa => pa.InvoiceId)
+             .OnDelete(DeleteBehavior.Cascade);
 
         // ============================================================
         // ⚡ INDEXES

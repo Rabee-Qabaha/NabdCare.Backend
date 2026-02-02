@@ -32,4 +32,6 @@ public class ChequePaymentDetail : BaseEntity
     public ChequeStatus Status { get; set; } = ChequeStatus.Pending;
 
     public DateTime? ClearedDate { get; set; }
+
+    public string? ImageUrl { get; set; } = string.Empty;
 }

@@ -1,6 +1,8 @@
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using NabdCare.Application.Common;
+using NabdCare.Application.Common.Constants;
+using NabdCare.Application.Common.Exceptions;
 using NabdCare.Application.DTOs.Invoices;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
@@ -19,6 +21,7 @@ public class InvoiceService : IInvoiceService
     private readonly IUserContext _userContext;
     private readonly IMapper _mapper;
     private readonly ILogger<InvoiceService> _logger;
+    private readonly IAccessPolicy<Invoice> _policy;
 
     public InvoiceService(
         IInvoiceRepository repository,
@@ -26,7 +29,8 @@ public class InvoiceService : IInvoiceService
         ITenantContext tenantContext,
         IUserContext userContext,
         IMapper mapper,
-        ILogger<InvoiceService> logger)
+        ILogger<InvoiceService> logger,
+        IAccessPolicy<Invoice> policy)
     {
         _repository = repository;
         _clinicRepository = clinicRepository;
@@ -34,6 +38,7 @@ public class InvoiceService : IInvoiceService
         _userContext = userContext;
         _mapper = mapper;
         _logger = logger;
+        _policy = policy;
     }
 
     public async Task<InvoiceDto> GenerateInvoiceAsync(GenerateInvoiceRequestDto request)
@@ -41,7 +46,7 @@ public class InvoiceService : IInvoiceService
         _logger.LogInformation("Generating Invoice for Clinic {ClinicId}, Subscription {SubId}", request.ClinicId, request.SubscriptionId);
 
         var clinic = await _clinicRepository.GetEntityByIdAsync(request.ClinicId);
-        if (clinic == null) throw new InvalidOperationException($"Clinic {request.ClinicId} not found");
+        if (clinic == null) throw new KeyNotFoundException($"Clinic {request.ClinicId} not found");
 
         var invoice = new Invoice
         {
@@ -50,7 +55,6 @@ public class InvoiceService : IInvoiceService
             SubscriptionId = request.SubscriptionId,
             InvoiceNumber = await _repository.GenerateNextInvoiceNumberAsync(),
             
-            // ✅ 2025: Populate New Fields
             Currency = request.Currency, 
             IdempotencyKey = request.IdempotencyKey,
             
@@ -59,7 +63,6 @@ public class InvoiceService : IInvoiceService
             Status = InvoiceStatus.Issued,
             Type = request.Type,
             
-            // Snapshot Data
             BilledToName = clinic.Name,
             BilledToAddress = clinic.Address,
             BilledToTaxNumber = clinic.TaxNumber,
@@ -96,15 +99,12 @@ public class InvoiceService : IInvoiceService
         return _mapper.Map<InvoiceDto>(invoice);
     }
 
-    // ... (GetByIdAsync, GetPagedAsync, MarkAsPaidAsync, VoidInvoiceAsync remain exactly as you had them)
-    // Just ensure GetPagedAsync passes the new Currency filter if added.
-    
     public async Task<InvoiceDto?> GetByIdAsync(Guid id)
     {
         var invoice = await _repository.GetByIdAsync(id);
         if (invoice == null) return null;
 
-        if (!_tenantContext.IsSuperAdmin && invoice.ClinicId != _tenantContext.ClinicId)
+        if (!await _policy.EvaluateAsync(_tenantContext, "read", invoice))
             throw new UnauthorizedAccessException("Cannot view invoice from another clinic.");
 
         return _mapper.Map<InvoiceDto>(invoice);
@@ -131,19 +131,20 @@ public class InvoiceService : IInvoiceService
         };
     }
 
-    public async Task<InvoiceDto?> MarkAsPaidAsync(Guid id, decimal amount, DateTime paidDate)
+    public async Task<InvoiceDto?> VoidInvoiceAsync(Guid id)
     {
         var invoice = await _repository.GetByIdAsync(id);
         if (invoice == null) return null;
 
-        invoice.PaidAmount += amount;
-        invoice.PaidDate = paidDate;
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", invoice))
+            throw new UnauthorizedAccessException("Access denied to this invoice.");
 
-        if (invoice.PaidAmount >= invoice.TotalAmount)
-            invoice.Status = InvoiceStatus.Paid;
-        else
-            invoice.Status = InvoiceStatus.PartiallyPaid;
+        if (invoice.PaymentAllocations.Any())
+        {
+            throw new DomainException(ErrorCodes.INVOICE_ALREADY_PAID, "Cannot void an invoice that has payments. Please refund the payments first.");
+        }
 
+        invoice.Status = InvoiceStatus.Void;
         invoice.UpdatedBy = _userContext.GetCurrentUserId();
         invoice.UpdatedAt = DateTime.UtcNow;
 
@@ -151,15 +152,21 @@ public class InvoiceService : IInvoiceService
         return _mapper.Map<InvoiceDto>(invoice);
     }
 
-    public async Task<InvoiceDto?> VoidInvoiceAsync(Guid id)
+    public async Task<InvoiceDto?> WriteOffInvoiceAsync(Guid id, string reason)
     {
         var invoice = await _repository.GetByIdAsync(id);
         if (invoice == null) return null;
 
-        if (invoice.Status == InvoiceStatus.Paid)
-            throw new InvalidOperationException("Cannot void a paid invoice.");
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", invoice))
+            throw new UnauthorizedAccessException("Access denied to this invoice.");
 
-        invoice.Status = InvoiceStatus.Void;
+        if (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.Void)
+        {
+            throw new DomainException(ErrorCodes.INVALID_OPERATION, $"Cannot write off an invoice with status {invoice.Status}.");
+        }
+
+        invoice.Status = InvoiceStatus.Uncollectible;
+
         invoice.UpdatedBy = _userContext.GetCurrentUserId();
         invoice.UpdatedAt = DateTime.UtcNow;
 

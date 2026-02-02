@@ -17,15 +17,12 @@ public class SubscriptionScheduler : BackgroundService
         _logger = logger;
     }
 
-// src/NabdCare.Infrastructure/BackgroundJobs/SubscriptionScheduler.cs
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("⏳ SubscriptionScheduler service started.");
+        _logger.LogInformation("⏳ Scheduler service started.");
 
         // ✅ STEP 1: Run immediately on startup to catch up on missed jobs
-        // (This ensures if you deploy at 00:05, you don't miss the midnight run)
-        await RunJobAsync();
+        await RunJobsAsync();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -38,28 +35,34 @@ public class SubscriptionScheduler : BackgroundService
             try
             {
                 await Task.Delay(delay, stoppingToken);
-                await RunJobAsync(); // ✅ STEP 2: Run on schedule
+                await RunJobsAsync(); // ✅ STEP 2: Run on schedule
             }
             catch (TaskCanceledException) { break; }
         }
     }
 
-// Helper method to keep code DRY
-    private async Task RunJobAsync()
+    private async Task RunJobsAsync()
     {
         try
         {
             using (var scope = _serviceProvider.CreateScope())
             {
-                var job = scope.ServiceProvider.GetRequiredService<SubscriptionLifecycleJob>();
+                // 1. Subscription Lifecycle
+                var subJob = scope.ServiceProvider.GetRequiredService<SubscriptionLifecycleJob>();
                 _logger.LogInformation("🚀 Executing SubscriptionLifecycleJob...");
-                await job.ExecuteAsync();
-                _logger.LogInformation("✅ SubscriptionLifecycleJob finished.");
+                await subJob.ExecuteAsync();
+                
+                // 2. Invoice Overdue Check (New)
+                var invoiceJob = scope.ServiceProvider.GetRequiredService<InvoiceOverdueJob>();
+                _logger.LogInformation("🚀 Executing InvoiceOverdueJob...");
+                await invoiceJob.RunAsync();
+                
+                _logger.LogInformation("✅ All scheduled jobs finished.");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Error executing subscription job.");
+            _logger.LogError(ex, "❌ Error executing scheduled jobs.");
         }
     }
 }

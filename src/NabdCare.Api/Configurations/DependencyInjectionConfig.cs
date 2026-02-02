@@ -9,7 +9,9 @@ using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Application.Interfaces.Clinics.Branches;
 using NabdCare.Application.Interfaces.Subscriptions;
 using NabdCare.Application.Interfaces.Invoices;
+using NabdCare.Application.Interfaces.Payments;
 using NabdCare.Application.Interfaces.Permissions;
+using NabdCare.Application.Interfaces.Reports;
 using NabdCare.Application.Interfaces.Roles;
 using NabdCare.Application.Interfaces.Users;
 using NabdCare.Application.Mappings;
@@ -17,8 +19,10 @@ using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Services.Clinics;
 using NabdCare.Application.Services.Invoices;
+using NabdCare.Application.Services.Payments;
 using NabdCare.Application.Services.Permissions;
 using NabdCare.Application.Services.Permissions.Policies;
+using NabdCare.Application.Services.Reports;
 using NabdCare.Application.Services.Roles;
 using NabdCare.Application.Services.Users;
 using NabdCare.Application.Validator.Users;
@@ -28,6 +32,8 @@ using NabdCare.Infrastructure.Repositories.Audit;
 using NabdCare.Infrastructure.Repositories.Auth;
 using NabdCare.Infrastructure.Repositories.Clinics;
 using NabdCare.Infrastructure.Repositories.Invoices;
+using NabdCare.Infrastructure.Repositories.Payments;
+using NabdCare.Infrastructure.Repositories.Reports;
 using NabdCare.Infrastructure.Repositories.Permissions;
 using NabdCare.Infrastructure.Repositories.Roles;
 using NabdCare.Infrastructure.Repositories.Users;
@@ -38,6 +44,7 @@ using NabdCare.Application.Services.Authorizations;
 using NabdCare.Application.Services.Subscriptions;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Invoices;
+using NabdCare.Domain.Entities.Payments;
 using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Roles;
 using NabdCare.Domain.Entities.Subscriptions;
@@ -115,6 +122,7 @@ public static class DependencyInjectionConfig
         services.AddScoped<IAccessPolicy<AppPermission>, PermissionPolicy>();
         services.AddScoped<IAccessPolicy<Subscription>, SubscriptionPolicy>();
         services.AddScoped<IAccessPolicy<Invoice>, InvoicePolicy>();
+        services.AddScoped<IAccessPolicy<Payment>, PaymentPolicy>();
         services.AddScoped(typeof(IAccessPolicy<>), typeof(DefaultPolicy<>));
         
         // ===============================
@@ -145,6 +153,18 @@ public static class DependencyInjectionConfig
         services.AddScoped<IInvoiceService, InvoiceService>();
 
         // ===============================
+        // Payments
+        // ===============================
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IPaymentService, PaymentService>();
+
+        // ===============================
+        // Reports
+        // ===============================
+        services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IReportService, ReportService>();
+
+        // ===============================
         // Authorization (Audit/Access)
         // ===============================
         services.AddScoped<IAuthorizationRepository, AuthorizationRepository>();
@@ -166,6 +186,7 @@ public static class DependencyInjectionConfig
             typeof(SubscriptionProfile).Assembly,
             typeof(RoleProfile).Assembly,
             typeof(InvoiceProfile).Assembly,
+            typeof(PaymentProfile).Assembly,
             typeof(AuditLogMappingProfile).Assembly
         );
 
@@ -188,6 +209,7 @@ public static class DependencyInjectionConfig
         // Background Jobs
         // ===============================
         services.AddScoped<SubscriptionLifecycleJob>();
+        services.AddScoped<InvoiceOverdueJob>();
 
         if (configuration["ASPNETCORE_ENVIRONMENT"] != "Testing")
         {

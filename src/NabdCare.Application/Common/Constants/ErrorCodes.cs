@@ -83,4 +83,15 @@ public static class ErrorCodes
     public const string SUBSCRIPTION_EXPIRED = "SUBSCRIPTION_EXPIRED";
     public const string FEATURE_NOT_ENABLED = "FEATURE_NOT_ENABLED";
     public const string ACCOUNT_SUSPENDED = "ACCOUNT_SUSPENDED";
+
+    // ============================================
+    // 💰 Payments & Invoices
+    // ============================================
+    public const string INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
+    public const string OVERPAYMENT = "OVERPAYMENT";
+    public const string PAYMENT_FAILED = "PAYMENT_FAILED";
+    public const string INVOICE_ALREADY_PAID = "INVOICE_ALREADY_PAID";
+    public const string INVOICE_VOIDED = "INVOICE_VOIDED";
+    public const string CHEQUE_BOUNCED = "CHEQUE_BOUNCED";
+    public const string INVALID_REFUND_AMOUNT = "INVALID_REFUND_AMOUNT";
 }

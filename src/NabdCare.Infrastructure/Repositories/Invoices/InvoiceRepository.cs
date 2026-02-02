@@ -21,6 +21,8 @@ public class InvoiceRepository : IInvoiceRepository
         return await _dbContext.Invoices
             .Include(i => i.Items)
             .Include(i => i.Clinic)
+            .Include(i => i.PaymentAllocations) // ✅ Include Allocations to see payment history
+                .ThenInclude(pa => pa.Payment) // ✅ Include Payment details (Method, Date)
             .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == id);
     }
@@ -29,6 +31,7 @@ public class InvoiceRepository : IInvoiceRepository
     {
         return await _dbContext.Invoices
             .Include(i => i.Items)
+            .Include(i => i.PaymentAllocations)
             .AsNoTracking()
             .FirstOrDefaultAsync(i => i.InvoiceNumber == invoiceNumber);
     }

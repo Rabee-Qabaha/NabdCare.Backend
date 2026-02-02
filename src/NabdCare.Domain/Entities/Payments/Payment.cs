@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Entities.Clinics;
 using NabdCare.Domain.Entities.Patients;
 using NabdCare.Domain.Enums;
@@ -19,7 +20,11 @@ public class Payment : BaseEntity
 
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Payment amount must be greater than zero.")]
+    [Column(TypeName = "decimal(18,2)")]
     public decimal Amount { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal RefundedAmount { get; set; } = 0;
 
     [Required]
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
@@ -30,6 +35,21 @@ public class Payment : BaseEntity
     [Required]
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
 
+    // External Reference (Stripe ID, Bank Transfer ID, etc.)
+    [MaxLength(100)]
+    public string? TransactionId { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+
     // Navigation for cheque
     public ChequePaymentDetail? ChequeDetail { get; set; }
+
+    // The Allocations (Where did this money go?)
+    public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
+
+    // Computed: How much is left as "Credit"?
+    // Logic: Total - Allocated - Refunded
+    [NotMapped]
+    public decimal UnallocatedAmount => Amount - RefundedAmount - (Allocations?.Sum(a => a.Amount) ?? 0);
 }

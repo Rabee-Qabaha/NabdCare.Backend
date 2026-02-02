@@ -8,10 +8,10 @@ using NabdCare.Domain.Entities.Permissions;
 using NabdCare.Domain.Entities.Roles;
 using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Entities.Users;
-using NabdCare.Domain.Entities.Patients; // ✅ New
-using NabdCare.Domain.Entities.Inventory; // ✅ New
-using NabdCare.Domain.Entities.Scheduling; // ✅ New
-using NabdCare.Domain.Entities.Clinical; // ✅ New
+using NabdCare.Domain.Entities.Patients;
+using NabdCare.Domain.Entities.Inventory;
+using NabdCare.Domain.Entities.Scheduling;
+using NabdCare.Domain.Entities.Clinical;
 using NabdCare.Domain.Interfaces;
 
 namespace NabdCare.Infrastructure.Persistence;
@@ -46,6 +46,7 @@ public class NabdCareDbContext : DbContext
     public DbSet<Subscription> Subscriptions { get; set; } = default!;
     public DbSet<Branch> Branches { get; set; } = default!;
     public DbSet<Payment> Payments { get; set; } = default!;
+    public DbSet<PaymentAllocation> PaymentAllocations { get; set; } = default!;
     public DbSet<ChequePaymentDetail> ChequePaymentDetails { get; set; } = default!;
     public DbSet<AppPermission> AppPermissions { get; set; } = default!;
     public DbSet<RolePermission> RolePermissions { get; set; } = default!;
@@ -67,30 +68,26 @@ public class NabdCareDbContext : DbContext
     public DbSet<ClinicalEncounter> ClinicalEncounters { get; set; } = default!;
     public DbSet<Prescription> Prescriptions { get; set; } = default!;
     public DbSet<PatientDocument> PatientDocuments { get; set; } = default!;
-    public DbSet<ClinicalTemplate> ClinicalTemplates { get; set; } = default!; // Optional UI Configs
+    public DbSet<ClinicalTemplate> ClinicalTemplates { get; set; } = default!;
 
     // ================================================================
     // MODEL CONFIGURATION
     // ================================================================
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // ✅ Apply entity configurations (includes InvoiceConfiguration, etc.)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NabdCareDbContext).Assembly);
 
         // ============================================================
-        // ✅ MULTI-TENANT QUERY FILTERS
+        // MULTI-TENANT QUERY FILTERS
         // ============================================================
 
-        // ✅ AppPermission filter (Simple Soft Delete)
         modelBuilder.Entity<AppPermission>().HasQueryFilter(ap => !ap.IsDeleted);
 
-        // ✅ Subscription filter
         modelBuilder.Entity<Subscription>().HasQueryFilter(s =>
             !s.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && s.ClinicId == TenantId))
         );
 
-        // ✅ Branch filter
         modelBuilder.Entity<Branch>().HasQueryFilter(b =>
             !b.IsDeleted &&
             (
@@ -99,7 +96,6 @@ public class NabdCareDbContext : DbContext
             )
         );
         
-        // ✅ Role filter
         modelBuilder.Entity<Role>().HasQueryFilter(r =>
             !r.IsDeleted &&
             (
@@ -109,39 +105,39 @@ public class NabdCareDbContext : DbContext
             )
         );
 
-        // ✅ User filter
         modelBuilder.Entity<User>().HasQueryFilter(u =>
             !u.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && u.ClinicId == TenantId))
         );
 
-        // ✅ Payment filter
         modelBuilder.Entity<Payment>().HasQueryFilter(p =>
             !p.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && p.ClinicId == TenantId))
         );
 
-        // ✅ ChequePaymentDetail filter
+        modelBuilder.Entity<PaymentAllocation>().HasQueryFilter(pa =>
+            !pa.IsDeleted &&
+            !pa.Payment.IsDeleted &&
+            (IsSuperAdminUser || (TenantId.HasValue && pa.Payment.ClinicId == TenantId))
+        );
+
         modelBuilder.Entity<ChequePaymentDetail>().HasQueryFilter(cd =>
             !cd.IsDeleted &&
             !cd.Payment.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && cd.Payment.ClinicId == TenantId))
         );
 
-        // ✅ Invoice filter
         modelBuilder.Entity<Invoice>().HasQueryFilter(i =>
             !i.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && i.ClinicId == TenantId))
         );
 
-        // ✅ InvoiceItem filter
         modelBuilder.Entity<InvoiceItem>().HasQueryFilter(ii =>
             !ii.IsDeleted &&
             !ii.Invoice.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && ii.Invoice.ClinicId == TenantId))
         );
 
-        // ✅ RolePermission filter
         modelBuilder.Entity<RolePermission>().HasQueryFilter(rp =>
             !rp.IsDeleted &&
             (
@@ -156,7 +152,6 @@ public class NabdCareDbContext : DbContext
             )
         );
 
-        // ✅ UserPermission filter
         modelBuilder.Entity<UserPermission>().HasQueryFilter(up =>
             !up.IsDeleted &&
             (
@@ -170,56 +165,48 @@ public class NabdCareDbContext : DbContext
 
         // --- NEW MODULE FILTERS ---
 
-        // ✅ Patient filter
         modelBuilder.Entity<Patient>().HasQueryFilter(p =>
             !p.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && p.ClinicId == TenantId))
         );
 
-        // ✅ Product filter
         modelBuilder.Entity<Product>().HasQueryFilter(p =>
             !p.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && p.ClinicId == TenantId))
         );
 
-        // ✅ Appointment filter
         modelBuilder.Entity<Appointment>().HasQueryFilter(a =>
             !a.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && a.ClinicId == TenantId))
         );
 
-        // ✅ PractitionerSchedule filter
         modelBuilder.Entity<PractitionerSchedule>().HasQueryFilter(s =>
             !s.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && s.ClinicId == TenantId))
         );
 
-        // ✅ ClinicalEncounter filter
         modelBuilder.Entity<ClinicalEncounter>().HasQueryFilter(e =>
             !e.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && e.ClinicId == TenantId))
         );
 
-        // ✅ Prescription filter
         modelBuilder.Entity<Prescription>().HasQueryFilter(p =>
             !p.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && p.ClinicId == TenantId))
         );
 
-        // ✅ PatientDocument filter
         modelBuilder.Entity<PatientDocument>().HasQueryFilter(d =>
             !d.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && d.ClinicId == TenantId))
         );
         
-        // ✅ ClinicalTemplate filter
         modelBuilder.Entity<ClinicalTemplate>().HasQueryFilter(t =>
             !t.IsDeleted &&
             (IsSuperAdminUser || (TenantId.HasValue && t.ClinicId == TenantId))
         );
 
         // ============================================================
-        // ✅ Soft Delete + Decimal Precision Normalization
+        // Soft Delete + Decimal Precision Normalization
         // ============================================================
         foreach (var property in modelBuilder.Model.GetEntityTypes()
                      .SelectMany(t => t.GetProperties())

@@ -1,3 +1,4 @@
+using NabdCare.Application.DTOs.Payments;
 using NabdCare.Domain.Enums.Invoice;
 using TypeGen.Core.TypeAnnotations;
 
@@ -23,11 +24,11 @@ public class InvoiceDto
     public InvoiceStatus Status { get; set; }
     public InvoiceType Type { get; set; }
 
-    // ✅ 2025: Deliverables
+    // Deliverables
     public string? PdfUrl { get; set; }
     public string? HostedPaymentUrl { get; set; }
 
-    // ✅ 2025: Financials with Currency
+    // Financials with Currency
     public string Currency { get; set; } = string.Empty;
     public decimal SubTotal { get; set; }
     public decimal TaxAmount { get; set; }
@@ -36,4 +37,7 @@ public class InvoiceDto
     public decimal BalanceDue { get; set; }
 
     public List<InvoiceItemDto> Items { get; set; } = new();
+    
+    // Payment History (Allocations)
+    public List<PaymentAllocationDto> Payments { get; set; } = new();
 }

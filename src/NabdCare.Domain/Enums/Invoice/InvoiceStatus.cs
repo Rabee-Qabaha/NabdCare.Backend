@@ -11,5 +11,6 @@ public enum InvoiceStatus
     PartiallyPaid = 3,
     Overdue = 4,    // Past DueDate
     Void = 5,       // Cancelled
-    Uncollectible = 6
+    Uncollectible = 6,
+    Sent = 7
 }

@@ -99,5 +99,7 @@ public class Invoice : BaseEntity
 
     // 🔗 Relations
     public ICollection<InvoiceItem> Items { get; set; } = new List<InvoiceItem>();
-    public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    
+    // 🔗 Replaced direct Payments with Allocations
+    public ICollection<PaymentAllocation> PaymentAllocations { get; set; } = new List<PaymentAllocation>();
 }
