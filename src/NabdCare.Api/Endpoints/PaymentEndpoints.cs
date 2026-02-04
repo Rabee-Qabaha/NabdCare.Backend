@@ -173,5 +173,25 @@ public static class PaymentEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);
+
+        // ============================================
+        // UPDATE CHEQUE DETAILS
+        // ============================================
+        group.MapPut("/{paymentId:guid}/cheque", async (
+                Guid paymentId,
+                [FromBody] UpdateChequeDetailDto request,
+                [FromServices] IPaymentService service) =>
+            {
+                await service.UpdateChequeDetailsAsync(paymentId, request);
+                return Results.Ok(new { message = "Cheque details updated successfully." });
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.Payments.ManageCheques)
+            .WithName("UpdateChequeDetails")
+            .WithSummary("Edit cheque details (only if Pending)")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden);
     }
 }

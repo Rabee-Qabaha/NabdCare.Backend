@@ -34,4 +34,7 @@ public class ChequePaymentDetail : BaseEntity
     public DateTime? ClearedDate { get; set; }
 
     public string? ImageUrl { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string? Note { get; set; }
 }

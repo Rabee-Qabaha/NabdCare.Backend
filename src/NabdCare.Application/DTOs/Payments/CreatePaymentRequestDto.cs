@@ -7,6 +7,8 @@ namespace NabdCare.Application.DTOs.Payments;
 public class CreatePaymentRequestDto
 {
     public PaymentContext Context { get; set; }
+    
+    public Guid? ClinicId { get; set; } // Required if Context == Clinic (and user is SuperAdmin)
     public Guid? PatientId { get; set; } // Required if Context == Patient
     
     public decimal Amount { get; set; }
@@ -21,22 +23,4 @@ public class CreatePaymentRequestDto
 
     // Optional: Cheque Details
     public CreateChequeDetailDto? ChequeDetail { get; set; }
-}
-
-[ExportTsClass]
-public class PaymentAllocationRequestDto
-{
-    public Guid InvoiceId { get; set; }
-    public decimal Amount { get; set; }
-}
-
-[ExportTsClass]
-public class CreateChequeDetailDto
-{
-    public string ChequeNumber { get; set; } = string.Empty;
-    public string BankName { get; set; } = string.Empty;
-    public string Branch { get; set; } = string.Empty;
-    public DateTime IssueDate { get; set; }
-    public DateTime DueDate { get; set; }
-    public string? ImageUrl { get; set; }
 }

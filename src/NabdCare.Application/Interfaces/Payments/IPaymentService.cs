@@ -9,7 +9,6 @@ public interface IPaymentService
     Task<PaymentDto> CreatePaymentAsync(CreatePaymentRequestDto request);
     Task<PaymentDto> GetPaymentByIdAsync(Guid id);
     
-    // ✅ Updated to support Pagination
     Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaginationRequestDto pagination);
     
     Task<IEnumerable<PaymentDto>> GetPaymentsByPatientAsync(Guid patientId);
@@ -24,4 +23,6 @@ public interface IPaymentService
     // Refund & Status Management
     Task RefundPaymentAsync(Guid paymentId, string reason, decimal? amount = null);
     Task UpdateChequeStatusAsync(Guid paymentId, ChequeStatus newStatus);
+    
+    Task UpdateChequeDetailsAsync(Guid paymentId, UpdateChequeDetailDto dto);
 }

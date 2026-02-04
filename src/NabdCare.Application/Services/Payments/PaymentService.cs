@@ -43,6 +43,23 @@ public class PaymentService : IPaymentService
         {
             payment.ClinicId = _tenantContext.ClinicId.Value;
         }
+        else if (request.Context == PaymentContext.Clinic)
+        {
+            if (!request.ClinicId.HasValue)
+            {
+                throw new DomainException("ClinicId is required when creating a clinic payment.", ErrorCodes.INVALID_ARGUMENT, "ClinicId");
+            }
+            payment.ClinicId = request.ClinicId.Value;
+        }
+        
+        if (request.Context == PaymentContext.Patient)
+        {
+            if (!request.PatientId.HasValue)
+            {
+                throw new DomainException("PatientId is required when creating a patient payment.", ErrorCodes.INVALID_ARGUMENT, "PatientId");
+            }
+            payment.PatientId = request.PatientId.Value;
+        }
         
         if (request.Method == PaymentMethod.Cheque && request.ChequeDetail != null)
         {
@@ -274,6 +291,43 @@ public class PaymentService : IPaymentService
             case ChequeStatus.Pending:
                 payment.Status = PaymentStatus.Pending;
                 break;
+        }
+
+        await _paymentRepository.UpdateAsync(payment);
+    }
+
+    public async Task UpdateChequeDetailsAsync(Guid paymentId, UpdateChequeDetailDto dto)
+    {
+        var payment = await _paymentRepository.GetByIdAsync(paymentId, includeChequeDetails: true);
+        if (payment == null) throw new KeyNotFoundException("Payment not found");
+
+        if (!await _policy.EvaluateAsync(_tenantContext, "write", payment))
+            throw new UnauthorizedAccessException("Access denied to this payment.");
+
+        if (payment.ChequeDetail == null)
+        {
+            throw new DomainException(ErrorCodes.INVALID_OPERATION, "This payment is not a cheque payment.");
+        }
+
+        if (payment.ChequeDetail.Status != ChequeStatus.Pending)
+        {
+            throw new DomainException(ErrorCodes.INVALID_OPERATION, "Cannot edit cheque details unless status is Pending.");
+        }
+
+        payment.ChequeDetail.ChequeNumber = dto.ChequeNumber;
+        payment.ChequeDetail.BankName = dto.BankName;
+        payment.ChequeDetail.Branch = dto.Branch;
+        payment.ChequeDetail.IssueDate = dto.IssueDate;
+        payment.ChequeDetail.DueDate = dto.DueDate;
+        
+        if (!string.IsNullOrEmpty(dto.ImageUrl))
+        {
+            payment.ChequeDetail.ImageUrl = dto.ImageUrl;
+        }
+        
+        if (!string.IsNullOrEmpty(dto.Note))
+        {
+            payment.ChequeDetail.Note = dto.Note;
         }
 
         await _paymentRepository.UpdateAsync(payment);
