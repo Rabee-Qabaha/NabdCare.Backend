@@ -100,6 +100,15 @@ export const superadminRoutes: RouteRecordRaw[] = [
               title: 'Clinic Branches',
             },
           },
+          // 4. Payments Tab
+          {
+            path: 'payments',
+            name: 'clinic-payments',
+            component: () => import('@/views/admin/clinics/dashboard/tabs/ClinicPayments.vue'),
+            meta: {
+              title: 'Clinic Payments',
+            },
+          },
           // Future Tabs: Users...
         ],
       },

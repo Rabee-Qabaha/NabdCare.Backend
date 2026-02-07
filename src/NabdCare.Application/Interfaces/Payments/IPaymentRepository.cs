@@ -1,4 +1,5 @@
-﻿using NabdCare.Application.DTOs.Pagination;
+﻿using NabdCare.Application.DTOs.Payments;
+using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Payments;
 
 namespace NabdCare.Application.Interfaces.Payments;
@@ -10,8 +11,7 @@ public interface IPaymentRepository
     
     Task<IEnumerable<Payment>> GetByClinicIdAsync(Guid clinicId, bool includeChequeDetails = false);
     
-    // ✅ Paged Version
-    Task<PaginatedResult<Payment>> GetByClinicIdPagedAsync(Guid clinicId, PaginationRequestDto pagination, bool includeChequeDetails = false);
+    Task<PaginatedResult<Payment>> GetByClinicIdPagedAsync(Guid clinicId, PaymentFilterRequestDto filter, bool includeChequeDetails = false);
 
     Task<IEnumerable<Payment>> GetByPatientIdAsync(Guid patientId, bool includeChequeDetails = false);
 

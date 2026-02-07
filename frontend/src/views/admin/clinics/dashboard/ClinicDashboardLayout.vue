@@ -136,6 +136,11 @@
       icon: 'pi pi-building',
       command: () => router.push({ name: 'clinic-branches', params: { id: props.id } }),
     },
+    {
+      label: 'Payments',
+      icon: 'pi pi-wallet',
+      command: () => router.push({ name: 'clinic-payments', params: { id: props.id } }),
+    },
   ]);
 
   const activeTabIndex = ref(0);
@@ -148,6 +153,8 @@
         activeTabIndex.value = 1;
       } else if (newRouteName === 'clinic-branches') {
         activeTabIndex.value = 2;
+      } else if (newRouteName === 'clinic-payments') {
+        activeTabIndex.value = 3;
       } else {
         activeTabIndex.value = 0;
       }

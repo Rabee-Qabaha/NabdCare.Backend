@@ -52,11 +52,11 @@ public static class PaymentEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
-        // GET PAYMENTS BY CLINIC (B2B / B2C) - PAGED
+        // GET PAYMENTS BY CLINIC (B2B / B2C) - PAGED & FILTERED
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}", async (
                 Guid clinicId, 
-                [AsParameters] PaginationRequestDto pagination,
+                [AsParameters] PaymentFilterRequestDto filter, // ✅ Updated to use Filter DTO
                 [FromServices] IPaymentService service,
                 [FromServices] ITenantContext tenantContext) =>
             {
@@ -65,13 +65,13 @@ public static class PaymentEndpoints
                     return Results.Forbid();
                 }
 
-                var payments = await service.GetPaymentsByClinicPagedAsync(clinicId, pagination);
+                var payments = await service.GetPaymentsByClinicPagedAsync(clinicId, filter);
                 return Results.Ok(payments);
             })
             .RequireAuthorization()
             .RequirePermission(Permissions.Payments.View)
             .WithName("GetClinicPayments")
-            .WithSummary("Get all payments for a specific clinic (Paged)")
+            .WithSummary("Get all payments for a specific clinic (Paged & Filtered)")
             .Produces<PaginatedResult<PaymentDto>>()
             .Produces(StatusCodes.Status403Forbidden);
 

@@ -9,5 +9,7 @@ export class CreateChequeDetailDto {
   branch: string = "";
   issueDate: Date;
   dueDate: Date;
+  amount: number;
   imageUrl: string;
+  note: string;
 }

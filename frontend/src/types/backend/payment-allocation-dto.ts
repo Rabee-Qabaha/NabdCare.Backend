@@ -7,7 +7,7 @@ export class PaymentAllocationDto {
   id: string;
   paymentId: string;
   invoiceId: string;
-  invoiceNumber: string = "";
+  invoiceNumber: string = '';
   amount: number;
   allocationDate: Date;
 }

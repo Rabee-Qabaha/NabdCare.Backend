@@ -15,4 +15,5 @@ export class ChequePaymentDetailDto {
   status: ChequeStatus;
   clearedDate: Date;
   imageUrl: string;
+  note: string;
 }

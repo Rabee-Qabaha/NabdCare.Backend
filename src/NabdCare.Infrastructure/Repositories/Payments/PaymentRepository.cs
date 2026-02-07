@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NabdCare.Application.DTOs.Payments;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Payments;
 using NabdCare.Domain.Entities.Payments;
@@ -59,7 +60,7 @@ public class PaymentRepository : IPaymentRepository
         return await query.ToListAsync();
     }
 
-    public async Task<PaginatedResult<Payment>> GetByClinicIdPagedAsync(Guid clinicId, PaginationRequestDto pagination, bool includeChequeDetails = false)
+    public async Task<PaginatedResult<Payment>> GetByClinicIdPagedAsync(Guid clinicId, PaymentFilterRequestDto filter, bool includeChequeDetails = false)
     {
         var query = _context.Payments
             .Where(p => p.ClinicId == clinicId)
@@ -71,15 +72,39 @@ public class PaymentRepository : IPaymentRepository
             query = query.Include(p => p.ChequeDetail);
         }
 
+        // Apply Filters
+        if (filter.Method.HasValue)
+            query = query.Where(p => p.Method == filter.Method.Value);
+
+        if (filter.Status.HasValue)
+            query = query.Where(p => p.Status == filter.Status.Value);
+
+        if (filter.StartDate.HasValue)
+            query = query.Where(p => p.PaymentDate >= filter.StartDate.Value);
+
+        if (filter.EndDate.HasValue)
+            query = query.Where(p => p.PaymentDate <= filter.EndDate.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter.Reference))
+        {
+            var refTerm = filter.Reference.Trim().ToLower();
+            query = query.Where(p => 
+                (p.TransactionId != null && p.TransactionId.ToLower().Contains(refTerm)) ||
+                (p.ChequeDetail != null && p.ChequeDetail.ChequeNumber.ToLower().Contains(refTerm))
+            );
+        }
+        
+        var totalCount = await query.CountAsync();
+
         // Sorting (Default: Newest First)
         query = query.OrderByDescending(p => p.PaymentDate).ThenByDescending(p => p.Id);
 
         // Cursor Pagination Logic
-        var limit = Math.Clamp(pagination.Limit, 1, 100);
+        var limit = Math.Clamp(filter.Limit, 1, 100);
 
-        if (!string.IsNullOrWhiteSpace(pagination.Cursor))
+        if (!string.IsNullOrWhiteSpace(filter.Cursor))
         {
-            var parts = pagination.Cursor.Split('_', 2);
+            var parts = filter.Cursor.Split('_', 2);
             if (parts.Length == 2 && long.TryParse(parts[0], out var ticks) && Guid.TryParse(parts[1], out var cursorId))
             {
                 var cursorDate = new DateTime(ticks, DateTimeKind.Utc);
@@ -97,8 +122,6 @@ public class PaymentRepository : IPaymentRepository
             var last = items.Last();
             nextCursor = $"{last.PaymentDate.Ticks}_{last.Id}";
         }
-
-        var totalCount = await _context.Payments.CountAsync(p => p.ClinicId == clinicId);
 
         return new PaginatedResult<Payment>
         {

@@ -19,7 +19,7 @@ export class Payment {
   patient: Patient;
   amount: number;
   refundedAmount: number;
-  paymentDate: Date = new Date("2026-02-02T21:24:33.3068570Z");
+  paymentDate: Date = new Date("2026-02-07T21:25:21.2784630Z");
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId: string;

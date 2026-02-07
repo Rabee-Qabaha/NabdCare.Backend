@@ -369,13 +369,13 @@ public class PaymentService : IPaymentService
 
         return _mapper.Map<PaymentDto>(payment);
     }
-
-    public async Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaginationRequestDto pagination)
+    
+    public async Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaymentFilterRequestDto filter)
     {
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)
              throw new UnauthorizedAccessException("Access denied to this clinic's payments.");
-
-        var result = await _paymentRepository.GetByClinicIdPagedAsync(clinicId, pagination, includeChequeDetails: true);
+        
+        var result = await _paymentRepository.GetByClinicIdPagedAsync(clinicId, filter, includeChequeDetails: true);
         
         return new PaginatedResult<PaymentDto>
         {

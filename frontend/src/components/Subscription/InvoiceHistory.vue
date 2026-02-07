@@ -6,7 +6,9 @@
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
   // UI Components
+  import PaymentDialog from '@/components/Payments/PaymentDialog.vue';
   import InvoiceDocument from '@/components/Subscription/InvoiceDocument.vue';
+  import { usePaymentActions } from '@/composables/query/payments/usePaymentActions';
   import Button from 'primevue/button';
   import Column from 'primevue/column';
   import DataTable from 'primevue/datatable';
@@ -105,6 +107,26 @@
     if ((invoice as UiInvoice)._skeleton) return;
     selectedInvoice.value = invoice;
     showPrintDialog.value = true;
+  };
+
+  // -- Payment Dialog Logic --
+  const showPaymentDialog = ref(false);
+  const invoiceToPay = ref<InvoiceDto | null>(null);
+  const { createPayment, isCreating } = usePaymentActions();
+
+  const openPaymentDialog = (invoice: InvoiceDto) => {
+    invoiceToPay.value = invoice;
+    showPaymentDialog.value = true;
+  };
+
+  const handlePaymentSave = (paymentData: any) => {
+    // Type as any for now or Import DTO
+    createPayment(paymentData, {
+      onSuccess: () => {
+        showPaymentDialog.value = false;
+        // Optionally refresh invoices? useInfiniteInvoicesPaged might need invalidation
+      },
+    });
   };
 
   // -- Helpers --
@@ -280,7 +302,17 @@
             <div v-if="data._skeleton" class="flex justify-center">
               <Skeleton shape="circle" size="1.5rem" />
             </div>
-            <div v-else>
+            <div v-else class="flex gap-1 justify-center">
+              <Button
+                v-if="data.status !== InvoiceStatus.Paid && data.balanceDue > 0"
+                icon="pi pi-wallet"
+                text
+                rounded
+                size="small"
+                class="!w-8 !h-8 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                @click="openPaymentDialog(data)"
+                v-tooltip.left="'Pay Invoice'"
+              />
               <Button
                 icon="pi pi-print"
                 text
@@ -325,5 +357,15 @@
         @close="showPrintDialog = false"
       />
     </Dialog>
+
+    <PaymentDialog
+      v-if="showPaymentDialog"
+      v-model:visible="showPaymentDialog"
+      :is-processing="isCreating"
+      :clinic-id="props.clinicId!"
+      :invoice-id="invoiceToPay?.id"
+      :max-amount="invoiceToPay?.balanceDue"
+      @save="handlePaymentSave"
+    />
   </BaseCard>
 </template>

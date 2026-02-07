@@ -9,7 +9,7 @@ public interface IPaymentService
     Task<PaymentDto> CreatePaymentAsync(CreatePaymentRequestDto request);
     Task<PaymentDto> GetPaymentByIdAsync(Guid id);
     
-    Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaginationRequestDto pagination);
+    Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaymentFilterRequestDto filter);
     
     Task<IEnumerable<PaymentDto>> GetPaymentsByPatientAsync(Guid patientId);
     
