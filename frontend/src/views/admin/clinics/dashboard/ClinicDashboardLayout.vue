@@ -15,7 +15,7 @@
 
       <div v-if="isLoading" class="p-6 space-y-6">
         <div class="flex gap-4 items-center">
-          <Skeleton shape="square" size="4rem" borderRadius="12px" class="shrink-0" />
+          <Skeleton shape="square" size="4rem" border-radius="12px" class="shrink-0" />
           <div class="flex-1 space-y-2">
             <Skeleton width="40%" height="2rem" />
             <Skeleton width="20%" height="1rem" />
@@ -86,8 +86,8 @@
         </div>
 
         <TabMenu
+          v-model:active-index="activeTabIndex"
           :model="tabItems"
-          v-model:activeIndex="activeTabIndex"
           class="custom-clinic-tabs"
         />
       </div>
@@ -132,14 +132,19 @@
       command: () => router.push({ name: 'clinic-subscription', params: { id: props.id } }),
     },
     {
-      label: 'Branches',
-      icon: 'pi pi-building',
-      command: () => router.push({ name: 'clinic-branches', params: { id: props.id } }),
+      label: 'Invoices',
+      icon: 'pi pi-receipt',
+      command: () => router.push({ name: 'clinic-invoices', params: { id: props.id } }),
     },
     {
       label: 'Payments',
       icon: 'pi pi-wallet',
       command: () => router.push({ name: 'clinic-payments', params: { id: props.id } }),
+    },
+    {
+      label: 'Branches',
+      icon: 'pi pi-building',
+      command: () => router.push({ name: 'clinic-branches', params: { id: props.id } }),
     },
   ]);
 
@@ -151,10 +156,12 @@
     (newRouteName) => {
       if (newRouteName === 'clinic-subscription') {
         activeTabIndex.value = 1;
-      } else if (newRouteName === 'clinic-branches') {
+      } else if (newRouteName === 'clinic-invoices') {
         activeTabIndex.value = 2;
       } else if (newRouteName === 'clinic-payments') {
         activeTabIndex.value = 3;
+      } else if (newRouteName === 'clinic-branches') {
+        activeTabIndex.value = 4;
       } else {
         activeTabIndex.value = 0;
       }

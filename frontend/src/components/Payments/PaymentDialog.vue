@@ -44,7 +44,7 @@
             v-model="localPayment.paymentDate"
             :show-icon="true"
             :show-button-bar="true"
-            dateFormat="dd/mm/yy"
+            date-format="dd/mm/yy"
             placeholder="dd/mm/yyyy"
             :invalid="submitted && !localPayment.paymentDate"
             class="w-full"
@@ -143,7 +143,7 @@
               v-model="chequeDetail.dueDate"
               class="w-full p-inputtext-sm"
               :show-icon="true"
-              dateFormat="dd/mm/yy"
+              date-format="dd/mm/yy"
             />
           </div>
         </div>
@@ -155,7 +155,7 @@
             v-model="chequeDetail.issueDate"
             class="w-full p-inputtext-sm"
             :show-icon="true"
-            dateFormat="dd/mm/yy"
+            date-format="dd/mm/yy"
           />
         </div>
 
@@ -185,7 +185,7 @@
     </div>
 
     <template #footer>
-      <Button label="Cancel" icon="pi pi-times" text @click="onCancel" severity="secondary" />
+      <Button label="Cancel" icon="pi pi-times" text severity="secondary" @click="onCancel" />
       <Button
         label="Save Payment"
         icon="pi pi-check"

@@ -29,4 +29,9 @@ export const invoicesApi = {
     });
     return data;
   },
+
+  async writeOff(id: string, payload: { reason: string }) {
+    const { data } = await api.post(`/invoices/${id}/write-off`, payload);
+    return data;
+  },
 };

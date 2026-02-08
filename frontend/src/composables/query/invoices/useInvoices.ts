@@ -16,6 +16,7 @@ function buildParams(params: {
   fromDate?: Date | null;
   toDate?: Date | null;
   cursor?: string | null;
+  subscriptionId?: string | null;
   limit?: number;
 }): InvoiceListRequestDto {
   const queryParams = {
@@ -30,7 +31,7 @@ function buildParams(params: {
     fromDate: params.fromDate || undefined,
     toDate: params.toDate || undefined,
 
-    subscriptionId: undefined,
+    subscriptionId: params.subscriptionId || undefined,
     filter: undefined,
     type: undefined,
   };
@@ -40,12 +41,14 @@ function buildParams(params: {
 
 export function useInfiniteInvoicesPaged(options: {
   clinicId?: Ref<string | null> | string | null;
+  subscriptionId?: Ref<string | null> | string | null;
   status?: Ref<InvoiceStatus | null> | InvoiceStatus | null;
   search?: Ref<string> | string;
   dateRange?: Ref<Date[] | null> | Date[] | null;
   limit?: number;
 }) {
   const clinicId = computed(() => unref(options.clinicId));
+  const subscriptionId = computed(() => unref(options.subscriptionId));
   const status = computed(() => unref(options.status));
   const search = computed(() => unref(options.search));
   const dateRange = computed(() => unref(options.dateRange));
@@ -57,6 +60,7 @@ export function useInfiniteInvoicesPaged(options: {
     'infinite',
     {
       clinicId: clinicId.value,
+      subscriptionId: subscriptionId.value,
       status: status.value,
       search: search.value,
       dateRange: dateRange.value,
@@ -73,6 +77,7 @@ export function useInfiniteInvoicesPaged(options: {
       return await invoicesApi.getPaged(
         buildParams({
           clinicId: clinicId.value,
+          subscriptionId: subscriptionId.value,
           status: status.value,
           search: search.value,
           fromDate,

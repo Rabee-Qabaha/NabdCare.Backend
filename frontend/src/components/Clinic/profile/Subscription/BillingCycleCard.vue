@@ -125,7 +125,7 @@
 
       <ProgressBar
         :value="displayedPercent"
-        :showValue="false"
+        :show-value="false"
         class="!h-3 !bg-surface-100 dark:!bg-surface-950 !rounded-full"
         :pt="{
           value: {

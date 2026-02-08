@@ -175,3 +175,28 @@ export function useRefreshUserPermissions() {
     onError: (err) => handleErrorAndNotify(err),
   });
 }
+export function usePermissions() {
+  const { data: myPermissionsData } = useMyPermissions();
+
+  // The API returns { userId, roleId, permissions: string[], ... }
+  const myPermissions = computed(() => myPermissionsData.value?.permissions || []);
+
+  const can = (permission: string) => {
+    return myPermissions.value.includes(permission);
+  };
+
+  const canAny = (permissions: string[]) => {
+    return permissions.some((p) => myPermissions.value.includes(p));
+  };
+
+  const canAll = (permissions: string[]) => {
+    return permissions.every((p) => myPermissions.value.includes(p));
+  };
+
+  return {
+    can,
+    canAny,
+    canAll,
+    permissions: myPermissions,
+  };
+}

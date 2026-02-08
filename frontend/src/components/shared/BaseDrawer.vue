@@ -33,17 +33,17 @@
 <template>
   <Drawer
     :visible="visible"
-    @update:visible="(v) => emit('update:visible', v)"
     position="right"
     :modal="true"
     :dismissable="dismissable"
-    :showCloseIcon="false"
+    :show-close-icon="false"
     :class="['!w-full !border-0 shadow-2xl', width]"
     :pt="{
       root: { class: '!bg-surface-0 dark:!bg-surface-900' },
       header: { class: '!hidden' },
       content: { class: '!p-0 !h-full' },
     }"
+    @update:visible="(v) => emit('update:visible', v)"
   >
     <div class="flex flex-col h-full bg-surface-0 dark:bg-surface-900">
       <div

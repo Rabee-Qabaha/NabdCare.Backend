@@ -255,19 +255,19 @@
           <div class="flex justify-between items-center group">
             <span>User ID</span>
             <span
+              v-tooltip="'Click to copy'"
               class="font-mono text-surface-900 dark:text-surface-0 select-all cursor-copy"
               @click="copyToClipboard(user.id)"
-              v-tooltip="'Click to copy'"
             >
               {{ user.id }}
             </span>
           </div>
-          <div class="flex justify-between items-center group" v-if="user.clinicId">
+          <div v-if="user.clinicId" class="flex justify-between items-center group">
             <span>Clinic ID</span>
             <span
+              v-tooltip="'Click to copy'"
               class="font-mono text-surface-900 dark:text-surface-0 select-all cursor-copy"
               @click="copyToClipboard(user.clinicId)"
-              v-tooltip="'Click to copy'"
             >
               {{ user.clinicId }}
             </span>
@@ -275,9 +275,9 @@
           <div class="flex justify-between items-center group">
             <span>Role ID</span>
             <span
+              v-tooltip="'Click to copy'"
               class="font-mono text-surface-900 dark:text-surface-0 select-all cursor-copy"
               @click="copyToClipboard(user.roleId)"
-              v-tooltip="'Click to copy'"
             >
               {{ user.roleId }}
             </span>
@@ -304,7 +304,7 @@
       </section>
     </div>
     <template #footer="{ close }">
-      <Button label="Close" outlined severity="secondary" @click="close" class="w-full" />
+      <Button label="Close" outlined severity="secondary" class="w-full" @click="close" />
     </template>
   </BaseDrawer>
 </template>

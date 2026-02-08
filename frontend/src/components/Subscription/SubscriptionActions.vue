@@ -76,8 +76,8 @@
 <template>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
     <BaseCard
-      no-padding
       v-if="canPurchaseAddons && !subscription.cancelAtPeriodEnd"
+      no-padding
       class="action-card group"
       @click="emit('edit')"
     >
@@ -91,8 +91,8 @@
     </BaseCard>
 
     <BaseCard
-      no-padding
       v-if="canRenew && !subscription.cancelAtPeriodEnd"
+      no-padding
       class="action-card group hover:border-green-500"
       @click="showRenewDialog = true"
     >
@@ -105,8 +105,8 @@
     </BaseCard>
 
     <BaseCard
-      no-padding
       v-if="canToggleAutoRenew && !subscription.cancelAtPeriodEnd"
+      no-padding
       class="action-card cursor-default hover:border-blue-500"
     >
       <div class="icon-wrapper bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
@@ -127,8 +127,8 @@
     </BaseCard>
 
     <BaseCard
-      no-padding
       v-if="subscription.cancelAtPeriodEnd"
+      no-padding
       class="action-card group border-green-200 hover:border-green-500 bg-green-50/50"
       @click="handleResume"
     >
@@ -141,8 +141,8 @@
     </BaseCard>
 
     <BaseCard
-      no-padding
       v-else-if="canCancel"
+      no-padding
       class="action-card group hover:border-red-500"
       @click="showTerminateDialog = true"
     >

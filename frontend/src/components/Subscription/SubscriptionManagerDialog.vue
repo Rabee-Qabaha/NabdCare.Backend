@@ -9,12 +9,13 @@
   import { useRouter } from 'vue-router';
 
   // Child Components
+  import InvoiceList from '@/components/Invoices/InvoiceList.vue';
   import CurrentPlanCard from '@/components/Subscription/CurrentPlanCard.vue';
   import SubscriptionAddonForm from '@/components/Subscription/forms/SubscriptionAddonForm.vue';
   import SubscriptionCreateForm from '@/components/Subscription/forms/SubscriptionCreateForm.vue';
-  import InvoiceHistory from '@/components/Subscription/InvoiceHistory.vue';
   import ResourceUtilizationCard from '@/components/Subscription/ResourceUtilizationCard.vue';
   import SubscriptionActions from '@/components/Subscription/SubscriptionActions.vue';
+  import BaseCard from '../shared/BaseCard.vue';
 
   const props = defineProps<{
     visible: boolean;
@@ -191,9 +192,17 @@
           />
         </div>
 
-        <div v-if="clinicId && hasActive" class="mt-2">
-          <InvoiceHistory :clinic-id="clinicId" @view-all="openFullInvoicePage" />
-        </div>
+        <BaseCard
+          no-padding
+          v-if="clinicId && hasActive"
+          class="[&_.p-datatable-thead_th]:!text-xs"
+        >
+          <InvoiceList
+            :clinic-id="clinicId"
+            :subscription-id="activeSub?.id"
+            @view-all="openFullInvoicePage"
+          />
+        </BaseCard>
 
         <div
           v-if="!hasActive"

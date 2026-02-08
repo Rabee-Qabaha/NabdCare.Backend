@@ -25,8 +25,20 @@ export function useInvoiceActions() {
     onError: (err) => handleErrorAndNotify(err),
   });
 
+  const writeOffInvoiceMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      await invoicesApi.writeOff(id, { reason });
+    },
+    onSuccess: () => toast.success('Invoice written off successfully'),
+    onError: (err) => handleErrorAndNotify(err),
+  });
+
   return {
     downloadPdfMutation,
     downloadPdf: (id: string, number: string) => downloadPdfMutation.mutate({ id, number }),
+    writeOffInvoiceMutation,
+    writeOffInvoice: (data: { id: string; reason: string }, options?: any) =>
+      writeOffInvoiceMutation.mutate(data, options),
+    isWritingOff: writeOffInvoiceMutation.isPending,
   };
 }

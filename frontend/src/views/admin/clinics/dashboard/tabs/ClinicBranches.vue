@@ -16,7 +16,7 @@
       </div>
 
       <div class="flex flex-wrap gap-2 w-full sm:w-auto">
-        <IconField iconPosition="left" class="w-full sm:w-64">
+        <IconField icon-position="left" class="w-full sm:w-64">
           <InputIcon class="pi pi-search" />
           <InputText
             v-model="filters.global.value"
@@ -29,8 +29,8 @@
           <SelectButton
             v-model="statusFilter"
             :options="statusOptions"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             class="p-selectbutton-sm"
           />
         </keep-alive>
@@ -46,7 +46,7 @@
     </div>
 
     <div v-if="isLoading" class="space-y-4">
-      <Skeleton v-for="i in 3" :key="i" height="8rem" borderRadius="1rem" />
+      <Skeleton v-for="i in 3" :key="i" height="8rem" border-radius="1rem" />
     </div>
 
     <div v-else-if="filteredBranches.length > 0" class="flex flex-col gap-4">

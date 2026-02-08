@@ -46,11 +46,11 @@
 <template>
   <BaseDrawer
     :visible="visible"
-    @update:visible="(v) => emit('update:visible', v)"
     title="Renew Subscription"
     subtitle="Extend your clinic's access for another cycle."
     icon="pi pi-refresh"
     width="md:!w-[480px]"
+    @update:visible="(v) => emit('update:visible', v)"
   >
     <div class="space-y-6">
       <!-- Main Confirmation Card -->

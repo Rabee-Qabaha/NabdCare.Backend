@@ -1,6 +1,5 @@
 <script setup lang="ts">
   import { computed } from 'vue';
-
   import {
     useActiveSubscription,
     useSubscriptionPlans,
@@ -12,9 +11,10 @@
   import SubscriptionBreakdown from '@/components/Clinic/profile/Subscription/SubscriptionBreakdown.vue';
   import SubscriptionHeader from '@/components/Clinic/profile/Subscription/SubscriptionHeader.vue';
   import UsersCard from '@/components/Clinic/profile/Subscription/UsersCard.vue';
-  import InvoiceHistory from '@/components/Subscription/InvoiceHistory.vue';
+  import InvoiceList from '@/components/Invoices/InvoiceList.vue';
   import Button from 'primevue/button';
   import Skeleton from 'primevue/skeleton';
+  import BaseCard from '@/components/shared/BaseCard.vue';
 
   const props = defineProps<{
     clinicId: string;
@@ -42,24 +42,24 @@
 
 <template>
   <div v-if="isLoadingActive" class="space-y-6">
-    <Skeleton height="100px" borderRadius="12px" class="bg-surface-0 dark:bg-[#27272a]" />
+    <Skeleton height="100px" borderRadius="12px" class="bg-surface-0 dark:bg-surface-900" />
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
       <Skeleton
         height="400px"
         borderRadius="12px"
-        class="xl:col-span-2 bg-surface-0 dark:bg-[#27272a]"
+        class="xl:col-span-2 bg-surface-0 dark:bg-surface-900"
       />
       <Skeleton
         height="400px"
         borderRadius="12px"
-        class="xl:col-span-1 bg-surface-0 dark:bg-[#27272a]"
+        class="xl:col-span-1 bg-surface-0 dark:bg-surface-900"
       />
     </div>
   </div>
 
   <div
     v-else-if="!activeSub"
-    class="text-center p-10 bg-surface-0 dark:bg-[#27272a] rounded-xl border border-dashed border-surface-300 dark:border-surface-700"
+    class="text-center p-10 bg-surface-0 dark:bg-surface-900 rounded-xl border border-dashed border-surface-300 dark:border-surface-700"
   >
     <i class="pi pi-box text-4xl text-surface-400 mb-4"></i>
     <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">No Active Subscription</h3>
@@ -89,32 +89,10 @@
       </div>
     </div>
 
-    <div class="mt-6" v-if="clinicId">
-      <InvoiceHistory :clinic-id="clinicId" @view-all="" />
-    </div>
+    <BaseCard v-if="clinicId" no-padding class="mt-6 [&_.p-datatable-thead_th]:!text-xs">
+      <div class="rounded-b-lg overflow-hidden mb-0.1">
+        <InvoiceList :clinic-id="clinicId" :subscription-id="activeSub?.id" @view-all="" />
+      </div>
+    </BaseCard>
   </div>
 </template>
-
-<style scoped>
-  :deep(.p-datatable .p-datatable-thead > tr > th) {
-    background: transparent;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--surface-400);
-    font-weight: 700;
-    padding-top: 1.5rem;
-    padding-bottom: 0.75rem;
-  }
-  :deep(.p-datatable .p-datatable-tbody > tr > td) {
-    padding-top: 1.25rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--surface-100);
-  }
-  :global(.dark) :deep(.p-datatable .p-datatable-tbody > tr > td) {
-    border-bottom: 1px solid var(--surface-800);
-  }
-  :deep(.p-datatable .p-datatable-tbody > tr:last-child > td) {
-    border-bottom: none;
-  }
-</style>

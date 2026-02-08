@@ -12,7 +12,7 @@
         </div>
         <ProgressBar
           :value="(totalBranches / 5) * 100"
-          :showValue="false"
+          :show-value="false"
           class="!h-2 !bg-surface-100 dark:!bg-surface-800"
           :pt="{ value: { class: '!bg-primary-500' } }"
         />
@@ -24,7 +24,7 @@
         </div>
         <ProgressBar
           :value="(activeUsersCount / 20) * 100"
-          :showValue="false"
+          :show-value="false"
           class="!h-2 !bg-surface-100 dark:!bg-surface-800"
           :pt="{ value: { class: '!bg-orange-500' } }"
         />

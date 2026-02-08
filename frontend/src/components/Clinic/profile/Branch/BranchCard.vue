@@ -81,29 +81,29 @@
         </span>
         <ToggleSwitch
           :model-value="branch.isActive"
-          @update:model-value="emit('toggle-status', branch)"
           :disabled="isToggling"
+          @update:model-value="emit('toggle-status', branch)"
         />
       </div>
 
       <!-- Action Buttons -->
       <div class="flex gap-1 transition-opacity">
         <Button
+          v-tooltip.top="'Edit Details'"
           icon="pi pi-pencil"
           text
           rounded
           severity="secondary"
           aria-label="Edit"
-          v-tooltip.top="'Edit Details'"
           @click="emit('edit', branch)"
         />
         <Button
+          v-tooltip.top="'Delete Branch'"
           icon="pi pi-trash"
           text
           rounded
           severity="danger"
           aria-label="Delete"
-          v-tooltip.top="'Delete Branch'"
           :disabled="branch.isMain"
           @click="emit('delete', branch)"
         />

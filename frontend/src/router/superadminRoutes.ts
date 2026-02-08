@@ -91,6 +91,15 @@ export const superadminRoutes: RouteRecordRaw[] = [
               title: 'Clinic Subscription',
             },
           },
+          // 3. Invoices Tab
+          {
+            path: 'invoices',
+            name: 'clinic-invoices',
+            component: () => import('@/views/admin/clinics/dashboard/tabs/ClinicInvoices.vue'),
+            meta: {
+              title: 'Clinic Invoices',
+            },
+          },
           // 3. Branches Tab
           {
             path: 'branches',

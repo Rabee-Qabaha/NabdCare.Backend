@@ -92,11 +92,11 @@
 <template>
   <BaseDrawer
     :visible="visible"
-    @update:visible="(v) => emit('update:visible', v)"
     title="Manage Add-ons"
     subtitle="Scale your clinic by adding more seats and branch locations."
     icon="pi pi-chart-bar"
     width="md:!w-[500px]"
+    @update:visible="(v) => emit('update:visible', v)"
   >
     <div class="space-y-8 pb-4">
       <div

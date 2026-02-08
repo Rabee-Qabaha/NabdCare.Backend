@@ -14,8 +14,9 @@
         numToleratedItems: 10,
       }"
       data-key="id"
-      table-style="min-width: 85rem"
-      class="p-datatable-sm"
+      class="text-md w-full"
+      striped-rows
+      row-hover
       :row-class="rowClass"
       @sort="onSort"
     >
@@ -43,7 +44,7 @@
               >
                 {{ data.name }}
               </router-link>
-              
+
               <a
                 :href="`https://${data.slug}.nabd.care`"
                 target="_blank"
@@ -147,7 +148,6 @@
 </template>
 
 <script setup lang="ts">
-  import { useRouter } from 'vue-router'; // ✅ Added
   import { SubscriptionStatus, type ClinicResponseDto } from '@/types/backend';
   import { formatClinicCurrency, formatDate } from '@/utils/uiHelpers';
   import Avatar from 'primevue/avatar';
@@ -158,6 +158,7 @@
   import Skeleton from 'primevue/skeleton';
   import Tag from 'primevue/tag';
   import { ref } from 'vue';
+  import { useRouter } from 'vue-router'; // ✅ Added
 
   defineProps<{
     virtualClinics: (ClinicResponseDto | undefined)[];

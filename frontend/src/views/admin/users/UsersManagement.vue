@@ -34,12 +34,12 @@
             <!-- Hidden input to trick autofill -->
             <input type="text" class="hidden" autocomplete="off" name="hidden-search-dummy" />
             <InputText
+              id="user_search_query"
               v-model="filtersState.global"
               placeholder="Search users by name, email, role, or clinic..."
               class="w-full"
               autocomplete="new-password"
               name="user_search_query"
-              id="user_search_query"
             />
           </form>
         </IconField>

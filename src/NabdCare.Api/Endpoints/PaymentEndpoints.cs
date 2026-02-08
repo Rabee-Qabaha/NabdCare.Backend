@@ -45,7 +45,6 @@ public static class PaymentEndpoints
             })
             .RequireAuthorization()
             .RequirePermission(Permissions.Payments.View)
-            // Note: ABAC check is handled inside Service.GetPaymentByIdAsync
             .WithName("GetPaymentById")
             .Produces<PaymentDto>()
             .Produces(StatusCodes.Status404NotFound)
@@ -56,7 +55,7 @@ public static class PaymentEndpoints
         // ============================================
         group.MapGet("/clinic/{clinicId:guid}", async (
                 Guid clinicId, 
-                [AsParameters] PaymentFilterRequestDto filter, // ✅ Updated to use Filter DTO
+                [AsParameters] PaymentFilterRequestDto filter,
                 [FromServices] IPaymentService service,
                 [FromServices] ITenantContext tenantContext) =>
             {

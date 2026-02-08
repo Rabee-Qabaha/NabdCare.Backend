@@ -61,7 +61,7 @@
 
       <ProgressBar
         :value="users.percent"
-        :showValue="false"
+        :show-value="false"
         class="!h-2.5 !bg-surface-100 dark:!bg-surface-800 !rounded-full mb-3"
         :pt="{ value: { class: '!bg-primary-500 !rounded-full' } }"
       />

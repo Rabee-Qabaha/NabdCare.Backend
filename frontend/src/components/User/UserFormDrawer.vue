@@ -42,9 +42,9 @@
               placeholder="user@example.com"
               :invalid="submitted && (!isEmailValid || emailExistsError)"
               class="w-full"
-              @blur="checkEmail"
               name="email"
               autocomplete="email"
+              @blur="checkEmail"
             />
             <small v-if="emailExistsError" class="text-red-500 text-xs">
               Email already exists.
