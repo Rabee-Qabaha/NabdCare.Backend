@@ -7,6 +7,8 @@ namespace NabdCare.Application.Interfaces.Invoices;
 public interface IInvoiceRepository
 {
     Task<Invoice?> GetByIdAsync(Guid id);
+    Task<Invoice?> GetByIdForUpdateAsync(Guid id);
+
     Task<Invoice?> GetByNumberAsync(string invoiceNumber);
 
     Task<PaginatedResult<Invoice>> GetPagedAsync(
@@ -16,8 +18,5 @@ public interface IInvoiceRepository
     Task<Invoice> CreateAsync(Invoice invoice);
     Task<Invoice> UpdateAsync(Invoice invoice);
     
-    /// <summary>
-    /// Generates the next sequential invoice number (e.g., INV-2025-0042)
-    /// </summary>
     Task<string> GenerateNextInvoiceNumberAsync();
 }

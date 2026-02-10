@@ -1,5 +1,10 @@
 import { api } from '@/api/apiClient';
-import type { CreatePaymentRequestDto, PaginatedResult, PaymentDto } from '@/types/backend';
+import type {
+  BatchPaymentRequestDto,
+  CreatePaymentRequestDto,
+  PaginatedResult,
+  PaymentDto,
+} from '@/types/backend';
 
 export const paymentsApi = {
   // ==========================================

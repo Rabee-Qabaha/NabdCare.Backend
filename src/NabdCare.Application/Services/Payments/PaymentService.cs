@@ -105,36 +105,19 @@ public class PaymentService : IPaymentService
 
             if (request.InvoicesToPay != null && request.InvoicesToPay.Any())
             {
-                var paymentBalances = createdPayments.Select(p => new { 
-                    PaymentId = p.Id, 
-                    Available = p.Amount
-                }).ToList();
-
-                foreach (var invReq in request.InvoicesToPay)
-                {
-                    decimal remainingToPay = invReq.Amount;
-
-                    foreach (var payBalance in paymentBalances)
-                    {
-                        if (remainingToPay <= 0) break;
-                        if (payBalance.Available <= 0) continue;
-
-                        decimal amountToTake = Math.Min(remainingToPay, payBalance.Available);
-                        
-                        await AllocatePaymentToInvoiceAsync(payBalance.PaymentId, invReq.InvoiceId, amountToTake);
-                    }
-                }
-                
-                // Re-implementing allocation loop properly:
+                // Track available balance for each payment locally to avoid DB roundtrips for balance checks
+                // (though AllocatePaymentToInvoiceAsync fetches from DB, we need to know which payment to pick)
                 var balances = createdPayments.ToDictionary(p => p.Id, p => p.Amount);
                 
                 foreach (var invReq in request.InvoicesToPay)
                 {
                     decimal remainingToPay = invReq.Amount;
                     
+                    // Iterate through payments to find funds
                     foreach (var paymentId in balances.Keys.ToList())
                     {
                         if (remainingToPay <= 0) break;
+                        
                         decimal available = balances[paymentId];
                         if (available <= 0) continue;
 
@@ -149,7 +132,7 @@ public class PaymentService : IPaymentService
                     if (remainingToPay > 0)
                     {
                         // Warning: Not enough money in batch to pay requested invoice amount.
-                        // We proceed with partial payment.
+                        // We proceed with partial payment (best effort).
                     }
                 }
             }
@@ -180,16 +163,19 @@ public class PaymentService : IPaymentService
         if (!await _policy.EvaluateAsync(_tenantContext, "write", payment))
             throw new UnauthorizedAccessException("Access denied to this payment.");
 
-        var invoice = await _invoiceRepository.GetByIdAsync(invoiceId);
+        var invoice = await _invoiceRepository.GetByIdForUpdateAsync(invoiceId);
         if (invoice == null) throw new KeyNotFoundException("Invoice not found");
 
         if (invoice.ClinicId != payment.ClinicId)
              throw new DomainException(ErrorCodes.INVALID_OPERATION, "Payment and Invoice must belong to the same clinic.");
 
-        if (amount > payment.UnallocatedAmount)
+        var allocatedSum = payment.Allocations?.Sum(a => a.Amount) ?? 0;
+        var available = payment.Amount - payment.RefundedAmount - allocatedSum;
+
+        if (amount > available)
         {
             throw new DomainException(ErrorCodes.INSUFFICIENT_FUNDS, 
-                $"Insufficient funds in payment. Available: {payment.UnallocatedAmount}, Requested: {amount}");
+                $"Insufficient funds in payment. Available: {available}, Requested: {amount}. (Total: {payment.Amount}, Allocated: {allocatedSum})");
         }
 
         if (amount > invoice.BalanceDue)
@@ -235,7 +221,7 @@ public class PaymentService : IPaymentService
         var allocation = payment.Allocations.FirstOrDefault(a => a.InvoiceId == invoiceId);
         if (allocation == null) throw new KeyNotFoundException("Allocation not found for this invoice.");
 
-        var invoice = await _invoiceRepository.GetByIdAsync(invoiceId);
+        var invoice = await _invoiceRepository.GetByIdForUpdateAsync(invoiceId);
         if (invoice != null)
         {
             invoice.PaidAmount -= allocation.Amount;
@@ -309,7 +295,7 @@ public class PaymentService : IPaymentService
 
                 decimal amountToReverse = Math.Min(allocation.Amount, remainingRefund);
                 
-                var invoice = await _invoiceRepository.GetByIdAsync(allocation.InvoiceId);
+                var invoice = await _invoiceRepository.GetByIdForUpdateAsync(allocation.InvoiceId);
                 if (invoice != null)
                 {
                     invoice.PaidAmount -= amountToReverse;
@@ -424,7 +410,7 @@ public class PaymentService : IPaymentService
     {
         foreach (var allocation in payment.Allocations.ToList())
         {
-            var invoice = await _invoiceRepository.GetByIdAsync(allocation.InvoiceId);
+            var invoice = await _invoiceRepository.GetByIdForUpdateAsync(allocation.InvoiceId);
             if (invoice != null)
             {
                 invoice.PaidAmount -= allocation.Amount;

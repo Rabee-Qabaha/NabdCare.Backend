@@ -23,8 +23,16 @@ public class InvoiceRepository : IInvoiceRepository
             .Include(i => i.Clinic)
             .Include(i => i.PaymentAllocations) 
                 .ThenInclude(pa => pa.Payment)
-                    .ThenInclude(p => p.ChequeDetail) // ✅ Added: Include ChequeDetail
+                    .ThenInclude(p => p.ChequeDetail)
             .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == id);
+    }
+
+    public async Task<Invoice?> GetByIdForUpdateAsync(Guid id)
+    {
+        return await _dbContext.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.PaymentAllocations) 
             .FirstOrDefaultAsync(i => i.Id == id);
     }
 

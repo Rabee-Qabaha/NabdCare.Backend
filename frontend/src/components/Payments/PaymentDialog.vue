@@ -242,10 +242,10 @@
                 <div class="flex items-center gap-3">
                   <i class="pi pi-paperclip text-surface-400 text-lg -rotate-45"></i>
                   <span
-                    v-if="cheque.attachmentName"
+                    v-if="cheque.imageUrl"
                     class="text-sm text-surface-700 dark:text-surface-300 font-medium"
                   >
-                    {{ cheque.attachmentName }}
+                    {{ cheque.imageUrl }}
                   </span>
                   <span v-else class="text-sm text-surface-400 dark:text-surface-500 italic">
                     cheque_scan_001.pdf (Mock)
@@ -270,7 +270,7 @@
               <i class="pi pi-exclamation-circle"></i>
               <span class="font-medium">
                 Cheques total: {{ formatCurrency(getGroupChequeTotal(group)) }} (Diff:
-                {{ formatCurrency(group.totalAmount - getGroupChequeTotal(group)) }})
+                {{ formatCurrency((group.totalAmount || 0) - getGroupChequeTotal(group)) }})
               </span>
             </div>
             <div v-else></div>
@@ -289,7 +289,7 @@
             Payment Remarks
           </label>
           <Textarea
-            v-model="group.remarks"
+            v-model="group.notes"
             rows="2"
             autoResize
             class="w-full !bg-surface-50 dark:!bg-surface-800 text-sm !border-surface-200 dark:!border-surface-700"
@@ -344,6 +344,7 @@
   import { usePaymentActions } from '@/composables/query/payments/usePaymentActions.ts';
   import { BatchPaymentRequestDto } from '@/types/backend/batch-payment-request-dto';
   import { CreateChequeDetailDto } from '@/types/backend/create-cheque-detail-dto';
+  import { CreatePaymentRequestDto } from '@/types/backend/create-payment-request-dto';
   import { PaymentAllocationRequestDto } from '@/types/backend/payment-allocation-request-dto';
   import { PaymentContext } from '@/types/backend/payment-context';
   import { PaymentMethod } from '@/types/backend/payment-method';
@@ -367,28 +368,19 @@
   const { createBatch } = usePaymentActions();
 
   // --- Local Types for UI ---
-  interface UiChequeItem {
-    chequeNumber: string;
-    amount: number | null;
-    bankName: string;
-    branch: string;
-    dueDate: Date | null;
-    issueDate: Date | null;
-    note: string;
-    attachmentName?: string;
-  }
-
-  interface UiPaymentGroup {
+  // Using a local state wrapper to handle UI-specific fields like tempId and totalAmount
+  // while reusing backend DTO types for the rest.
+  interface PaymentGroupState {
     tempId: number;
     totalAmount: number | null;
     method: PaymentMethod;
     paymentDate: Date;
-    remarks: string;
-    chequeItems: UiChequeItem[];
+    notes: string;
+    chequeItems: CreateChequeDetailDto[];
   }
 
   // --- State ---
-  const paymentGroups = ref<UiPaymentGroup[]>([]);
+  const paymentGroups = ref<PaymentGroupState[]>([]);
   const submitted = ref(false);
 
   const paymentMethodOptions = Object.values(PaymentMethod).map((m) => ({
@@ -397,24 +389,27 @@
   }));
 
   // --- Initialization ---
-  const createNewGroup = (amount = 0): UiPaymentGroup => ({
+  const createNewGroup = (amount = 0): PaymentGroupState => ({
     tempId: Date.now() + Math.random(),
     totalAmount: amount || null,
     method: PaymentMethod.Cheque,
     paymentDate: new Date(),
-    remarks: '',
+    notes: '',
     chequeItems: [createEmptyCheque(amount)],
   });
 
-  const createEmptyCheque = (amount = 0): UiChequeItem => ({
-    chequeNumber: '',
-    amount: amount || null,
-    bankName: '',
-    branch: '',
-    dueDate: null,
-    issueDate: new Date(),
-    note: '',
-  });
+  const createEmptyCheque = (amount = 0): CreateChequeDetailDto => {
+    const dto = new CreateChequeDetailDto();
+    dto.chequeNumber = '';
+    dto.amount = amount || 0;
+    dto.bankName = '';
+    dto.branch = '';
+    dto.dueDate = new Date();
+    dto.issueDate = new Date();
+    dto.note = '';
+    dto.imageUrl = '';
+    return dto;
+  };
 
   watch(
     () => props.visible,
@@ -427,7 +422,7 @@
   );
 
   // --- Interactions ---
-  const onMethodChange = (group: UiPaymentGroup) => {
+  const onMethodChange = (group: PaymentGroupState) => {
     if (group.method === PaymentMethod.Cheque && group.chequeItems.length === 0) {
       group.chequeItems.push(createEmptyCheque(group.totalAmount || 0));
     }
@@ -441,22 +436,22 @@
     paymentGroups.value.splice(index, 1);
   };
 
-  const addChequeToGroup = (group: UiPaymentGroup) => {
+  const addChequeToGroup = (group: PaymentGroupState) => {
     const currentAllocated = getGroupChequeTotal(group);
     const remaining = Math.max(0, (group.totalAmount || 0) - currentAllocated);
     group.chequeItems.push(createEmptyCheque(remaining));
   };
 
-  const removeCheque = (group: UiPaymentGroup, index: number) => {
+  const removeCheque = (group: PaymentGroupState, index: number) => {
     group.chequeItems.splice(index, 1);
   };
 
   // --- Computed / Validation ---
-  const getGroupChequeTotal = (group: UiPaymentGroup) => {
+  const getGroupChequeTotal = (group: PaymentGroupState) => {
     return group.chequeItems.reduce((sum, c) => sum + (c.amount || 0), 0);
   };
 
-  const isGroupAmountValid = (group: UiPaymentGroup) => {
+  const isGroupAmountValid = (group: PaymentGroupState) => {
     const total = group.totalAmount || 0;
     if (total <= 0) return false;
     if (group.method !== PaymentMethod.Cheque) return true;
@@ -492,16 +487,18 @@
 
     const batchDto = new BatchPaymentRequestDto();
     batchDto.clinicId = props.clinicId;
+    batchDto.patientId = undefined as any; // Required by DTO but optional in backend for Clinic context
     batchDto.payments = [];
 
     paymentGroups.value.forEach((group) => {
       if (group.method === PaymentMethod.Cheque) {
         group.chequeItems.forEach((cItem) => {
           const dto = createBasePaymentDto(group, cItem.amount || 0);
-          dto.chequeDetail = new CreateChequeDetailDto();
-          Object.assign(dto.chequeDetail, cItem);
-          dto.chequeDetail.dueDate = cItem.dueDate!;
-          dto.chequeDetail.issueDate = cItem.issueDate!;
+          // Map properties - mostly direct now as we use the DTO
+          dto.chequeDetail = cItem;
+          // Ensure amounts are synced if UI allows divergence
+          dto.chequeDetail.amount = cItem.amount || 0;
+
           batchDto.payments.push(dto);
         });
       } else {
@@ -519,15 +516,23 @@
     createBatch(batchDto, { onSuccess: successHandler });
   };
 
-  const createBasePaymentDto = (group: UiPaymentGroup, amount: number): any => ({
-    amount: amount,
-    method: group.method,
-    paymentDate: group.paymentDate,
-    context: PaymentContext.Clinic,
-    clinicId: props.clinicId,
-    notes: group.remarks,
-    allocations: [],
-  });
+  const createBasePaymentDto = (
+    group: PaymentGroupState,
+    amount: number,
+  ): CreatePaymentRequestDto => {
+    return {
+      amount: amount,
+      method: group.method,
+      paymentDate: group.paymentDate,
+      context: PaymentContext.Clinic,
+      clinicId: props.clinicId,
+      patientId: undefined as any,
+      notes: group.notes,
+      allocations: [],
+      transactionId: undefined as any,
+      chequeDetail: undefined as any,
+    } as CreatePaymentRequestDto;
+  };
 
   const successHandler = () => {
     emit('update:visible', false);
