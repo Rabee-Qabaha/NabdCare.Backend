@@ -38,9 +38,19 @@ export const paymentsApi = {
     return data;
   },
 
+  async createBatch(dto: BatchPaymentRequestDto) {
+    const { data } = await api.post<PaymentDto[]>('/payments/batch', dto);
+    return data;
+  },
+
   async update(id: string, dto: any) {
     // Assuming partial update or specific DTO. Using any for now as UpdatePaymentRequestDto wasn't explicitly mentioned/found.
     const { data } = await api.put<PaymentDto>(`/payments/${id}`, dto);
+    return data;
+  },
+
+  async updateCheque(id: string, dto: any) {
+    const { data } = await api.put<PaymentDto>(`/payments/${id}/cheque`, dto);
     return data;
   },
 

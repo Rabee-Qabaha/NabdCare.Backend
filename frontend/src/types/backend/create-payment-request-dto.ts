@@ -13,7 +13,7 @@ export class CreatePaymentRequestDto {
   clinicId: string;
   patientId: string;
   amount: number;
-  paymentDate: Date = new Date("2026-02-07T21:25:21.2147540Z");
+  paymentDate: Date = new Date("2026-02-08T20:18:39.2163580Z");
   method: PaymentMethod;
   transactionId: string;
   notes: string;

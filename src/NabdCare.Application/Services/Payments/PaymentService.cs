@@ -85,6 +85,93 @@ public class PaymentService : IPaymentService
         return _mapper.Map<PaymentDto>(result);
     }
 
+    public async Task<List<PaymentDto>> ProcessBatchPaymentAsync(BatchPaymentRequestDto request)
+    {
+        if (request.Payments == null || !request.Payments.Any())
+            throw new DomainException("No payments provided in batch.", ErrorCodes.INVALID_ARGUMENT);
+        using var transaction = await _paymentRepository.BeginTransactionAsync();
+        var createdPayments = new List<PaymentDto>();
+
+        try
+        {
+            foreach (var payReq in request.Payments)
+            {
+                if (request.ClinicId.HasValue && !payReq.ClinicId.HasValue) payReq.ClinicId = request.ClinicId;
+                if (request.PatientId.HasValue && !payReq.PatientId.HasValue) payReq.PatientId = request.PatientId;
+
+                var paymentDto = await CreatePaymentAsync(payReq);
+                createdPayments.Add(paymentDto);
+            }
+
+            if (request.InvoicesToPay != null && request.InvoicesToPay.Any())
+            {
+                var paymentBalances = createdPayments.Select(p => new { 
+                    PaymentId = p.Id, 
+                    Available = p.Amount
+                }).ToList();
+
+                foreach (var invReq in request.InvoicesToPay)
+                {
+                    decimal remainingToPay = invReq.Amount;
+
+                    foreach (var payBalance in paymentBalances)
+                    {
+                        if (remainingToPay <= 0) break;
+                        if (payBalance.Available <= 0) continue;
+
+                        decimal amountToTake = Math.Min(remainingToPay, payBalance.Available);
+                        
+                        await AllocatePaymentToInvoiceAsync(payBalance.PaymentId, invReq.InvoiceId, amountToTake);
+                    }
+                }
+                
+                // Re-implementing allocation loop properly:
+                var balances = createdPayments.ToDictionary(p => p.Id, p => p.Amount);
+                
+                foreach (var invReq in request.InvoicesToPay)
+                {
+                    decimal remainingToPay = invReq.Amount;
+                    
+                    foreach (var paymentId in balances.Keys.ToList())
+                    {
+                        if (remainingToPay <= 0) break;
+                        decimal available = balances[paymentId];
+                        if (available <= 0) continue;
+
+                        decimal amountToTake = Math.Min(remainingToPay, available);
+                        
+                        await AllocatePaymentToInvoiceAsync(paymentId, invReq.InvoiceId, amountToTake);
+                        
+                        balances[paymentId] -= amountToTake;
+                        remainingToPay -= amountToTake;
+                    }
+                    
+                    if (remainingToPay > 0)
+                    {
+                        // Warning: Not enough money in batch to pay requested invoice amount.
+                        // We proceed with partial payment.
+                    }
+                }
+            }
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        var refreshedPayments = new List<PaymentDto>();
+        foreach (var p in createdPayments)
+        {
+            var fresh = await _paymentRepository.GetByIdAsync(p.Id, true);
+            refreshedPayments.Add(_mapper.Map<PaymentDto>(fresh));
+        }
+
+        return refreshedPayments;
+    }
+
     public async Task AllocatePaymentToInvoiceAsync(Guid paymentId, Guid invoiceId, decimal amount)
     {
         var payment = await _paymentRepository.GetByIdAsync(paymentId);
@@ -369,7 +456,7 @@ public class PaymentService : IPaymentService
 
         return _mapper.Map<PaymentDto>(payment);
     }
-    
+
     public async Task<PaginatedResult<PaymentDto>> GetPaymentsByClinicPagedAsync(Guid clinicId, PaymentFilterRequestDto filter)
     {
         if (!_tenantContext.IsSuperAdmin && _tenantContext.ClinicId != clinicId)

@@ -21,8 +21,9 @@ public class InvoiceRepository : IInvoiceRepository
         return await _dbContext.Invoices
             .Include(i => i.Items)
             .Include(i => i.Clinic)
-            .Include(i => i.PaymentAllocations) // ✅ Include Allocations to see payment history
-                .ThenInclude(pa => pa.Payment) // ✅ Include Payment details (Method, Date)
+            .Include(i => i.PaymentAllocations) 
+                .ThenInclude(pa => pa.Payment)
+                    .ThenInclude(p => p.ChequeDetail) // ✅ Added: Include ChequeDetail
             .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == id);
     }
@@ -42,6 +43,9 @@ public class InvoiceRepository : IInvoiceRepository
     {
         var query = _dbContext.Invoices
             .Include(i => i.Items)
+            .Include(i => i.PaymentAllocations) 
+                .ThenInclude(pa => pa.Payment)
+                    .ThenInclude(p => p.ChequeDetail)
             .AsNoTracking()
             .AsQueryable();
 
@@ -64,7 +68,6 @@ public class InvoiceRepository : IInvoiceRepository
         if (filter.Type.HasValue)
             query = query.Where(i => i.Type == filter.Type.Value);
             
-        // ✅ 2025: Currency Filter
         if (!string.IsNullOrWhiteSpace(filter.Currency))
             query = query.Where(i => i.Currency == filter.Currency);
 
@@ -107,7 +110,6 @@ public class InvoiceRepository : IInvoiceRepository
 
     public async Task<Invoice> CreateAsync(Invoice invoice)
     {
-        // ✅ 2025: Idempotency Check
         if (!string.IsNullOrEmpty(invoice.IdempotencyKey))
         {
             var existing = await _dbContext.Invoices
@@ -134,8 +136,6 @@ public class InvoiceRepository : IInvoiceRepository
         var year = DateTime.UtcNow.Year;
         var prefix = $"INV-{year}-";
 
-        // Note: For high-concurrency SaaS, replace this with a DB Sequence or Redis counter.
-        // This is safe for low-to-medium concurrency.
         var lastInvoice = await _dbContext.Invoices
             .Where(i => i.InvoiceNumber.StartsWith(prefix))
             .OrderByDescending(i => i.InvoiceNumber)

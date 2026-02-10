@@ -95,7 +95,7 @@
 
   const paymentListRef = ref<InstanceType<typeof PaymentList> | null>(null);
   const totalRecords = ref(0);
-  const loading = ref(false); // We might need to expose loading from PaymentList if we want the refresh button to spin
+  const loading = ref(false);
   const searchQuery = ref('');
 
   const { canCreate } = usePaymentActions();

@@ -1,3 +1,4 @@
+using NabdCare.Domain.Enums;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Payments;
@@ -11,4 +12,7 @@ public class PaymentAllocationDto
     public string InvoiceNumber { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public DateTime AllocationDate { get; set; }
+    public PaymentMethod PaymentMethod { get; set; }
+    public string? Reference { get; set; } // TransactionId or ChequeNumber
+    public DateTime PaymentDate { get; set; }
 }

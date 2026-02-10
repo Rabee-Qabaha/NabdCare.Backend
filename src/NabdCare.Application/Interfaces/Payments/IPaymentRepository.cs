@@ -1,4 +1,5 @@
-﻿using NabdCare.Application.DTOs.Payments;
+﻿using Microsoft.EntityFrameworkCore.Storage;
+using NabdCare.Application.DTOs.Payments;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Payments;
 
@@ -21,4 +22,6 @@ public interface IPaymentRepository
     Task<Payment> UpdateAsync(Payment payment);
     Task<bool> SoftDeleteAsync(Guid paymentId);
     Task<bool> DeleteAsync(Guid paymentId);
+    
+    Task<IDbContextTransaction> BeginTransactionAsync();
 }

@@ -1,211 +1,357 @@
 <template>
-  <Dialog
+  <BaseDrawer
     :visible="visible"
-    :header="isEdit ? 'Edit Payment' : 'Add Payment'"
-    :modal="true"
-    :style="{ width: '600px', maxWidth: '100%' }"
+    title="Add Payment"
+    icon="pi pi-wallet"
+    width="md:!w-[1000px]"
+    :dismissable="false"
     @update:visible="emit('update:visible', $event)"
+    @close="onCancel"
   >
-    <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-8 pb-20">
       <div
         v-if="props.invoiceId"
-        class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex items-center gap-3 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+        class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl flex items-center gap-4 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800"
       >
-        <i class="pi pi-file text-xl"></i>
+        <div class="bg-primary-100 p-2 rounded-full">
+          <i class="pi pi-file text-xl"></i>
+        </div>
         <div>
-          <span class="font-bold block">Paying for Invoice</span>
+          <span class="font-bold block text-lg">Paying for Invoice #{{ invoiceId }}</span>
           <span class="text-sm opacity-80">
-            Payment will be allocated to this invoice automatically.
+            Payments will be allocated to this invoice automatically.
           </span>
         </div>
       </div>
 
-      <!-- Method and Date Row -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label for="method" class="mb-2 block font-bold">Payment Method</label>
-          <Select
-            id="method"
-            v-model="localPayment.method"
-            :options="paymentMethodOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select Method"
-            :invalid="submitted && !localPayment.method"
-            class="w-full"
+      <div
+        v-for="(group, groupIndex) in paymentGroups"
+        :key="group.tempId"
+        class="relative p-6 border rounded-2xl bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-700 shadow-sm"
+      >
+        <div class="flex justify-between items-start mb-8">
+          <div class="flex items-center gap-3">
+            <div
+              class="bg-primary-50 text-primary-600 p-2.5 rounded-xl flex items-center justify-center"
+            >
+              <i
+                :class="group.method === PaymentMethod.Cheque ? 'pi pi-book' : 'pi pi-money-bill'"
+                class="text-xl"
+              ></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold text-surface-900 dark:text-surface-0">
+                  Payment #{{ groupIndex + 1 }}
+                </h2>
+                <span
+                  class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200 tracking-wider"
+                >
+                  DRAFT
+                </span>
+              </div>
+            </div>
+          </div>
+          <Button
+            v-if="paymentGroups.length > 1"
+            icon="pi pi-trash"
+            text
+            rounded
+            severity="secondary"
+            class="text-surface-400 hover:text-red-500"
+            @click="removePaymentGroup(groupIndex)"
           />
-          <small v-if="submitted && !localPayment.method" class="text-red-500">Required.</small>
         </div>
 
-        <div>
-          <label for="paymentDate" class="mb-2 block font-bold">Payment Date</label>
-          <DatePicker
-            id="paymentDate"
-            v-model="localPayment.paymentDate"
-            :show-icon="true"
-            :show-button-bar="true"
-            date-format="dd/mm/yy"
-            placeholder="dd/mm/yyyy"
-            :invalid="submitted && !localPayment.paymentDate"
-            class="w-full"
-          />
-          <small v-if="submitted && !localPayment.paymentDate" class="text-red-500">
-            Required.
-          </small>
-        </div>
-      </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="w-full">
+            <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+              Total Amount
+            </label>
+            <div class="relative w-full">
+              <span
+                class="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 font-medium text-sm z-10"
+              >
+                ₪
+              </span>
+              <InputNumber
+                v-model="group.totalAmount"
+                mode="decimal"
+                :minFractionDigits="2"
+                :maxFractionDigits="2"
+                locale="en-US"
+                placeholder="0.00"
+                class="w-full"
+                :class="{
+                  '!border-red-300 focus:!ring-red-200':
+                    !isGroupAmountValid(group) && group.method === PaymentMethod.Cheque,
+                }"
+                inputClass="w-full pl-8 font-bold text-lg"
+              />
+            </div>
+          </div>
 
-      <!-- Amount and Transaction ID Row -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label for="amount" class="mb-2 block font-bold">Amount</label>
-          <InputNumber
-            id="amount"
-            v-model="localPayment.amount"
-            mode="currency"
-            currency="ILS"
-            locale="en-US"
-            :min="0"
-            :max-fraction-digits="2"
-            :invalid="submitted && !isAmountValid"
-            class="w-full"
-          />
-          <small v-if="submitted && !isAmountValid" class="text-red-500">Must be positive.</small>
+          <div class="w-full">
+            <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+              Payment Method
+            </label>
+            <Select
+              v-model="group.method"
+              :options="paymentMethodOptions"
+              option-label="label"
+              option-value="value"
+              class="w-full"
+              @change="onMethodChange(group)"
+            />
+          </div>
+
+          <div class="w-full">
+            <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+              Payment Date
+            </label>
+            <DatePicker
+              v-model="group.paymentDate"
+              show-icon
+              fluid
+              icon-display="input"
+              date-format="dd/mm/yy"
+              class="w-full"
+              inputClass="w-full"
+            />
+          </div>
         </div>
 
         <div
-          v-if="
-            localPayment.method !== PaymentMethod.Cash &&
-            localPayment.method !== PaymentMethod.Cheque
-          "
+          v-if="group.method === PaymentMethod.Cheque"
+          class="bg-primary-50 dark:bg-primary-900/10 border border-surface-100 dark:border-primary-800 rounded-xl p-6 mb-6"
         >
-          <label for="transactionId" class="mb-2 block font-bold">Transaction ID</label>
-          <InputText
-            id="transactionId"
-            v-model="localPayment.transactionId"
-            class="w-full"
-            placeholder="e.g. Ref-12345"
+          <div class="flex items-center gap-2 mb-6 text-primary-600 dark:text-primary-400">
+            <i class="pi pi-wallet text-sm"></i>
+            <h3 class="font-bold text-xs tracking-wider uppercase">Cheque Information</h3>
+          </div>
+
+          <div class="flex flex-col gap-6">
+            <div
+              v-for="(cheque, cIndex) in group.chequeItems"
+              :key="cIndex"
+              class="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl p-6 relative group hover:border-primary-300 transition-all shadow-sm"
+            >
+              <div
+                class="absolute -top-3 left-6 bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 text-[10px] font-bold px-2.5 py-1 rounded-full border border-surface-200 dark:border-surface-600"
+              >
+                #{{ cIndex + 1 }}
+              </div>
+
+              <button
+                v-if="group.chequeItems.length > 1"
+                class="absolute top-4 right-4 text-surface-300 hover:text-red-500 transition-colors"
+                @click="removeCheque(group, cIndex)"
+              >
+                <i class="pi pi-times text-sm"></i>
+              </button>
+
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mt-2">
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Cheque #
+                  </label>
+                  <InputText
+                    v-model="cheque.chequeNumber"
+                    class="w-full"
+                    placeholder="e.g. 882310"
+                  />
+                </div>
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Amount
+                  </label>
+                  <div class="relative w-full">
+                    <span
+                      class="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 text-sm font-medium z-10"
+                    >
+                      ₪
+                    </span>
+                    <InputNumber
+                      v-model="cheque.amount"
+                      mode="decimal"
+                      :minFractionDigits="2"
+                      class="w-full"
+                      inputClass="w-full pl-8"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Bank
+                  </label>
+                  <InputText v-model="cheque.bankName" class="w-full" placeholder="Bank Name" />
+                </div>
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Branch
+                  </label>
+                  <InputText v-model="cheque.branch" class="w-full" placeholder="Branch" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mt-5">
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Due Date
+                  </label>
+                  <DatePicker
+                    v-model="cheque.dueDate"
+                    show-icon
+                    fluid
+                    icon-display="input"
+                    date-format="dd/mm/yy"
+                    class="w-full"
+                    inputClass="w-full"
+                    placeholder="dd/mm/yyyy"
+                  />
+                </div>
+
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Issue Date
+                  </label>
+                  <DatePicker
+                    v-model="cheque.issueDate"
+                    show-icon
+                    fluid
+                    icon-display="input"
+                    date-format="dd/mm/yy"
+                    class="w-full"
+                    inputClass="w-full"
+                    placeholder="dd/mm/yyyy"
+                  />
+                </div>
+
+                <div class="md:col-span-2 w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Cheque Note
+                  </label>
+                  <InputText v-model="cheque.note" class="w-full" placeholder="Ref # or note..." />
+                </div>
+              </div>
+
+              <div
+                class="mt-6 flex items-center justify-between p-3 rounded-lg border border-dashed border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-800"
+              >
+                <div class="flex items-center gap-3">
+                  <i class="pi pi-paperclip text-surface-400 text-lg -rotate-45"></i>
+                  <span
+                    v-if="cheque.attachmentName"
+                    class="text-sm text-surface-700 dark:text-surface-300 font-medium"
+                  >
+                    {{ cheque.attachmentName }}
+                  </span>
+                  <span v-else class="text-sm text-surface-400 dark:text-surface-500 italic">
+                    cheque_scan_001.pdf (Mock)
+                  </span>
+                </div>
+                <Button
+                  label="Update Attachment"
+                  icon="pi pi-cloud-upload"
+                  text
+                  size="small"
+                  class="!text-primary-600 hover:!text-primary-700 !p-0 font-bold"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div
+              v-if="!isGroupAmountValid(group)"
+              class="text-xs text-red-500 flex items-center gap-2"
+            >
+              <i class="pi pi-exclamation-circle"></i>
+              <span class="font-medium">
+                Cheques total: {{ formatCurrency(getGroupChequeTotal(group)) }} (Diff:
+                {{ formatCurrency(group.totalAmount - getGroupChequeTotal(group)) }})
+              </span>
+            </div>
+            <div v-else></div>
+
+            <Button
+              label="Add Cheque"
+              icon="pi pi-plus"
+              class="!bg-primary-50 !text-primary-600 !border-primary-600 !border-opacity-20 hover:!bg-primary-100 font-bold px-6"
+              @click="addChequeToGroup(group)"
+            />
+          </div>
+        </div>
+
+        <div class="border-t border-surface-100 dark:border-surface-700 pt-6">
+          <label class="block text-[10px] font-bold text-surface-500 uppercase mb-3">
+            Payment Remarks
+          </label>
+          <Textarea
+            v-model="group.remarks"
+            rows="2"
+            autoResize
+            class="w-full !bg-surface-50 dark:!bg-surface-800 text-sm !border-surface-200 dark:!border-surface-700"
+            placeholder="Add additional notes about this payment..."
           />
         </div>
       </div>
 
-      <!-- Cheque Details Panel -->
-      <div
-        v-if="localPayment.method === PaymentMethod.Cheque"
-        class="p-4 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700 space-y-4"
-      >
-        <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
-          <i class="pi pi-briefcase text-primary-500"></i>
-          Cheque Details
-        </h3>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label for="bankName" class="mb-1 block text-sm font-medium">Bank Name</label>
-            <InputText
-              id="bankName"
-              v-model="chequeDetail.bankName"
-              class="w-full p-inputtext-sm"
-              :invalid="submitted && !chequeDetail.bankName"
-              placeholder="e.g. Bank Hapoalim"
-            />
-            <small v-if="submitted && !chequeDetail.bankName" class="text-red-500">Required</small>
-          </div>
-          <div>
-            <label for="branch" class="mb-1 block text-sm font-medium">Branch</label>
-            <InputText
-              id="branch"
-              v-model="chequeDetail.branch"
-              class="w-full p-inputtext-sm"
-              placeholder="e.g. 123"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label for="chequeNumber" class="mb-1 block text-sm font-medium">Cheque Number</label>
-            <InputText
-              id="chequeNumber"
-              v-model="chequeDetail.chequeNumber"
-              class="w-full p-inputtext-sm"
-              :invalid="submitted && !chequeDetail.chequeNumber"
-              placeholder="e.g. 000123"
-            />
-            <small v-if="submitted && !chequeDetail.chequeNumber" class="text-red-500">
-              Required
-            </small>
-          </div>
-          <div>
-            <label for="dueDate" class="mb-1 block text-sm font-medium">Due Date</label>
-            <DatePicker
-              id="dueDate"
-              v-model="chequeDetail.dueDate"
-              class="w-full p-inputtext-sm"
-              :show-icon="true"
-              date-format="dd/mm/yy"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label for="issueDate" class="mb-1 block text-sm font-medium">Issue Date</label>
-          <DatePicker
-            id="issueDate"
-            v-model="chequeDetail.issueDate"
-            class="w-full p-inputtext-sm"
-            :show-icon="true"
-            date-format="dd/mm/yy"
-          />
-        </div>
-
-        <div>
-          <label for="imageUrl" class="mb-1 block text-sm font-medium">Cheque Image</label>
-          <!-- Placeholder for Image Upload - using a textual representation for now as backend requires URL string -->
-          <InputText
-            id="imageUrl"
-            v-model="chequeDetail.imageUrl"
-            class="w-full p-inputtext-sm"
-            placeholder="Image URL (Upload not implemented)"
-          />
-        </div>
-      </div>
-
-      <!-- Notes -->
-      <div>
-        <label for="notes" class="mb-2 block font-bold">Notes</label>
-        <Textarea
-          id="notes"
-          v-model="localPayment.notes"
-          rows="3"
-          class="w-full"
-          placeholder="Optional notes..."
-        />
-      </div>
+      <Button
+        label="Add Another Payment"
+        icon="pi pi-plus"
+        severity="secondary"
+        outlined
+        class="w-full border-dashed py-4 font-bold text-surface-500 hover:text-surface-700 hover:border-surface-400"
+        @click="addNewPaymentGroup"
+      />
     </div>
 
     <template #footer>
-      <Button label="Cancel" icon="pi pi-times" text severity="secondary" @click="onCancel" />
-      <Button
-        label="Save Payment"
-        icon="pi pi-check"
-        :loading="props.isProcessing"
-        @click="onSave"
-      />
+      <div class="flex justify-between items-center w-full">
+        <div class="text-sm font-medium text-surface-500">
+          Total to Pay:
+          <span class="text-surface-900 dark:text-surface-0 font-bold text-lg ml-2">
+            {{ formatCurrency(grandTotal) }}
+          </span>
+        </div>
+        <div class="flex gap-3">
+          <Button
+            label="Cancel"
+            icon="pi pi-times"
+            text
+            severity="secondary"
+            class="font-bold"
+            @click="onCancel"
+          />
+          <Button
+            label="Save Payment"
+            icon="pi pi-check"
+            class="font-bold px-6"
+            :loading="props.isProcessing"
+            :disabled="!isGlobalFormValid"
+            @click="onSave"
+          />
+        </div>
+      </div>
     </template>
-  </Dialog>
+  </BaseDrawer>
 </template>
 
 <script setup lang="ts">
+  import BaseDrawer from '@/components/shared/BaseDrawer.vue';
+  import { usePaymentActions } from '@/composables/query/payments/usePaymentActions.ts';
+  import { BatchPaymentRequestDto } from '@/types/backend/batch-payment-request-dto';
   import { CreateChequeDetailDto } from '@/types/backend/create-cheque-detail-dto';
-  import type { CreatePaymentRequestDto } from '@/types/backend/create-payment-request-dto';
+  import { PaymentAllocationRequestDto } from '@/types/backend/payment-allocation-request-dto';
   import { PaymentContext } from '@/types/backend/payment-context';
   import { PaymentMethod } from '@/types/backend/payment-method';
+  import DatePicker from 'primevue/datepicker';
   import { computed, ref, watch } from 'vue';
 
   const props = defineProps<{
     visible: boolean;
-    payment?: Partial<CreatePaymentRequestDto> & { id?: string };
     isProcessing: boolean;
     clinicId: string;
     invoiceId?: string;
@@ -214,106 +360,182 @@
 
   const emit = defineEmits<{
     (e: 'update:visible', visible: boolean): void;
-    (e: 'save', payment: CreatePaymentRequestDto & { id?: string }): void;
+    (e: 'refresh'): void;
     (e: 'cancel'): void;
   }>();
 
-  const localPayment = ref<Partial<CreatePaymentRequestDto> & { id?: string }>({
-    amount: 0,
-    method: PaymentMethod.Cash,
+  const { createBatch } = usePaymentActions();
+
+  // --- Local Types for UI ---
+  interface UiChequeItem {
+    chequeNumber: string;
+    amount: number | null;
+    bankName: string;
+    branch: string;
+    dueDate: Date | null;
+    issueDate: Date | null;
+    note: string;
+    attachmentName?: string;
+  }
+
+  interface UiPaymentGroup {
+    tempId: number;
+    totalAmount: number | null;
+    method: PaymentMethod;
+    paymentDate: Date;
+    remarks: string;
+    chequeItems: UiChequeItem[];
+  }
+
+  // --- State ---
+  const paymentGroups = ref<UiPaymentGroup[]>([]);
+  const submitted = ref(false);
+
+  const paymentMethodOptions = Object.values(PaymentMethod).map((m) => ({
+    label: m,
+    value: m,
+  }));
+
+  // --- Initialization ---
+  const createNewGroup = (amount = 0): UiPaymentGroup => ({
+    tempId: Date.now() + Math.random(),
+    totalAmount: amount || null,
+    method: PaymentMethod.Cheque,
     paymentDate: new Date(),
-    context: PaymentContext.Clinic,
-    allocations: [],
+    remarks: '',
+    chequeItems: [createEmptyCheque(amount)],
   });
 
-  const chequeDetail = ref<CreateChequeDetailDto>(new CreateChequeDetailDto());
-  const submitted = ref(false);
-  const isEdit = computed(() => !!props.payment?.id);
-
-  const paymentMethodOptions = Object.values(PaymentMethod).map((method) => ({
-    label: method,
-    value: method,
-  }));
+  const createEmptyCheque = (amount = 0): UiChequeItem => ({
+    chequeNumber: '',
+    amount: amount || null,
+    bankName: '',
+    branch: '',
+    dueDate: null,
+    issueDate: new Date(),
+    note: '',
+  });
 
   watch(
     () => props.visible,
-    (newVal) => {
-      if (newVal) {
+    (val) => {
+      if (val) {
         submitted.value = false;
-        // Initialize
-        localPayment.value = {
-          amount: props.maxAmount || 0,
-          method: PaymentMethod.Cash,
-          paymentDate: new Date(),
-          context: PaymentContext.Clinic,
-          clinicId: props.clinicId,
-          allocations: [],
-          ...props.payment,
-        };
-
-        // Handle dates conversion if string
-        if (typeof localPayment.value.paymentDate === 'string') {
-          localPayment.value.paymentDate = new Date(localPayment.value.paymentDate);
-        }
-
-        // Initialize cheque detail
-        if (localPayment.value.chequeDetail) {
-          chequeDetail.value = { ...localPayment.value.chequeDetail };
-          if (typeof chequeDetail.value.dueDate === 'string')
-            chequeDetail.value.dueDate = new Date(chequeDetail.value.dueDate);
-          if (typeof chequeDetail.value.issueDate === 'string')
-            chequeDetail.value.issueDate = new Date(chequeDetail.value.issueDate);
-        } else {
-          chequeDetail.value = new CreateChequeDetailDto();
-          chequeDetail.value.issueDate = new Date();
-          chequeDetail.value.dueDate = new Date();
-          // Default bank/details empty
-          chequeDetail.value.chequeNumber = '';
-          chequeDetail.value.bankName = '';
-        }
+        paymentGroups.value = [createNewGroup(props.maxAmount || 0)];
       }
     },
   );
 
-  // Validation
-  const isAmountValid = computed(
-    () => typeof localPayment.value.amount === 'number' && localPayment.value.amount > 0,
-  );
-
-  const isFormValid = computed(() => {
-    let valid =
-      isAmountValid.value && !!localPayment.value.method && !!localPayment.value.paymentDate;
-    if (localPayment.value.method === PaymentMethod.Cheque) {
-      valid = valid && !!chequeDetail.value.chequeNumber && !!chequeDetail.value.bankName;
+  // --- Interactions ---
+  const onMethodChange = (group: UiPaymentGroup) => {
+    if (group.method === PaymentMethod.Cheque && group.chequeItems.length === 0) {
+      group.chequeItems.push(createEmptyCheque(group.totalAmount || 0));
     }
-    return valid;
+  };
+
+  const addNewPaymentGroup = () => {
+    paymentGroups.value.push(createNewGroup(0));
+  };
+
+  const removePaymentGroup = (index: number) => {
+    paymentGroups.value.splice(index, 1);
+  };
+
+  const addChequeToGroup = (group: UiPaymentGroup) => {
+    const currentAllocated = getGroupChequeTotal(group);
+    const remaining = Math.max(0, (group.totalAmount || 0) - currentAllocated);
+    group.chequeItems.push(createEmptyCheque(remaining));
+  };
+
+  const removeCheque = (group: UiPaymentGroup, index: number) => {
+    group.chequeItems.splice(index, 1);
+  };
+
+  // --- Computed / Validation ---
+  const getGroupChequeTotal = (group: UiPaymentGroup) => {
+    return group.chequeItems.reduce((sum, c) => sum + (c.amount || 0), 0);
+  };
+
+  const isGroupAmountValid = (group: UiPaymentGroup) => {
+    const total = group.totalAmount || 0;
+    if (total <= 0) return false;
+    if (group.method !== PaymentMethod.Cheque) return true;
+    const diff = Math.abs(total - getGroupChequeTotal(group));
+    return diff < 0.01;
+  };
+
+  const isGlobalFormValid = computed(() => {
+    if (paymentGroups.value.length === 0) return false;
+    return paymentGroups.value.every((g) => {
+      if (!isGroupAmountValid(g)) return false;
+      if (g.method === PaymentMethod.Cheque) {
+        return g.chequeItems.every(
+          (c) =>
+            !!c.chequeNumber && !!c.bankName && (c.amount || 0) > 0 && !!c.dueDate && !!c.issueDate,
+        );
+      }
+      return true;
+    });
   });
 
-  function onSave() {
+  const grandTotal = computed(() => {
+    return paymentGroups.value.reduce((sum, g) => sum + (g.totalAmount || 0), 0);
+  });
+
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'ILS' }).format(val);
+
+  // --- Save Logic ---
+  const onSave = () => {
     submitted.value = true;
-    if (!isFormValid.value) return;
+    if (!isGlobalFormValid.value) return;
 
-    // Construct Payload
-    const payload: CreatePaymentRequestDto & { id?: string } = {
-      ...localPayment.value,
-      // Ensure strictly typed fields
-      amount: localPayment.value.amount!,
-      method: localPayment.value.method!,
-      paymentDate: localPayment.value.paymentDate!,
-      context: localPayment.value.context || PaymentContext.Clinic,
-      clinicId: props.clinicId,
-      allocations: props.invoiceId
-        ? [{ invoiceId: props.invoiceId, amount: localPayment.value.amount! }]
-        : [],
-      chequeDetail:
-        localPayment.value.method === PaymentMethod.Cheque ? chequeDetail.value : undefined,
-    } as any;
+    const batchDto = new BatchPaymentRequestDto();
+    batchDto.clinicId = props.clinicId;
+    batchDto.payments = [];
 
-    emit('save', payload);
-  }
+    paymentGroups.value.forEach((group) => {
+      if (group.method === PaymentMethod.Cheque) {
+        group.chequeItems.forEach((cItem) => {
+          const dto = createBasePaymentDto(group, cItem.amount || 0);
+          dto.chequeDetail = new CreateChequeDetailDto();
+          Object.assign(dto.chequeDetail, cItem);
+          dto.chequeDetail.dueDate = cItem.dueDate!;
+          dto.chequeDetail.issueDate = cItem.issueDate!;
+          batchDto.payments.push(dto);
+        });
+      } else {
+        batchDto.payments.push(createBasePaymentDto(group, group.totalAmount || 0));
+      }
+    });
 
-  function onCancel() {
-    emit('cancel');
+    if (props.invoiceId) {
+      const allocation = new PaymentAllocationRequestDto();
+      allocation.invoiceId = props.invoiceId;
+      allocation.amount = grandTotal.value;
+      batchDto.invoicesToPay = [allocation];
+    }
+
+    createBatch(batchDto, { onSuccess: successHandler });
+  };
+
+  const createBasePaymentDto = (group: UiPaymentGroup, amount: number): any => ({
+    amount: amount,
+    method: group.method,
+    paymentDate: group.paymentDate,
+    context: PaymentContext.Clinic,
+    clinicId: props.clinicId,
+    notes: group.remarks,
+    allocations: [],
+  });
+
+  const successHandler = () => {
     emit('update:visible', false);
-  }
+    emit('refresh');
+  };
+
+  const onCancel = () => {
+    emit('update:visible', false);
+    emit('cancel');
+  };
 </script>

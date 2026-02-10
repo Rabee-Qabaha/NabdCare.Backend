@@ -43,6 +43,19 @@
         </template>
       </Column>
 
+      <Column field="unallocatedAmount" header="Credit" sortable style="width: 15%">
+        <template #loading><Skeleton width="4rem" height="1.5rem" /></template>
+        <template #body="{ data }">
+          <span
+            v-if="data"
+            :class="data.unallocatedAmount > 0 ? 'text-green-600 font-bold' : 'text-surface-500'"
+          >
+            {{ formatCurrency(data.unallocatedAmount) }}
+          </span>
+          <Skeleton v-else width="4rem" height="1.5rem" />
+        </template>
+      </Column>
+
       <Column field="method" header="Method" style="width: 15%">
         <template #loading><Skeleton width="6rem" height="1.5rem" /></template>
         <template #body="{ data }">
@@ -85,15 +98,6 @@
         <template #body="{ data }">
           <div v-if="data" class="flex gap-2">
             <Button
-              v-if="canEdit"
-              icon="pi pi-pencil"
-              text
-              rounded
-              severity="secondary"
-              @click="openEditDialog(data)"
-              aria-label="Edit"
-            />
-            <Button
               v-if="canDelete"
               icon="pi pi-trash"
               text
@@ -111,10 +115,9 @@
     <!-- Dialog -->
     <PaymentDialog
       v-model:visible="dialogVisible"
-      :payment="selectedPayment"
       :is-processing="isProcessing"
       :clinic-id="props.clinicId"
-      @save="handleSave"
+      @refresh="refresh"
       @cancel="closeDialog"
     />
 
@@ -131,6 +134,7 @@
 </template>
 
 <script setup lang="ts">
+  // PaymentList Component
   import PaymentDialog from '@/components/Payments/PaymentDialog.vue';
   import PaymentFilters from '@/components/Payments/PaymentFilters.vue';
   import { usePaymentActions } from '@/composables/query/payments/usePaymentActions.ts';
@@ -188,45 +192,33 @@
     emit('update:total-records', val);
   });
 
-  const { createMutation, updateMutation, deleteMutation, canEdit, canDelete } =
-    usePaymentActions();
+  const {
+    createMutation,
+    updateMutation,
+    updateCheque,
+    deleteMutation,
+    canEdit,
+    canDelete,
+    isUpdatingCheque,
+  } = usePaymentActions();
 
   const isProcessing = computed(
-    () => createMutation.isPending.value || updateMutation.isPending.value,
+    () =>
+      createMutation.isPending.value || updateMutation.isPending.value || isUpdatingCheque.value,
   );
 
   // --- Dialog State ---
   const dialogVisible = ref(false);
-  const selectedPayment = ref<any>(null);
 
   // --- Handlers ---
 
   const openCreateDialog = () => {
-    selectedPayment.value = {};
-    dialogVisible.value = true;
-  };
-
-  const openEditDialog = (payment: any) => {
-    selectedPayment.value = { ...payment };
     dialogVisible.value = true;
   };
 
   const closeDialog = () => {
     dialogVisible.value = false;
-    selectedPayment.value = null;
-  };
-
-  const handleSave = (paymentData: any) => {
-    const onSuccess = () => {
-      closeDialog();
-      refresh(); // Refresh list to show new/updated item
-    };
-
-    if (paymentData.id) {
-      updateMutation.mutate({ id: paymentData.id, dto: paymentData }, { onSuccess });
-    } else {
-      createMutation.mutate(paymentData, { onSuccess });
-    }
+    dialogVisible.value = false;
   };
 
   const confirmDelete = (payment: any) => {

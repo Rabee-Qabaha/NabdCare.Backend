@@ -25,4 +25,6 @@ public interface IPaymentService
     Task UpdateChequeStatusAsync(Guid paymentId, ChequeStatus newStatus);
     
     Task UpdateChequeDetailsAsync(Guid paymentId, UpdateChequeDetailDto dto);
+    
+    Task<List<PaymentDto>> ProcessBatchPaymentAsync(BatchPaymentRequestDto request);
 }

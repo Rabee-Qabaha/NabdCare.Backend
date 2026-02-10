@@ -412,39 +412,69 @@
         </Column>
 
         <template #expansion="{ data }">
-          <div class="px-4 py-2 bg-surface-50 dark:bg-surface-800">
-            <h4 class="text-xs font-bold mb-2 text-surface-500 uppercase tracking-wide">
-              Payment Allocations
-            </h4>
-            <div v-if="data.payments?.length" class="flex flex-col gap-2">
-              <div
-                v-for="alloc in data.payments"
-                :key="alloc.id"
-                class="flex justify-between items-center text-xs p-2 bg-white dark:bg-surface-700 rounded border border-surface-200 dark:border-surface-600"
-              >
-                <div class="flex gap-4">
+          <div class="p-4 bg-surface-50 dark:bg-surface-800 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Invoice Items Section -->
+            <div>
+              <h4 class="text-xs font-bold mb-2 text-surface-500 uppercase tracking-wide">
+                Invoice Items
+              </h4>
+              <div v-if="data.items?.length" class="flex flex-col gap-2">
+                <div
+                  v-for="item in data.items"
+                  :key="item.id"
+                  class="flex justify-between items-center text-xs p-2 bg-white dark:bg-surface-700 rounded border border-surface-200 dark:border-surface-600"
+                >
                   <div class="flex flex-col">
-                    <span class="text-surface-500">Date</span>
-                    <span class="font-medium">{{ formatDate(alloc.paymentDate) }}</span>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="text-surface-500">Method</span>
-                    <span class="font-medium">{{ alloc.paymentMethod }}</span>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="text-surface-500">Ref</span>
-                    <span class="font-mono text-surface-600 dark:text-surface-300">
-                      {{ alloc.paymentReference || '-' }}
+                    <span class="font-medium text-surface-900 dark:text-surface-0">
+                      {{ item.description }}
+                    </span>
+                    <span class="text-surface-500" v-if="item.quantity > 1">
+                      {{ item.quantity }} x {{ formatCurrency(item.unitPrice, data.currency) }}
                     </span>
                   </div>
-                </div>
-                <div class="font-bold text-green-600">
-                  {{ formatCurrency(alloc.amount, data.currency) }}
+                  <div class="font-bold text-surface-900 dark:text-surface-0">
+                    {{ formatCurrency(item.total, data.currency) }}
+                  </div>
                 </div>
               </div>
+              <div v-else class="text-xs text-surface-400 italic">No items found.</div>
             </div>
-            <div v-else class="text-xs text-surface-400 italic">
-              No payments allocated to this invoice.
+
+            <!-- Payment Allocations Section -->
+            <div>
+              <h4 class="text-xs font-bold mb-2 text-surface-500 uppercase tracking-wide">
+                Payment Allocations
+              </h4>
+              <div v-if="data.payments?.length" class="flex flex-col gap-2">
+                <div
+                  v-for="alloc in data.payments"
+                  :key="alloc.id"
+                  class="flex justify-between items-center text-xs p-2 bg-white dark:bg-surface-700 rounded border border-surface-200 dark:border-surface-600"
+                >
+                  <div class="flex gap-4">
+                    <div class="flex flex-col">
+                      <span class="text-surface-500">Date</span>
+                      <span class="font-medium">{{ formatDate(alloc.paymentDate) }}</span>
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-surface-500">Method</span>
+                      <span class="font-medium">{{ alloc.paymentMethod }}</span>
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-surface-500">Ref</span>
+                      <span class="font-mono text-surface-600 dark:text-surface-300">
+                        {{ alloc.reference || '-' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="font-bold text-green-600">
+                    {{ formatCurrency(alloc.amount, data.currency) }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-xs text-surface-400 italic">
+                No payments allocated to this invoice.
+              </div>
             </div>
           </div>
         </template>

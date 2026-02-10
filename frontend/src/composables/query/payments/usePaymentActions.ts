@@ -28,6 +28,15 @@ export function usePaymentActions() {
     onError: (err) => handleErrorAndNotify(err),
   });
 
+  const createBatchMutation = useMutation({
+    mutationFn: (data: BatchPaymentRequestDto) => paymentsApi.createBatch(data),
+    onSuccess: (data) => {
+      toast.success('Payments recorded successfully');
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+    },
+    onError: (err) => handleErrorAndNotify(err),
+  });
+
   const updateMutation = useMutation({
     mutationFn: (data: { id: string; dto: any }) => paymentsApi.update(data.id, data.dto),
     onSuccess: (data) => {
@@ -46,6 +55,15 @@ export function usePaymentActions() {
     onError: (err) => handleErrorAndNotify(err),
   });
 
+  const updateChequeMutation = useMutation({
+    mutationFn: (data: { id: string; dto: any }) => paymentsApi.updateCheque(data.id, data.dto),
+    onSuccess: (data) => {
+      toast.success('Cheque details updated');
+      invalidate(data.clinicId);
+    },
+    onError: (err) => handleErrorAndNotify(err),
+  });
+
   return {
     // Raw mutations
     createMutation,
@@ -54,12 +72,16 @@ export function usePaymentActions() {
 
     // Convenience Aliases
     createPayment: createMutation.mutate,
+    createBatch: createBatchMutation.mutate,
     updatePayment: updateMutation.mutate,
+    updateCheque: updateChequeMutation.mutate,
     deletePayment: deleteMutation.mutate,
 
     isCreating: createMutation.isPending,
+    isCreatingBatch: createBatchMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isUpdatingCheque: updateChequeMutation.isPending,
 
     // Permissions
     canRead: can('Payments.Read'),

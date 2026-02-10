@@ -15,7 +15,14 @@ public class PaymentProfile : Profile
 
         // PaymentAllocation -> PaymentAllocationDto
         CreateMap<PaymentAllocation, PaymentAllocationDto>()
-            .ForMember(dest => dest.InvoiceNumber, opt => opt.MapFrom(src => src.Invoice.InvoiceNumber));
+            .ForMember(dest => dest.InvoiceNumber, opt => opt.MapFrom(src => src.Invoice.InvoiceNumber))
+            // ✅ Map enriched fields from Parent Payment
+            .ForMember(dest => dest.PaymentMethod, opt => opt.MapFrom(src => src.Payment.Method))
+            .ForMember(dest => dest.PaymentDate, opt => opt.MapFrom(src => src.Payment.PaymentDate))
+            .ForMember(dest => dest.Reference, opt => opt.MapFrom(src => 
+                src.Payment.Method == Domain.Enums.PaymentMethod.Cheque 
+                    ? src.Payment.ChequeDetail != null ? src.Payment.ChequeDetail.ChequeNumber : "Cheque"
+                    : src.Payment.TransactionId ?? "Cash"));
 
         // ChequePaymentDetail -> ChequePaymentDetailDto
         CreateMap<ChequePaymentDetail, ChequePaymentDetailDto>();

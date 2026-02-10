@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using NabdCare.Application.DTOs.Payments;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Payments;
@@ -93,7 +94,7 @@ public class PaymentRepository : IPaymentRepository
                 (p.ChequeDetail != null && p.ChequeDetail.ChequeNumber.ToLower().Contains(refTerm))
             );
         }
-        
+
         var totalCount = await query.CountAsync();
 
         // Sorting (Default: Newest First)
@@ -197,5 +198,10 @@ public class PaymentRepository : IPaymentRepository
         _context.Payments.Remove(payment);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<IDbContextTransaction> BeginTransactionAsync()
+    {
+        return await _context.Database.BeginTransactionAsync();
     }
 }

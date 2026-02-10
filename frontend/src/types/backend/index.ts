@@ -25,6 +25,7 @@ export * from './assign-permission-to-user-dto';
 export * from './create-permission-dto';
 export * from './permission-response-dto';
 export * from './update-permission-dto';
+export * from './batch-payment-request-dto';
 export * from './cancel-payment-request-dto';
 export * from './cheque-payment-detail-dto';
 export * from './create-cheque-detail-dto';

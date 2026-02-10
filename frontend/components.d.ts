@@ -45,7 +45,7 @@ declare module 'vue' {
     ClinicToolbar: typeof import('./src/components/Clinic/ClinicToolbar.vue')['default']
     ColorPicker: typeof import('primevue/colorpicker')['default']
     Column: typeof import('primevue/column')['default']
-    ConfirmDialog: typeof import('primevue/confirmdialog')['default']
+    ConfirmDialog: typeof import('./src/components/shared/ConfirmDialog.vue')['default']
     ConfirmPopup: typeof import('primevue/confirmpopup')['default']
     CountrySelect: typeof import('./src/components/Dropdowns/CountrySelect.vue')['default']
     CurrentPlanCard: typeof import('./src/components/Subscription/CurrentPlanCard.vue')['default']

@@ -18,7 +18,7 @@ public static class PaymentEndpoints
             .WithTags("Payments");
 
         // ============================================
-        // CREATE PAYMENT
+        // CREATE PAYMENT (Single)
         // ============================================
         group.MapPost("/", async (
                 [FromBody] CreatePaymentRequestDto request,
@@ -33,6 +33,24 @@ public static class PaymentEndpoints
             .WithName("CreatePayment")
             .WithSummary("Record a new payment")
             .Produces<PaymentDto>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // ============================================
+        // ✅ CREATE BATCH PAYMENT (Multi-Tender)
+        // ============================================
+        group.MapPost("/batch", async (
+                [FromBody] BatchPaymentRequestDto request,
+                [FromServices] IPaymentService service,
+                [FromServices] ITenantContext tenantContext) =>
+            {
+                var results = await service.ProcessBatchPaymentAsync(request);
+                return Results.Ok(results);
+            })
+            .RequireAuthorization()
+            .RequirePermission(Permissions.Payments.Create)
+            .WithName("CreateBatchPayment")
+            .WithSummary("Record multiple payments in one transaction (e.g. Cash + Cheques)")
+            .Produces<List<PaymentDto>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status403Forbidden);
 
         // ============================================
