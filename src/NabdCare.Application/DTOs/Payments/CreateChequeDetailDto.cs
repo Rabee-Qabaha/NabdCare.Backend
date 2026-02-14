@@ -1,3 +1,4 @@
+using NabdCare.Domain.Enums;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Payments;
@@ -11,6 +12,7 @@ public class CreateChequeDetailDto
     public DateTime IssueDate { get; set; }
     public DateTime DueDate { get; set; }
     public decimal Amount { get; set; } 
+    public Currency Currency { get; set; }
     public string? ImageUrl { get; set; }
     public string? Note { get; set; }
 }

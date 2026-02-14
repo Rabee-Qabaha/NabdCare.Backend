@@ -53,13 +53,15 @@ public static class Permissions
         public const string Edit = "Clinic.Edit";
         public const string ViewSettings = "Clinic.ViewSettings";
         public const string EditSettings = "Clinic.EditSettings";
+        public const string ManageFinancials = "Clinic.ManageFinancials";
 
         public static readonly Dictionary<string, string> Descriptions = new()
         {
             [View] = "View own clinic information",
             [Edit] = "Edit clinic details and contact information",
             [ViewSettings] = "View clinic configuration settings",
-            [EditSettings] = "Modify clinic configuration settings",
+            [EditSettings] = "Modify general clinic configuration settings",
+            [ManageFinancials] = "Manage financial settings (e.g., currency, exchange rate markups)",
         };
     }
 

@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using NabdCare.Api.Extensions;
 using NabdCare.Application.Common;
@@ -23,8 +24,14 @@ public static class PaymentEndpoints
         group.MapPost("/", async (
                 [FromBody] CreatePaymentRequestDto request,
                 [FromServices] IPaymentService service,
-                [FromServices] ITenantContext tenantContext) =>
+                [FromServices] IValidator<CreatePaymentRequestDto> validator) =>
             {
+                var validationResult = await validator.ValidateAsync(request);
+                if (!validationResult.IsValid)
+                {
+                    throw new ValidationException(validationResult.Errors);
+                }
+                
                 var result = await service.CreatePaymentAsync(request);
                 return Results.Created($"/payments/{result.Id}", result);
             })
@@ -40,8 +47,7 @@ public static class PaymentEndpoints
         // ============================================
         group.MapPost("/batch", async (
                 [FromBody] BatchPaymentRequestDto request,
-                [FromServices] IPaymentService service,
-                [FromServices] ITenantContext tenantContext) =>
+                [FromServices] IPaymentService service) =>
             {
                 var results = await service.ProcessBatchPaymentAsync(request);
                 return Results.Ok(results);
@@ -197,8 +203,15 @@ public static class PaymentEndpoints
         group.MapPut("/{paymentId:guid}/cheque", async (
                 Guid paymentId,
                 [FromBody] UpdateChequeDetailDto request,
-                [FromServices] IPaymentService service) =>
+                [FromServices] IPaymentService service,
+                [FromServices] IValidator<UpdateChequeDetailDto> validator) =>
             {
+                var validationResult = await validator.ValidateAsync(request);
+                if (!validationResult.IsValid)
+                {
+                    throw new ValidationException(validationResult.Errors);
+                }
+
                 await service.UpdateChequeDetailsAsync(paymentId, request);
                 return Results.Ok(new { message = "Cheque details updated successfully." });
             })

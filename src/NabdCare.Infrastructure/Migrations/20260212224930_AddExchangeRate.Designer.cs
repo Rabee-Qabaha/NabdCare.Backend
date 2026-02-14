@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NabdCare.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NabdCare.Infrastructure.Migrations
 {
     [DbContext(typeof(NabdCareDbContext))]
-    partial class NabdCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260212224930_AddExchangeRate")]
+    partial class AddExchangeRate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -940,7 +943,7 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18, 2)");
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<string>("BankName")
                         .IsRequired()
@@ -965,9 +968,6 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
-
-                    b.Property<int>("Currency")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1030,10 +1030,6 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18, 2)");
 
-                    b.Property<decimal>("BaseExchangeRate")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18, 6)");
-
                     b.Property<Guid?>("ClinicId")
                         .HasColumnType("uuid");
 
@@ -1055,7 +1051,7 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<decimal>("FinalExchangeRate")
+                    b.Property<decimal>("ExchangeRate")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18, 6)");
 
@@ -1958,13 +1954,6 @@ namespace NabdCare.Infrastructure.Migrations
 
                             b1.Property<bool>("EnablePatientPortal")
                                 .HasColumnType("boolean");
-
-                            b1.Property<int>("ExchangeRateMarkupType")
-                                .HasColumnType("integer");
-
-                            b1.Property<decimal>("ExchangeRateMarkupValue")
-                                .HasPrecision(18, 2)
-                                .HasColumnType("decimal(5, 2)");
 
                             b1.Property<string>("Locale")
                                 .IsRequired()

@@ -1,6 +1,7 @@
 using FluentValidation;
 using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.Interfaces.Clinics;
+using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Validator.clinics;
 
@@ -66,9 +67,11 @@ public class UpdateClinicValidator : AbstractValidator<UpdateClinicRequestDto>
         // ⚙️ Settings Validation
         // ==========================================
         RuleFor(x => x.Settings).ChildRules(settings => {
-            settings.RuleFor(s => s.Currency)
-                .Length(3).WithMessage("Currency must be a 3-letter ISO code (e.g. USD).")
-                .When(s => !string.IsNullOrEmpty(s.Currency));
+            settings.RuleFor(s => s.Currency).IsInEnum();
+            settings.RuleFor(s => s.ExchangeRateMarkupType).IsInEnum();
+            settings.RuleFor(s => s.ExchangeRateMarkupValue)
+                .GreaterThanOrEqualTo(0).WithMessage("Markup value cannot be negative.")
+                .LessThanOrEqualTo(100).WithMessage("Markup value cannot exceed 100%.");
                 
             settings.RuleFor(s => s.TimeZone).NotEmpty().WithMessage("Timezone is required.");
         }).When(x => x.Settings != null);

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Domain.Entities.Payments;
@@ -25,8 +26,11 @@ public class ChequePaymentDetail : BaseEntity
     public DateTime DueDate { get; set; }
 
     [Required]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Cheque amount must be greater than zero.")]
+    [Column(TypeName = "decimal(18, 2)")]
     public decimal Amount { get; set; }
+
+    [Required]
+    public Currency Currency { get; set; } = Currency.ILS;
 
     [Required]
     public ChequeStatus Status { get; set; } = ChequeStatus.Pending;

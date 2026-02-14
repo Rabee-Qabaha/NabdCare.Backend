@@ -7,6 +7,7 @@ using NabdCare.Application.Interfaces.Audit;
 using NabdCare.Application.Interfaces.Auth;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Application.Interfaces.Clinics.Branches;
+using NabdCare.Application.Interfaces.Configuration;
 using NabdCare.Application.Interfaces.Subscriptions;
 using NabdCare.Application.Interfaces.Invoices;
 using NabdCare.Application.Interfaces.Payments;
@@ -18,6 +19,7 @@ using NabdCare.Application.Mappings;
 using NabdCare.Application.Services;
 using NabdCare.Application.Services.Auth;
 using NabdCare.Application.Services.Clinics;
+using NabdCare.Application.Services.Configuration;
 using NabdCare.Application.Services.Invoices;
 using NabdCare.Application.Services.Payments;
 using NabdCare.Application.Services.Permissions;
@@ -31,6 +33,7 @@ using NabdCare.Infrastructure.Persistence.DataSeed;
 using NabdCare.Infrastructure.Repositories.Audit;
 using NabdCare.Infrastructure.Repositories.Auth;
 using NabdCare.Infrastructure.Repositories.Clinics;
+using NabdCare.Infrastructure.Repositories.Configuration;
 using NabdCare.Infrastructure.Repositories.Invoices;
 using NabdCare.Infrastructure.Repositories.Payments;
 using NabdCare.Infrastructure.Repositories.Reports;
@@ -60,6 +63,11 @@ public static class DependencyInjectionConfig
 {
     public static IServiceCollection AddNabdCareServices(this IServiceCollection services, IConfiguration configuration)
     {
+        // ===============================
+        // HTTP Client Factory
+        // ===============================
+        services.AddHttpClient();
+
         // ===============================
         // Database
         // ===============================
@@ -165,6 +173,12 @@ public static class DependencyInjectionConfig
         services.AddScoped<IReportService, ReportService>();
 
         // ===============================
+        // Configuration
+        // ===============================
+        services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
+        services.AddScoped<IExchangeRateService, ExchangeRateService>();
+
+        // ===============================
         // Authorization (Audit/Access)
         // ===============================
         services.AddScoped<IAuthorizationRepository, AuthorizationRepository>();
@@ -210,10 +224,12 @@ public static class DependencyInjectionConfig
         // ===============================
         services.AddScoped<SubscriptionLifecycleJob>();
         services.AddScoped<InvoiceOverdueJob>();
+        services.AddScoped<ExchangeRateFetcherJob>();
 
         if (configuration["ASPNETCORE_ENVIRONMENT"] != "Testing")
         {
             services.AddHostedService<SubscriptionScheduler>();
+            services.AddHostedService<ExchangeRateScheduler>();
         }
         
         return services;

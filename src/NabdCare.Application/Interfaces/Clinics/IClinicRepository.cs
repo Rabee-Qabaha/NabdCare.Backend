@@ -1,6 +1,7 @@
 using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Patients;
 using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Interfaces.Clinics
@@ -18,6 +19,7 @@ namespace NabdCare.Application.Interfaces.Clinics
         Task<Clinic?> GetByIdAsync(Guid id);
         
         Task<Clinic?> GetEntityByIdAsync(Guid id);
+        Task<Patient?> GetPatientByIdAsync(Guid id);
 
         /// <summary>
         /// Get all clinics (SuperAdmin only) with pagination, sorting, and filtering

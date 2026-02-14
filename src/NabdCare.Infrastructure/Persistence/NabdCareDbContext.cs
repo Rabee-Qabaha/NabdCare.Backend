@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NabdCare.Application.Common;
 using NabdCare.Domain.Entities.Audits;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Configuration;
 using NabdCare.Domain.Entities.Invoices;
 using NabdCare.Domain.Entities.Payments;
 using NabdCare.Domain.Entities.Permissions;
@@ -57,6 +58,7 @@ public class NabdCareDbContext : DbContext
     
     public DbSet<Invoice> Invoices { get; set; } = default!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = default!;
+    public DbSet<ExchangeRate> ExchangeRates { get; set; } = default!;
 
     // ================================================================
     // DbSets (New Modules: Clinical, Inventory, Scheduling)
@@ -82,6 +84,7 @@ public class NabdCareDbContext : DbContext
         // ============================================================
 
         modelBuilder.Entity<AppPermission>().HasQueryFilter(ap => !ap.IsDeleted);
+        modelBuilder.Entity<ExchangeRate>().HasQueryFilter(er => !er.IsDeleted);
 
         modelBuilder.Entity<Subscription>().HasQueryFilter(s =>
             !s.IsDeleted &&
@@ -245,10 +248,10 @@ public class NabdCareDbContext : DbContext
         var userId = _userContext.GetCurrentUserId();
         var userFullName = _userContext.GetCurrentUserFullName();
 
+        var userIdentifier = $"{userId}|{userFullName}";
+
         foreach (var entry in ChangeTracker.Entries<IAuditable>())
         {
-            var userIdentifier = $"{userId}|{userFullName}";
-
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.CreatedAt = now;

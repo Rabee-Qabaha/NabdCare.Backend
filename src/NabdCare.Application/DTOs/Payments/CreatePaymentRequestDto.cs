@@ -12,6 +12,7 @@ public class CreatePaymentRequestDto
     public Guid? PatientId { get; set; } // Required if Context == Patient
     
     public decimal Amount { get; set; }
+    public Currency Currency { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public PaymentMethod Method { get; set; }
     

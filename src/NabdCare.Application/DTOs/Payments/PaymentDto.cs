@@ -12,6 +12,10 @@ public class PaymentDto
     public Guid? PatientId { get; set; }
     
     public decimal Amount { get; set; }
+    public Currency Currency { get; set; }
+    public decimal BaseExchangeRate { get; set; }
+    public decimal FinalExchangeRate { get; set; }
+    public decimal AmountInFunctionalCurrency { get; set; }
     public decimal UnallocatedAmount { get; set; }
     
     public DateTime PaymentDate { get; set; }

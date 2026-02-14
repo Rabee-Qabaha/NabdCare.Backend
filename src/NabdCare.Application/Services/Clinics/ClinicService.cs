@@ -42,10 +42,6 @@ public class ClinicService : IClinicService
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
     }
 
-    // ============================================
-    // 1. QUERY METHODS
-    // ============================================
-
     public async Task<ClinicResponseDto?> GetClinicByIdAsync(Guid id)
     {
         if (id == Guid.Empty) throw new ArgumentException("ID required", nameof(id));
@@ -175,56 +171,52 @@ public class ClinicService : IClinicService
         };
     }
 
-    // ============================================
-    // 2. COMMAND METHODS
-    // ============================================
-
     public async Task<ClinicResponseDto> CreateClinicAsync(CreateClinicRequestDto dto)
     {
         if (dto == null) throw new ArgumentNullException(nameof(dto));
 
         if (!_tenantContext.IsSuperAdmin)
-             throw new UnauthorizedAccessException("Only SuperAdmin can provision new clinics.");
+            throw new UnauthorizedAccessException("Only SuperAdmin can provision new clinics.");
 
         if (await _clinicRepository.ExistsByNameAsync(dto.Name))
             throw new DomainException($"Clinic name '{dto.Name}' is already taken.", ErrorCodes.DUPLICATE_NAME, "name");
-        
+
         if (await _clinicRepository.ExistsBySlugAsync(dto.Slug))
             throw new DomainException($"Subdomain '{dto.Slug}' is already taken.", ErrorCodes.DUPLICATE_SLUG, "slug");
-        
+
         if (await _clinicRepository.ExistsByEmailAsync(dto.Email))
             throw new DomainException($"Email '{dto.Email}' is already registered.", ErrorCodes.DUPLICATE_EMAIL, "email");
 
         var currentUserId = _userContext.GetCurrentUserId();
-        
+
         var clinic = _mapper.Map<Clinic>(dto);
         clinic.Id = Guid.NewGuid();
         clinic.CreatedAt = DateTime.UtcNow;
         clinic.CreatedBy = currentUserId;
         clinic.IsDeleted = false;
-        clinic.Status = SubscriptionStatus.Inactive; 
-        clinic.BranchCount = 1; 
+        clinic.Status = SubscriptionStatus.Inactive;
+        clinic.BranchCount = 1;
 
         var mainBranch = new Branch
         {
             Id = Guid.NewGuid(),
             ClinicId = clinic.Id,
-            Name = "Main Branch", 
+            Name = "Main Branch",
             IsMain = true,
-            IsActive = true, 
-            Email = dto.Email,   
-            Phone = dto.Phone, 
-            Address = dto.Address, 
+            IsActive = true,
+            Email = dto.Email,
+            Phone = dto.Phone,
+            Address = dto.Address,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = currentUserId,
             IsDeleted = false
         };
 
         clinic.Branches = new List<Branch> { mainBranch };
-        clinic.Subscriptions = new List<Subscription>(); 
+        clinic.Subscriptions = new List<Subscription>();
 
         var created = await _clinicRepository.CreateAsync(clinic);
-        
+
         _logger.LogInformation("Clinic {Id} created (Status: Inactive)", created.Id);
         return _mapper.Map<ClinicResponseDto>(created);
     }
@@ -235,17 +227,47 @@ public class ClinicService : IClinicService
         if (dto == null) throw new ArgumentNullException(nameof(dto));
 
         var clinic = await _clinicRepository.GetByIdAsync(id);
-        if (clinic == null) return null; 
+        if (clinic == null) return null;
 
-        if (!await _policy.EvaluateAsync(_tenantContext, "write", clinic))
-             throw new UnauthorizedAccessException("You lack permissions to edit this clinic.");
+        // CHECK 1: Edit Permission
+        // We wrap the single clinic in a Queryable list to reuse the FilterClinics logic
+        var editQuery = new List<Clinic> { clinic }.AsQueryable();
+        var canEdit = _permissionEvaluator.FilterClinics(
+            editQuery,
+            Common.Constants.Permissions.Clinic.Edit,
+            _userContext
+        ).Any();
+
+        if (!canEdit)
+        {
+            throw new UnauthorizedAccessException("You lack the basic permission to edit this clinic.");
+        }
+
+        // CHECK 2: Manage Financials Permission (only if settings changed)
+        if (dto.Settings != null && (
+            dto.Settings.Currency != clinic.Settings.Currency ||
+            dto.Settings.ExchangeRateMarkupType != clinic.Settings.ExchangeRateMarkupType ||
+            dto.Settings.ExchangeRateMarkupValue != clinic.Settings.ExchangeRateMarkupValue))
+        {
+            var financeQuery = new List<Clinic> { clinic }.AsQueryable();
+            var canManageFinancials = _permissionEvaluator.FilterClinics(
+                financeQuery,
+                Common.Constants.Permissions.Clinic.ManageFinancials,
+                _userContext
+            ).Any();
+
+            if (!canManageFinancials)
+            {
+                throw new UnauthorizedAccessException("You lack permission to manage financial settings.");
+            }
+        }
 
         if (await _clinicRepository.ExistsByNameAsync(dto.Name, id))
             throw new DomainException($"Name '{dto.Name}' is already taken.", ErrorCodes.DUPLICATE_NAME, "name");
-        
+
         if (await _clinicRepository.ExistsBySlugAsync(dto.Slug, id))
             throw new DomainException($"Subdomain '{dto.Slug}' is already taken.", ErrorCodes.DUPLICATE_SLUG, "slug");
-        
+
         if (!string.IsNullOrWhiteSpace(dto.Email) && await _clinicRepository.ExistsByEmailAsync(dto.Email, id))
             throw new DomainException($"Email '{dto.Email}' is already used by another clinic.", ErrorCodes.DUPLICATE_EMAIL, "email");
 
@@ -327,10 +349,6 @@ public class ClinicService : IClinicService
         
         return await _clinicRepository.RestoreAsync(id);
     }
-
-    // ============================================
-    // PRIVATE HELPERS
-    // ============================================
 
     private Subscription? GetCurrentOrLatestSubscription(Clinic clinic)
     {

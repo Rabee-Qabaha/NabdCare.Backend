@@ -1,6 +1,7 @@
 using FluentValidation;
 using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.Interfaces.Clinics;
+using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.Validator.clinics;
 
@@ -53,7 +54,11 @@ public class CreateClinicValidator : AbstractValidator<CreateClinicRequestDto>
         // Settings Validation
         RuleFor(x => x.Settings).ChildRules(s => {
             s.RuleFor(x => x.TimeZone).NotEmpty();
-            s.RuleFor(x => x.Currency).Length(3);
+            s.RuleFor(x => x.Currency).IsInEnum();
+            s.RuleFor(x => x.ExchangeRateMarkupType).IsInEnum();
+            s.RuleFor(x => x.ExchangeRateMarkupValue)
+                .GreaterThanOrEqualTo(0).WithMessage("Markup value cannot be negative.")
+                .LessThanOrEqualTo(100).WithMessage("Markup value cannot exceed 100%.");
         }).When(x => x.Settings != null);
     }
 

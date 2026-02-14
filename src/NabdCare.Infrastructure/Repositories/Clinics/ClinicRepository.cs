@@ -4,6 +4,7 @@ using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Entities.Patients;
 using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;
 using NabdCare.Infrastructure.Utils;
@@ -42,6 +43,15 @@ public class ClinicRepository : IClinicRepository
             .Include(c => c.Branches) 
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<Patient?> GetPatientByIdAsync(Guid id)
+    {
+        if (id == Guid.Empty) return null;
+
+        return await _dbContext.Patients
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
     }
     
     public async Task<PaginatedResult<Clinic>> GetAllPagedAsync(

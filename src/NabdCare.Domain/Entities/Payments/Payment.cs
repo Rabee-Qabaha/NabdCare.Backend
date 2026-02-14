@@ -23,6 +23,21 @@ public class Payment : BaseEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal Amount { get; set; }
 
+    [Required]
+    public Currency Currency { get; set; } = Currency.USD;
+
+    [Required]
+    [Column(TypeName = "decimal(18, 6)")]
+    public decimal BaseExchangeRate { get; set; }
+
+    [Required]
+    [Column(TypeName = "decimal(18, 6)")]
+    public decimal FinalExchangeRate { get; set; }
+
+    [Required]
+    [Column(TypeName = "decimal(18, 2)")]
+    public decimal AmountInFunctionalCurrency { get; set; }
+
     [Column(TypeName = "decimal(18,2)")]
     public decimal RefundedAmount { get; set; } = 0;
 

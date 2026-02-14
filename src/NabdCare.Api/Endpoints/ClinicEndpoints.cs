@@ -6,8 +6,10 @@ using NabdCare.Application.Common.Constants;
 using NabdCare.Application.DTOs.Clinics;
 using NabdCare.Application.DTOs.Pagination;
 using NabdCare.Application.Interfaces.Clinics;
-using NabdCare.Application.Interfaces.Permissions; // Required for IPermissionEvaluator
+using NabdCare.Application.Interfaces.Configuration;
+using NabdCare.Application.Interfaces.Permissions;
 using NabdCare.Domain.Entities.Clinics;
+using NabdCare.Domain.Enums;
 
 namespace NabdCare.Api.Endpoints;
 
@@ -17,9 +19,6 @@ public static class ClinicEndpoints
     {
         var group = app.MapGroup("/clinics").WithTags("Clinics");
 
-        // ============================================
-        // 🆔 CREATE CLINIC (System Admin Only)
-        // ============================================
         group.MapPost("/", async (
             [FromBody] CreateClinicRequestDto dto,
             [FromServices] IClinicService service,
@@ -33,16 +32,13 @@ public static class ClinicEndpoints
             return Results.Created($"/api/clinics/{created.Id}", created);
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Clinics.Create) // Strict: Only System Admins create clinics
+        .RequirePermission(Permissions.Clinics.Create)
         .WithAbac<Clinic>(Permissions.Clinics.Create, "create", r => r as Clinic)
         .WithName("CreateClinic")
         .Produces<ClinicResponseDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // ============================================
-        // 🆔 UPDATE CLINIC (Hybrid: System Admin OR Owner)
-        // ============================================
         group.MapPut("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateClinicRequestDto dto,
@@ -51,12 +47,10 @@ public static class ClinicEndpoints
         {
             if (id == Guid.Empty) return Results.BadRequest(new { Error = "Invalid clinic ID" });
 
-            // 1. Validate DTO
             var validation = await validator.ValidateAsync(dto);
             if (!validation.IsValid)
                 throw new FluentValidation.ValidationException(validation.Errors);
 
-            // 2. Call Service (Service performs strict ownership checks via Policy)
             var updated = await service.UpdateClinicAsync(id, dto);
             
             return updated != null 
@@ -70,9 +64,6 @@ public static class ClinicEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // ============================================
-        // GET CURRENT USER'S CLINIC
-        // ============================================
         group.MapGet("/me", async (
             [FromServices] IClinicService service,
             [FromServices] ITenantContext tenantContext) =>
@@ -90,14 +81,68 @@ public static class ClinicEndpoints
         .RequirePermission(Permissions.Clinic.View)
         .WithName("GetMyClinic");
 
-        // ============================================
-        // GET BY ID (Hybrid: System Admin OR Owner)
-        // ============================================
+        group.MapGet("/me/exchange-rate", async (
+            [FromQuery] Currency targetCurrency,
+            [FromServices] ITenantContext tenantContext,
+            [FromServices] IClinicRepository clinicRepository,
+            [FromServices] IExchangeRateService exchangeRateService) =>
+        {
+            if (tenantContext.IsSuperAdmin || !tenantContext.ClinicId.HasValue)
+            {
+                return Results.BadRequest(new { Error = "This endpoint is for clinic users only." });
+            }
+
+            var clinic = await clinicRepository.GetByIdAsync(tenantContext.ClinicId.Value);
+            if (clinic == null)
+            {
+                return Results.NotFound(new { Error = "Clinic not found." });
+            }
+
+            var functionalCurrency = clinic.Settings.Currency;
+
+            if (targetCurrency == functionalCurrency)
+            {
+                return Results.Ok(new ExchangeRateResponseDto
+                {
+                    BaseRate = 1.0m,
+                    FinalRate = 1.0m,
+                    MarkupType = MarkupType.None,
+                    MarkupValue = 0,
+                    FunctionalCurrency = functionalCurrency.ToString(),
+                    TargetCurrency = targetCurrency.ToString()
+                });
+            }
+
+            var baseRate = await exchangeRateService.GetRateAsync(functionalCurrency.ToString(), targetCurrency.ToString());
+            
+            var finalRate = baseRate;
+            if (clinic.Settings.ExchangeRateMarkupType == MarkupType.Percentage && clinic.Settings.ExchangeRateMarkupValue > 0)
+            {
+                var markup = baseRate * (clinic.Settings.ExchangeRateMarkupValue / 100);
+                finalRate += markup;
+            }
+
+            return Results.Ok(new ExchangeRateResponseDto
+            {
+                BaseRate = baseRate,
+                FinalRate = finalRate,
+                MarkupType = clinic.Settings.ExchangeRateMarkupType,
+                MarkupValue = clinic.Settings.ExchangeRateMarkupValue,
+                FunctionalCurrency = functionalCurrency.ToString(),
+                TargetCurrency = targetCurrency.ToString()
+            });
+        })
+        .RequireAuthorization()
+        .RequirePermission(Permissions.Payments.View)
+        .WithName("GetClinicExchangeRate")
+        .Produces<ExchangeRateResponseDto>()
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
         group.MapGet("/{id:guid}", async (
             Guid id,
             [FromServices] IClinicService service) =>
         {
-            // Service handles security check via Policy
             var clinic = await service.GetClinicByIdAsync(id);
             if (clinic == null) return Results.NotFound();
 
@@ -106,9 +151,6 @@ public static class ClinicEndpoints
         .RequireAuthorization()
         .WithName("GetClinicById");
 
-        // ============================================
-        // GET ALL (Paginated) - System Admin Only
-        // ============================================
         group.MapGet("/", async (
             [AsParameters] ClinicFilterRequestDto filters,
             [FromServices] IClinicService service) =>
@@ -117,12 +159,9 @@ public static class ClinicEndpoints
             return Results.Ok(result);
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Clinics.ViewAll) // ✅ Strict: Only Admins list all
+        .RequirePermission(Permissions.Clinics.ViewAll)
         .WithName("GetAllClinicsPaged");
 
-        // ============================================
-        // SEARCH - System Admin Only
-        // ============================================
         group.MapGet("/search", async (
             [FromQuery] string? query,
             [AsParameters] PaginationRequestDto pagination,
@@ -133,12 +172,9 @@ public static class ClinicEndpoints
             return Results.Ok(result);
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Clinics.Search) // ✅ Strict: Only Admins search directory
+        .RequirePermission(Permissions.Clinics.Search)
         .WithName("SearchClinicsPaged");
 
-        // ============================================
-        // STATUS UPDATES (Admin Only)
-        // ============================================
         group.MapPut("/{id:guid}/status", async (
             Guid id,
             [FromBody] UpdateClinicStatusDto dto,
@@ -174,9 +210,6 @@ public static class ClinicEndpoints
         .RequirePermission(Permissions.Clinics.ManageStatus)
         .WithName("SuspendClinic");
 
-        // ============================================
-        // DELETE & RESTORE (Admin Only)
-        // ============================================
         group.MapDelete("/{id:guid}", async (Guid id, [FromServices] IClinicService service) =>
         {
             var success = await service.SoftDeleteClinicAsync(id);
