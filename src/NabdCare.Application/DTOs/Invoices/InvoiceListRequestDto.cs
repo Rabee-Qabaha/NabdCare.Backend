@@ -1,4 +1,5 @@
 using NabdCare.Application.DTOs.Pagination;
+using NabdCare.Domain.Enums;
 using NabdCare.Domain.Enums.Invoice;
 using TypeGen.Core.TypeAnnotations;
 
@@ -12,9 +13,7 @@ public class InvoiceListRequestDto : PaginationRequestDto
     public string? InvoiceNumber { get; set; }
     public InvoiceStatus? Status { get; set; }
     public InvoiceType? Type { get; set; }
-    
-    // ✅ Allow filtering by Currency (e.g. "Show me all USD invoices")
-    public string? Currency { get; set; }
+    public Currency? Currency { get; set; }
     
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }

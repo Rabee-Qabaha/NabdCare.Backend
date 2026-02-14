@@ -76,14 +76,14 @@ public class InvoiceRepository : IInvoiceRepository
         if (filter.Type.HasValue)
             query = query.Where(i => i.Type == filter.Type.Value);
             
-        if (!string.IsNullOrWhiteSpace(filter.Currency))
-            query = query.Where(i => i.Currency == filter.Currency);
+        if (filter.Currency.HasValue)
+            query = query.Where(i => i.Currency == filter.Currency.Value);
 
         // 3) Sorting & Pagination (Cursor)
         query = query.OrderByDescending(i => i.IssueDate).ThenByDescending(i => i.Id);
 
         var limit = Math.Clamp(filter.Limit, 1, 100);
-
+        
         if (!string.IsNullOrWhiteSpace(filter.Cursor))
         {
             var parts = filter.Cursor.Split('_', 2);

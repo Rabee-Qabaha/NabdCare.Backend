@@ -1,4 +1,5 @@
 using NabdCare.Domain.Enums.Invoice;
+using NabdCare.Domain.Enums;
 using TypeGen.Core.TypeAnnotations;
 
 namespace NabdCare.Application.DTOs.Invoices;
@@ -10,7 +11,7 @@ public class GenerateInvoiceRequestDto
     public Guid SubscriptionId { get; set; }
     public InvoiceType Type { get; set; }
     
-    public string Currency { get; set; } = "USD";
+    public Currency Currency { get; set; }
 
     public string? IdempotencyKey { get; set; }
 

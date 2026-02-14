@@ -53,10 +53,10 @@ public class PermissionRepository : IPermissionRepository
         {
             query = pagination.SortBy.ToLower() switch
             {
-                "name" => pagination.Descending
+                "name" => (pagination.Descending ?? false)
                     ? query.OrderByDescending(p => p.Name)
                     : query.OrderBy(p => p.Name),
-                "createdat" => pagination.Descending
+                "createdat" => (pagination.Descending ?? false)
                     ? query.OrderByDescending(p => p.CreatedAt)
                     : query.OrderBy(p => p.CreatedAt),
                 _ => query.OrderBy(p => p.Name)

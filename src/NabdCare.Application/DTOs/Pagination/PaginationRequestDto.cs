@@ -8,6 +8,9 @@ public class PaginationRequestDto
     /// <summary>
     /// Maximum number of items to retrieve. Default = 20.
     /// </summary>
+    /// <summary>
+    /// Maximum number of items to retrieve. Default = 20.
+    /// </summary>
     public int Limit { get; set; } = 20;
 
     /// <summary>
@@ -23,7 +26,7 @@ public class PaginationRequestDto
     /// <summary>
     /// Whether to sort in descending order.
     /// </summary>
-    public bool Descending { get; set; }
+    public bool? Descending { get; set; }
 
     /// <summary>
     /// Optional keyword for filtering/search.

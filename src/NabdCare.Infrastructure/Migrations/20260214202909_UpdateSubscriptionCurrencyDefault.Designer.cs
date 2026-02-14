@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using NabdCare.Domain.Enums;
 using NabdCare.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -13,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NabdCare.Infrastructure.Migrations
 {
     [DbContext(typeof(NabdCareDbContext))]
-    [Migration("20260112201015_AddNewEntities")]
-    partial class AddNewEntities
+    [Migration("20260214202909_UpdateSubscriptionCurrencyDefault")]
+    partial class UpdateSubscriptionCurrencyDefault
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -382,6 +381,7 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Address")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("BranchCount")
@@ -400,6 +400,7 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
@@ -457,6 +458,55 @@ namespace NabdCare.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Clinics", (string)null);
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Configuration.ExchangeRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BaseCurrency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18, 6)");
+
+                    b.Property<string>("TargetCurrency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ExchangeRates");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Inventory.Product", b =>
@@ -558,10 +608,8 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<string>("Currency")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
-                        .HasDefaultValue(Currency.USD);
+                        .HasColumnType("character varying(3)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -893,7 +941,7 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18, 2)");
 
                     b.Property<string>("BankName")
                         .IsRequired()
@@ -919,6 +967,9 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
+                    b.Property<int>("Currency")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -928,11 +979,18 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime>("IssueDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uuid");
@@ -967,7 +1025,15 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AmountInFunctionalCurrency")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18, 2)");
+
+                    b.Property<decimal>("BaseExchangeRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18, 6)");
 
                     b.Property<Guid?>("ClinicId")
                         .HasColumnType("uuid");
@@ -981,20 +1047,28 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
+                    b.Property<int>("Currency")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("InvoiceId")
-                        .HasColumnType("uuid");
+                    b.Property<decimal>("FinalExchangeRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18, 6)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<int>("Method")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid?>("PatientId")
                         .HasColumnType("uuid");
@@ -1004,6 +1078,10 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
+                    b.Property<decimal>("RefundedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -1012,6 +1090,10 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<Guid?>("SubscriptionId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1019,8 +1101,6 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("InvoiceId");
 
                     b.HasIndex("PaymentDate");
 
@@ -1036,6 +1116,55 @@ namespace NabdCare.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_Payment_Context", "(\"Context\" = 0 AND \"ClinicId\" IS NOT NULL AND \"PatientId\" IS NULL) OR (\"Context\" = 1 AND \"PatientId\" IS NOT NULL AND \"ClinicId\" IS NULL)");
                         });
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Payments.PaymentAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AllocationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.ToTable("PaymentAllocations");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Permissions.AppPermission", b =>
@@ -1526,10 +1655,8 @@ namespace NabdCare.Infrastructure.Migrations
 
                     b.Property<string>("Currency")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
-                        .HasDefaultValue(Currency.USD);
+                        .HasColumnType("character varying(3)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1634,6 +1761,14 @@ namespace NabdCare.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid?>("ClinicId")
                         .HasColumnType("uuid");
 
@@ -1668,10 +1803,29 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ProfilePictureUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid");
@@ -1794,9 +1948,8 @@ namespace NabdCare.Infrastructure.Migrations
                             b1.Property<Guid>("ClinicId")
                                 .HasColumnType("uuid");
 
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .HasColumnType("text");
+                            b1.Property<int>("Currency")
+                                .HasColumnType("integer");
 
                             b1.Property<string>("DateFormat")
                                 .IsRequired()
@@ -1804,6 +1957,13 @@ namespace NabdCare.Infrastructure.Migrations
 
                             b1.Property<bool>("EnablePatientPortal")
                                 .HasColumnType("boolean");
+
+                            b1.Property<int>("ExchangeRateMarkupType")
+                                .HasColumnType("integer");
+
+                            b1.Property<decimal>("ExchangeRateMarkupValue")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(5, 2)");
 
                             b1.Property<string>("Locale")
                                 .IsRequired()
@@ -1934,10 +2094,6 @@ namespace NabdCare.Infrastructure.Migrations
                         .HasForeignKey("ClinicId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("NabdCare.Domain.Entities.Invoices.Invoice", null)
-                        .WithMany("Payments")
-                        .HasForeignKey("InvoiceId");
-
                     b.HasOne("NabdCare.Domain.Entities.Patients.Patient", "Patient")
                         .WithMany()
                         .HasForeignKey("PatientId")
@@ -1950,6 +2106,25 @@ namespace NabdCare.Infrastructure.Migrations
                     b.Navigation("Clinic");
 
                     b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("NabdCare.Domain.Entities.Payments.PaymentAllocation", b =>
+                {
+                    b.HasOne("NabdCare.Domain.Entities.Invoices.Invoice", "Invoice")
+                        .WithMany("PaymentAllocations")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NabdCare.Domain.Entities.Payments.Payment", "Payment")
+                        .WithMany("Allocations")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Permissions.UserPermission", b =>
@@ -2129,7 +2304,7 @@ namespace NabdCare.Infrastructure.Migrations
                 {
                     b.Navigation("Items");
 
-                    b.Navigation("Payments");
+                    b.Navigation("PaymentAllocations");
                 });
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Patients.Patient", b =>
@@ -2145,6 +2320,8 @@ namespace NabdCare.Infrastructure.Migrations
 
             modelBuilder.Entity("NabdCare.Domain.Entities.Payments.Payment", b =>
                 {
+                    b.Navigation("Allocations");
+
                     b.Navigation("ChequeDetail");
                 });
 

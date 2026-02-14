@@ -5,6 +5,7 @@
 
 import { InvoiceStatus } from "./invoice-status";
 import { InvoiceType } from "./invoice-type";
+import { Currency } from "./currency";
 import { InvoiceItemDto } from "./invoice-item-dto";
 import { PaymentAllocationDto } from "./payment-allocation-dto";
 
@@ -23,7 +24,7 @@ export class InvoiceDto {
   type: InvoiceType;
   pdfUrl: string;
   hostedPaymentUrl: string;
-  currency: string = "";
+  currency: Currency;
   subTotal: number;
   taxAmount: number;
   totalAmount: number;

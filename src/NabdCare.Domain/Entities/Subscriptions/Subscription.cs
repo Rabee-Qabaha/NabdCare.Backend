@@ -58,8 +58,8 @@ public class Subscription : BaseEntity
     
     // ✅ 2025 Best Practice: Multi-Currency Support
     // Never store amounts without their currency
-    [Required, MaxLength(3)]
-    public string Currency { get; set; } = "USD"; 
+    [Required]
+    public Currency Currency { get; set; } = Currency.USD; 
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal Fee { get; set; }

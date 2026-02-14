@@ -1,4 +1,5 @@
 ﻿using TypeGen.Core.TypeAnnotations;
+using NabdCare.Domain.Enums;
 
 namespace NabdCare.Application.DTOs.Subscriptions;
 
@@ -10,7 +11,7 @@ public class CreateSubscriptionRequestDto
 
     // Multi-Currency Support (e.g. "USD", "EUR")
     // Defaults to system setting if null
-    public string? Currency { get; set; } 
+    // [REMOVED] Public Currency? Currency { get; set; } - Now handled by SaaSSettings 
 
     // 💰 Paid Add-ons (Multiplied by Price)
     public int ExtraBranches { get; set; } = 0;

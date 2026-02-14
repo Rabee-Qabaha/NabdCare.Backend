@@ -210,7 +210,9 @@
     >
       <div class="flex items-center gap-2">
         <i class="pi pi-receipt text-surface-500 text-sm"></i>
-        <span class="text-sm font-bold text-surface-900 dark:text-surface-0">Billing History</span>
+        <span class="text-sm font-bold text-surface-900 dark:text-surface-0">
+          Current Subscription Billing History
+        </span>
       </div>
       <div class="flex items-center gap-2">
         <IconField icon-position="left">

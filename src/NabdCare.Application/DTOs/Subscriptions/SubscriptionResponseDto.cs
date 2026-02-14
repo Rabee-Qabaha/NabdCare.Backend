@@ -26,7 +26,7 @@ public class SubscriptionResponseDto
     // =================================================
     // 💰 FINANCIALS
     // =================================================
-    public string Currency { get; set; } = "USD"; // ✅ 2025 Standard
+    public Currency Currency { get; set; } = Currency.USD; // ✅ 2025 Standard
     public decimal Fee { get; set; }
     public SubscriptionStatus Status { get; set; }
 

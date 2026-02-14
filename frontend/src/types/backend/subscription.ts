@@ -5,6 +5,7 @@
 
 import { Clinic } from "./clinic";
 import { SubscriptionType } from "./subscription-type";
+import { Currency } from "./currency";
 import { SubscriptionStatus } from "./subscription-status";
 import { Invoice } from "./invoice";
 import { Payment } from "./payment";
@@ -22,7 +23,7 @@ export class Subscription {
   canceledAt: Date;
   cancellationReason: string;
   type: SubscriptionType;
-  currency: string = "USD";
+  currency: Currency;
   fee: number;
   status: SubscriptionStatus;
   purchasedBranches: number;

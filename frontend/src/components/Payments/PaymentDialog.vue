@@ -180,7 +180,7 @@
                 <i class="pi pi-times text-sm"></i>
               </button>
 
-              <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div class="w-full">
                   <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
                     Cheque #
@@ -193,23 +193,26 @@
                 </div>
                 <div class="w-full">
                   <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
-                    Amount & Currency
+                    Amount
                   </label>
-                  <div class="flex gap-2">
-                    <InputNumber
-                      v-model="cheque.amount"
-                      mode="decimal"
-                      locale="en-US"
-                      placeholder="0.00"
-                      class="w-full"
-                    />
-                    <Select
-                      v-model="cheque.currency"
-                      :options="supportedCurrencies"
-                      class="w-24 shrink-0"
-                      @change="onChequeCurrencyChange(cheque)"
-                    />
-                  </div>
+                  <InputNumber
+                    v-model="cheque.amount"
+                    mode="decimal"
+                    locale="en-US"
+                    placeholder="0.00"
+                    class="w-full"
+                  />
+                </div>
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Currency
+                  </label>
+                  <Select
+                    v-model="cheque.currency"
+                    :options="supportedCurrencies"
+                    class="w-full"
+                    @change="onChequeCurrencyChange(cheque)"
+                  />
                 </div>
                 <div class="w-full">
                   <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
@@ -217,17 +220,12 @@
                   </label>
                   <InputText v-model="cheque.bankName" class="w-full" placeholder="Bank Name" />
                 </div>
-                <div class="w-full">
-                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
-                    Branch
-                  </label>
-                  <InputText v-model="cheque.branch" class="w-full" placeholder="Branch" />
-                </div>
               </div>
 
+              <!-- Exchange Rate Info Row if needed, can be placed between grids or inside one if full width -->
               <div
                 v-if="cheque.currency !== functionalCurrency && cheque.exchangeRate"
-                class="flex items-center gap-2 my-4 text-[10px] text-surface-400 font-medium"
+                class="flex items-center gap-2 mb-4 text-[10px] text-surface-400 font-medium"
               >
                 <i class="pi pi-sync"></i>
                 <span>Exchange Rate @ {{ formatExchangeRate(cheque.exchangeRate.finalRate) }}</span>
@@ -241,13 +239,19 @@
               </div>
               <div
                 v-else-if="cheque.currency !== functionalCurrency && !cheque.exchangeRate"
-                class="flex items-center gap-2 my-4 text-[10px] text-red-500 animate-pulse font-medium"
+                class="flex items-center gap-2 mb-4 text-[10px] text-red-500 animate-pulse font-medium"
               >
                 <i class="pi pi-spin pi-spinner text-xs"></i>
                 <span>Fetching exchange rate...</span>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="w-full">
+                  <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
+                    Branch
+                  </label>
+                  <InputText v-model="cheque.branch" class="w-full" placeholder="Branch" />
+                </div>
                 <div class="w-full">
                   <label class="block text-[10px] font-bold text-surface-500 uppercase mb-2">
                     Due Date

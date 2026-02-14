@@ -4,15 +4,16 @@
  */
 
 import { InvoiceType } from "./invoice-type";
+import { Currency } from "./currency";
 import { GenerateInvoiceItemDto } from "./generate-invoice-item-dto";
 
 export class GenerateInvoiceRequestDto {
   clinicId: string;
   subscriptionId: string;
   type: InvoiceType;
-  currency: string = "USD";
+  currency: Currency;
   idempotencyKey: string;
-  issueDate: Date = new Date("2026-02-14T19:45:58.5186490Z");
+  issueDate: Date = new Date("2026-02-14T21:00:46.3392590Z");
   dueDate: Date;
   items: GenerateInvoiceItemDto[] = [];
   taxRate: number;

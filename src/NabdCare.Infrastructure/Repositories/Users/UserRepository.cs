@@ -127,7 +127,7 @@ public class UserRepository : IUserRepository
 
         if (createdAtCursor.HasValue && idCursor.HasValue)
         {
-            if (filter.Descending)
+            if (filter.Descending ?? false)
             {
                 // Paginate Backward (Newest first)
                 query = query.Where(u =>
@@ -145,7 +145,7 @@ public class UserRepository : IUserRepository
         }
 
         // 8. Ordering
-        query = filter.Descending
+        query = (filter.Descending ?? false)
             ? query.OrderByDescending(u => u.CreatedAt).ThenBy(u => u.Id)
             : query.OrderBy(u => u.CreatedAt).ThenBy(u => u.Id);
 
@@ -539,7 +539,7 @@ public class UserRepository : IUserRepository
 
             return (createdAt, id);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return (null, null);
         }

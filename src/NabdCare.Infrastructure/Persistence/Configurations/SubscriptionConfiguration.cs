@@ -22,7 +22,10 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.Property(s => s.AutoRenew).IsRequired().HasDefaultValue(false);
         builder.Property(s => s.GracePeriodDays).IsRequired().HasDefaultValue(0);
 
-        builder.Property(s => s.Currency).IsRequired().HasMaxLength(3).HasDefaultValue("USD");
+        builder.Property(s => s.Currency)
+            .IsRequired()
+            .HasMaxLength(3)
+            .HasConversion<string>();
         builder.Property(s => s.ExternalSubscriptionId).HasMaxLength(100);
         builder.Property(s => s.CancelAtPeriodEnd).IsRequired().HasDefaultValue(false);
         builder.Property(s => s.CancellationReason).HasMaxLength(500);

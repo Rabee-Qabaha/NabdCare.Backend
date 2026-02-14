@@ -114,16 +114,16 @@ public class AuditLogRepository : IAuditLogRepository
         {
             query = pagination.SortBy.ToLower() switch
             {
-                "action" => pagination.Descending
+                "action" => (pagination.Descending ?? false)
                     ? query.OrderByDescending(a => a.Action)
                     : query.OrderBy(a => a.Action),
-                "entitytype" => pagination.Descending
+                "entitytype" => (pagination.Descending ?? false)
                     ? query.OrderByDescending(a => a.EntityType)
                     : query.OrderBy(a => a.EntityType),
-                "useremail" => pagination.Descending
+                "useremail" => (pagination.Descending ?? false)
                     ? query.OrderByDescending(a => a.UserEmail)
                     : query.OrderBy(a => a.UserEmail),
-                _ => pagination.Descending
+                _ => (pagination.Descending ?? false)
                     ? query.OrderByDescending(a => a.Timestamp)
                     : query.OrderBy(a => a.Timestamp)
             };

@@ -6,6 +6,7 @@
 import { PaginationRequestDto } from "./pagination-request-dto";
 import { InvoiceStatus } from "./invoice-status";
 import { InvoiceType } from "./invoice-type";
+import { Currency } from "./currency";
 
 export class InvoiceListRequestDto extends PaginationRequestDto {
   clinicId: string;
@@ -13,7 +14,7 @@ export class InvoiceListRequestDto extends PaginationRequestDto {
   invoiceNumber: string;
   status: InvoiceStatus;
   type: InvoiceType;
-  currency: string;
+  currency: Currency;
   fromDate: Date;
   toDate: Date;
 }

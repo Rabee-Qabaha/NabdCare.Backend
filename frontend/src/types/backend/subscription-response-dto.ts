@@ -4,6 +4,7 @@
  */
 
 import { SubscriptionType } from "./subscription-type";
+import { Currency } from "./currency";
 import { SubscriptionStatus } from "./subscription-status";
 import { InvoiceStatus } from "./invoice-status";
 
@@ -17,7 +18,7 @@ export class SubscriptionResponseDto {
   trialEndsAt: Date;
   billingCycleAnchor: Date;
   type: SubscriptionType;
-  currency: string = "USD";
+  currency: Currency;
   fee: number;
   status: SubscriptionStatus;
   autoRenew: boolean;

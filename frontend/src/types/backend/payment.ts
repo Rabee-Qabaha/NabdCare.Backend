@@ -24,7 +24,7 @@ export class Payment {
   finalExchangeRate: number;
   amountInFunctionalCurrency: number;
   refundedAmount: number;
-  paymentDate: Date = new Date("2026-02-14T19:45:58.5721370Z");
+  paymentDate: Date = new Date("2026-02-14T21:00:46.3988000Z");
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId: string;

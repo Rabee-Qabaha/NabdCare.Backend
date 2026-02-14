@@ -1,4 +1,5 @@
 using NabdCare.Application.DTOs.Payments;
+using NabdCare.Domain.Enums;
 using NabdCare.Domain.Enums.Invoice;
 using TypeGen.Core.TypeAnnotations;
 
@@ -29,7 +30,7 @@ public class InvoiceDto
     public string? HostedPaymentUrl { get; set; }
 
     // Financials with Currency
-    public string Currency { get; set; } = string.Empty;
+    public Currency Currency { get; set; } = Currency.USD;
     public decimal SubTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal TotalAmount { get; set; }

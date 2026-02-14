@@ -15,7 +15,7 @@ export class CreatePaymentRequestDto {
   patientId: string;
   amount: number;
   currency: Currency;
-  paymentDate: Date = new Date("2026-02-14T19:45:58.5101790Z");
+  paymentDate: Date = new Date("2026-02-14T21:00:46.3303040Z");
   method: PaymentMethod;
   transactionId: string;
   notes: string;

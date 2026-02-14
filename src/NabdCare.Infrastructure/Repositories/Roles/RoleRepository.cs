@@ -131,14 +131,14 @@ private IQueryable<Role> BuildQuery(RoleFilterRequestDto filter, Func<IQueryable
         var (createdAtCursor, idCursor) = DecodeCursor(filter.Cursor);
         if (createdAtCursor.HasValue)
         {
-            if (filter.Descending)
+            if (filter.Descending ?? false)
                 query = query.Where(r => r.CreatedAt < createdAtCursor.Value);
             else
                 query = query.Where(r => r.CreatedAt > createdAtCursor.Value);
         }
 
         // Ordering (Must be stable for cursor)
-        query = filter.Descending
+        query = (filter.Descending ?? false)
             ? query.OrderByDescending(r => r.DisplayOrder).ThenBy(r => r.Id)
             : query.OrderBy(r => r.DisplayOrder).ThenBy(r => r.Id);
 

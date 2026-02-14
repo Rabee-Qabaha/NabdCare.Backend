@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using NabdCare.Domain.Entities.Invoices;
+using NabdCare.Domain.Enums;
 
 namespace NabdCare.Infrastructure.Persistence.Configurations;
 
@@ -32,7 +33,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(i => i.Currency)
             .IsRequired()
             .HasMaxLength(3)
-            .HasDefaultValue("USD");
+            .HasConversion<string>();
 
         builder.Property(i => i.InvoiceNumber).IsRequired().HasMaxLength(50);
         builder.Property(i => i.IdempotencyKey).HasMaxLength(100);

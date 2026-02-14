@@ -9,6 +9,7 @@ import { Patient } from "./patient";
 import { ClinicalEncounter } from "./clinical-encounter";
 import { InvoiceStatus } from "./invoice-status";
 import { InvoiceType } from "./invoice-type";
+import { Currency } from "./currency";
 import { InvoiceItem } from "./invoice-item";
 import { PaymentAllocation } from "./payment-allocation";
 
@@ -28,14 +29,14 @@ export class Invoice {
   billedToTaxNumber: string;
   pdfUrl: string;
   hostedPaymentUrl: string;
-  issueDate: Date = new Date("2026-02-14T19:45:58.5749440Z");
+  issueDate: Date = new Date("2026-02-14T21:00:46.4023370Z");
   dueDate: Date;
   paidDate: Date;
   paymentAttemptCount: number;
   nextPaymentAttempt: Date;
   status: InvoiceStatus;
   type: InvoiceType;
-  currency: string = "USD";
+  currency: Currency;
   subTotal: number;
   taxRate: number;
   taxAmount: number;

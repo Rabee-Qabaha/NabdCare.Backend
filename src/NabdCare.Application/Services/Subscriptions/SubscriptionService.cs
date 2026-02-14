@@ -14,6 +14,8 @@ using NabdCare.Domain.Constants;
 using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Enums;
 using NabdCare.Domain.Enums.Invoice;
+using Microsoft.Extensions.Options;
+using NabdCare.Application.Common.Configurations;
 
 namespace NabdCare.Application.Services.Subscriptions;
 
@@ -26,7 +28,8 @@ public class SubscriptionService : ISubscriptionService
     private readonly ITenantContext _tenantContext;
     private readonly IMapper _mapper;
     private readonly ILogger<SubscriptionService> _logger;
-    private readonly IAccessPolicy<Subscription> _policy; // ✅ New
+    private readonly IAccessPolicy<Subscription> _policy;
+    private readonly IOptions<SaaSSettings> _saasSettings;
 
     public SubscriptionService(
         ISubscriptionRepository repository,
@@ -36,7 +39,8 @@ public class SubscriptionService : ISubscriptionService
         ITenantContext tenantContext,
         IMapper mapper,
         ILogger<SubscriptionService> logger,
-        IAccessPolicy<Subscription> policy) // ✅ New
+        IAccessPolicy<Subscription> policy,
+        IOptions<SaaSSettings> saasSettings)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _clinicRepository = clinicRepository ?? throw new ArgumentNullException(nameof(clinicRepository));
@@ -46,6 +50,7 @@ public class SubscriptionService : ISubscriptionService
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
+        _saasSettings = saasSettings ?? throw new ArgumentNullException(nameof(saasSettings));
     }
 
     // ============================================
@@ -85,7 +90,7 @@ public class SubscriptionService : ISubscriptionService
             StartDate = startDate,
             EndDate = startDate.AddDays(plan.DurationDays),
             BillingCycleAnchor = startDate,
-            Currency = dto.Currency ?? "USD",
+            Currency = _saasSettings.Value.FunctionalCurrency,
             Fee = totalFee,
             Status = plan.Id == "TRIAL" ? SubscriptionStatus.Trial : SubscriptionStatus.Active,
 

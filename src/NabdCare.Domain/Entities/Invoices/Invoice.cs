@@ -4,6 +4,7 @@ using NabdCare.Domain.Entities.Subscriptions;
 using NabdCare.Domain.Entities.Patients;
 using NabdCare.Domain.Entities.Clinical;
 using NabdCare.Domain.Enums.Invoice;
+using NabdCare.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -76,8 +77,8 @@ public class Invoice : BaseEntity
     // ==========================================
     // 💰 FINANCIALS
     // ==========================================
-    [Required, MaxLength(3)]
-    public string Currency { get; set; } = "USD";
+    [Required]
+    public Currency Currency { get; set; } = Currency.USD;
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal SubTotal { get; set; }

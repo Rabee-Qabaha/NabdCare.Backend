@@ -6,7 +6,6 @@
 export class CreateSubscriptionRequestDto {
   clinicId: string;
   planId: string = "";
-  currency: string;
   extraBranches: number;
   extraUsers: number;
   bonusBranches: number;

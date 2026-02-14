@@ -370,7 +370,7 @@ public class ClinicRepository : IClinicRepository
 
         if (!string.IsNullOrWhiteSpace(pagination.SortBy))
         {
-            query = pagination.Descending
+            query = (pagination.Descending ?? false)
                 ? query.OrderByDescendingDynamic(pagination.SortBy)
                 : query.OrderByDynamic(pagination.SortBy);
         }
