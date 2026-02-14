@@ -3,7 +3,6 @@
   import ConfirmDialog from '@/components/shared/ConfirmDialog.vue';
   import { useInvoiceActions } from '@/composables/query/invoices/useInvoiceActions';
   import { useInfiniteInvoicesPaged } from '@/composables/query/invoices/useInvoices';
-  import { usePaymentActions } from '@/composables/query/payments/usePaymentActions';
   import { usePermissions } from '@/composables/query/permissions/usePermissions';
   import { useConfirmDialog } from '@/composables/useConfirmDialog';
   import { InvoiceStatus, InvoiceType, Invoices, type InvoiceDto } from '@/types/backend';
@@ -172,20 +171,10 @@
   // -- Payment Dialog Logic --
   const showPaymentDialog = ref(false);
   const invoiceToPay = ref<InvoiceDto | null>(null);
-  const { createPayment, isCreating } = usePaymentActions();
 
   const openPaymentDialog = (invoice: InvoiceDto) => {
     invoiceToPay.value = invoice;
     showPaymentDialog.value = true;
-  };
-
-  const handlePaymentSave = (paymentData: any) => {
-    createPayment(paymentData, {
-      onSuccess: () => {
-        showPaymentDialog.value = false;
-        refetch();
-      },
-    });
   };
 
   // -- Helpers --
@@ -501,11 +490,12 @@
     <PaymentDialog
       v-if="showPaymentDialog"
       v-model:visible="showPaymentDialog"
-      :is-processing="isCreating"
+      :is-processing="false"
       :clinic-id="props.clinicId!"
       :invoice-id="invoiceToPay?.id"
       :max-amount="invoiceToPay?.balanceDue"
-      @save="handlePaymentSave"
+      :default-currency="invoiceToPay?.currency || undefined"
+      @refresh="refetch"
     />
 
     <ConfirmDialog

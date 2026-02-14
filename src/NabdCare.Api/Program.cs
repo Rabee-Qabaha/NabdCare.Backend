@@ -21,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Bind configuration objects
 builder.Services.Configure<FrontendSettings>(builder.Configuration);
+builder.Services.Configure<SaaSSettings>(builder.Configuration.GetSection(SaaSSettings.SectionName));
 
 // Add services (DB, auth, repos, application services)
 builder.Services.AddNabdCareServices(builder.Configuration);

@@ -2,6 +2,7 @@
 <script setup lang="ts">
   import PlanSelect from '@/components/Dropdowns/PlanSelect.vue';
   import { useSubscriptionActions } from '@/composables/query/subscriptions/useSubscriptionActions';
+  import { useConfiguration } from '@/composables/useConfiguration';
   import Button from 'primevue/button';
   import InputNumber from 'primevue/inputnumber';
   import { ref } from 'vue';
@@ -9,13 +10,15 @@
   const props = defineProps<{ clinicId: string }>();
   const emit = defineEmits(['cancel', 'success']);
 
+  const { functionalCurrency } = useConfiguration();
+
   const form = ref({
     planId: '',
     extraUsers: 0,
     extraBranches: 0,
     bonusUsers: 0,
     bonusBranches: 0,
-    currency: 'USD',
+    currency: functionalCurrency.value,
   });
 
   const showDealMode = ref(false);

@@ -24,4 +24,7 @@ public class CreatePaymentRequestDto
 
     // Optional: Cheque Details
     public CreateChequeDetailDto? ChequeDetail { get; set; }
+    
+    public decimal? BaseExchangeRate { get; set; }
+    public decimal? FinalExchangeRate { get; set; }
 }

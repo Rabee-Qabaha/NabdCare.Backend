@@ -85,20 +85,40 @@ public static class ClinicEndpoints
             [FromQuery] Currency targetCurrency,
             [FromServices] ITenantContext tenantContext,
             [FromServices] IClinicRepository clinicRepository,
-            [FromServices] IExchangeRateService exchangeRateService) =>
+            [FromServices] IExchangeRateService exchangeRateService,
+            [FromServices] IConfiguration configuration) =>
         {
-            if (tenantContext.IsSuperAdmin || !tenantContext.ClinicId.HasValue)
+            if (!tenantContext.IsSuperAdmin && !tenantContext.ClinicId.HasValue)
             {
-                return Results.BadRequest(new { Error = "This endpoint is for clinic users only." });
+                return Results.BadRequest(new { Error = "This endpoint is for authorized users only." });
             }
 
-            var clinic = await clinicRepository.GetByIdAsync(tenantContext.ClinicId.Value);
-            if (clinic == null)
-            {
-                return Results.NotFound(new { Error = "Clinic not found." });
-            }
+            Currency functionalCurrency;
+            MarkupType markupType = MarkupType.None;
+            decimal markupValue = 0;
 
-            var functionalCurrency = clinic.Settings.Currency;
+            if (tenantContext.IsSuperAdmin)
+            {
+                // SaaS Level Settings
+                var saasCurrencyStr = configuration["SaaSSettings:FunctionalCurrency"];
+                if (!Enum.TryParse(saasCurrencyStr, out functionalCurrency))
+                {
+                    functionalCurrency = Currency.USD; // Default fallback
+                }
+            }
+            else
+            {
+                // Clinic Level Settings
+                var clinic = await clinicRepository.GetByIdAsync(tenantContext.ClinicId!.Value);
+                if (clinic == null)
+                {
+                    return Results.NotFound(new { Error = "Clinic not found." });
+                }
+                
+                functionalCurrency = clinic.Settings.Currency;
+                markupType = clinic.Settings.ExchangeRateMarkupType;
+                markupValue = clinic.Settings.ExchangeRateMarkupValue;
+            }
 
             if (targetCurrency == functionalCurrency)
             {
@@ -113,12 +133,12 @@ public static class ClinicEndpoints
                 });
             }
 
-            var baseRate = await exchangeRateService.GetRateAsync(functionalCurrency.ToString(), targetCurrency.ToString());
+            var baseRate = await exchangeRateService.GetRateAsync(targetCurrency.ToString(), functionalCurrency.ToString());
             
             var finalRate = baseRate;
-            if (clinic.Settings.ExchangeRateMarkupType == MarkupType.Percentage && clinic.Settings.ExchangeRateMarkupValue > 0)
+            if (markupType == MarkupType.Percentage && markupValue > 0)
             {
-                var markup = baseRate * (clinic.Settings.ExchangeRateMarkupValue / 100);
+                var markup = baseRate * (markupValue / 100);
                 finalRate += markup;
             }
 
@@ -126,15 +146,14 @@ public static class ClinicEndpoints
             {
                 BaseRate = baseRate,
                 FinalRate = finalRate,
-                MarkupType = clinic.Settings.ExchangeRateMarkupType,
-                MarkupValue = clinic.Settings.ExchangeRateMarkupValue,
+                MarkupType = markupType,
+                MarkupValue = markupValue,
                 FunctionalCurrency = functionalCurrency.ToString(),
                 TargetCurrency = targetCurrency.ToString()
             });
         })
         .RequireAuthorization()
-        .RequirePermission(Permissions.Payments.View)
-        .WithName("GetClinicExchangeRate")
+        .WithName("GetClinicExchangeRate") // Might want to rename to GetExchangeRate but keeping for compatibility
         .Produces<ExchangeRateResponseDto>()
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);

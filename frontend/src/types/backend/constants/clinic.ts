@@ -4,9 +4,10 @@
  */
 
 export class Clinic {
-  static readonly descriptions: { [key: string]: string; } = {"Clinic.View":"View own clinic information","Clinic.Edit":"Edit clinic details and contact information","Clinic.ViewSettings":"View clinic configuration settings","Clinic.EditSettings":"Modify clinic configuration settings"};
+  static readonly descriptions: { [key: string]: string; } = {"Clinic.View":"View own clinic information","Clinic.Edit":"Edit clinic details and contact information","Clinic.ViewSettings":"View clinic configuration settings","Clinic.EditSettings":"Modify general clinic configuration settings","Clinic.ManageFinancials":"Manage financial settings (e.g., currency, exchange rate markups)"};
   static readonly view: string = "Clinic.View";
   static readonly edit: string = "Clinic.Edit";
   static readonly viewSettings: string = "Clinic.ViewSettings";
   static readonly editSettings: string = "Clinic.EditSettings";
+  static readonly manageFinancials: string = "Clinic.ManageFinancials";
 }

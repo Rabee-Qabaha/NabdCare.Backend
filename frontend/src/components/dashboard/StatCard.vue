@@ -34,11 +34,13 @@
       subtitle?: string;
       loading?: boolean;
       format?: 'number' | 'currency' | 'percentage';
+      currency?: string;
     }>(),
     {
       color: 'blue',
       loading: false,
       format: 'number',
+      currency: 'USD',
     },
   );
 
@@ -64,7 +66,7 @@
       case 'currency':
         return new Intl.NumberFormat('en-US', {
           style: 'currency',
-          currency: 'USD',
+          currency: props.currency,
         }).format(props.value);
       case 'percentage':
         return `${props.value}%`;

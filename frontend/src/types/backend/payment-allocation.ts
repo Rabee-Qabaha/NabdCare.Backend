@@ -12,5 +12,5 @@ export class PaymentAllocation {
   invoiceId: string;
   invoice: Invoice;
   amount: number;
-  allocationDate: Date = new Date("2026-02-08T20:18:39.2746340Z");
+  allocationDate: Date = new Date("2026-02-14T19:45:58.5741200Z");
 }

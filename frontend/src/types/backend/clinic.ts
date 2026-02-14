@@ -20,7 +20,7 @@ export class Clinic {
   website: string;
   taxNumber: string;
   registrationNumber: string;
-  settings: ClinicSettings = {"timeZone":"UTC","currency":"USD","dateFormat":"dd/MM/yyyy","locale":"en-US","enablePatientPortal":true};
+  settings: ClinicSettings = {"timeZone":"UTC","currency":0,"dateFormat":"dd/MM/yyyy","locale":"en-US","exchangeRateMarkupType":0,"exchangeRateMarkupValue":0.0,"enablePatientPortal":true};
   branchCount: number = 1;
   status: SubscriptionStatus;
   branches: Branch[] = [];

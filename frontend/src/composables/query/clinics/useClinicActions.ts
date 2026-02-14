@@ -3,7 +3,7 @@ import { clinicsApi } from '@/api/modules/clinics';
 import { useErrorHandler } from '@/composables/errorHandling/useErrorHandler';
 import { usePermission } from '@/composables/usePermission';
 import { useToastService } from '@/composables/useToastService';
-import type { CreateClinicRequestDto, UpdateClinicRequestDto } from '@/types/backend';
+import { Clinics, type CreateClinicRequestDto, type UpdateClinicRequestDto } from '@/types/backend';
 import { useMutation, useQueryClient } from '@tanstack/vue-query';
 
 export function useClinicActions() {
@@ -105,11 +105,11 @@ export function useClinicActions() {
     suspendMutation,
 
     // Permissions
-    canCreate: can('Clinics.Create'),
-    canEdit: can('Clinics.Edit'),
-    canDelete: can('Clinics.Delete'),
-    canHardDelete: can('Clinics.HardDelete'),
-    canManageStatus: can('Clinics.ManageStatus'),
-    canRestore: can('Clinics.Restore'),
+    canCreate: can(Clinics.create),
+    canEdit: can(Clinics.edit),
+    canDelete: can(Clinics.delete),
+    canHardDelete: can(Clinics.hardDelete),
+    canManageStatus: can(Clinics.manageStatus),
+    canRestore: can(Clinics.restore),
   };
 }

@@ -3,6 +3,8 @@
  * Any changes made to this file can be lost when this file is regenerated.
  */
 
+import { Currency } from "./currency";
+
 export class CreateChequeDetailDto {
   chequeNumber: string = "";
   bankName: string = "";
@@ -10,6 +12,7 @@ export class CreateChequeDetailDto {
   issueDate: Date;
   dueDate: Date;
   amount: number;
+  currency: Currency;
   imageUrl: string;
   note: string;
 }

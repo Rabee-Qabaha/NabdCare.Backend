@@ -44,7 +44,10 @@
     isTrial.value ? 0 : paidBranches.value * branchPrice.value,
   );
 
-  const currency = computed(() => props.subscription.currency || 'USD');
+  import { useConfiguration } from '@/composables/useConfiguration';
+  const { functionalCurrency: systemCurrency } = useConfiguration();
+
+  const currency = computed(() => props.subscription.currency || systemCurrency.value);
 
   // Updated Billing Cycle Text using the Enum
   const billingCycle = computed(() => {

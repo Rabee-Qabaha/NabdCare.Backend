@@ -4,6 +4,7 @@
  */
 
 import { PaymentContext } from "./payment-context";
+import { Currency } from "./currency";
 import { PaymentMethod } from "./payment-method";
 import { PaymentStatus } from "./payment-status";
 import { ChequePaymentDetailDto } from "./cheque-payment-detail-dto";
@@ -15,6 +16,10 @@ export class PaymentDto {
   clinicId: string;
   patientId: string;
   amount: number;
+  currency: Currency;
+  baseExchangeRate: number;
+  finalExchangeRate: number;
+  amountInFunctionalCurrency: number;
   unallocatedAmount: number;
   paymentDate: Date;
   method: PaymentMethod;

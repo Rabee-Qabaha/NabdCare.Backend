@@ -4,6 +4,7 @@
  */
 
 import { Payment } from "./payment";
+import { Currency } from "./currency";
 import { ChequeStatus } from "./cheque-status";
 
 export class ChequePaymentDetail {
@@ -15,6 +16,7 @@ export class ChequePaymentDetail {
   issueDate: Date;
   dueDate: Date;
   amount: number;
+  currency: Currency = 3;
   status: ChequeStatus;
   clearedDate: Date;
   imageUrl: string = "";

@@ -44,8 +44,12 @@
     });
   };
 
+  import { useConfiguration } from '@/composables/useConfiguration';
+
+  const { functionalCurrency: systemCurrency } = useConfiguration();
+
   const formatMoney = (v: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: systemCurrency.value }).format(v);
 
   const getItemTypeLabel = (type: string | number) => {
     const t = String(type).toLowerCase();

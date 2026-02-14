@@ -33,9 +33,15 @@
     if (plan) emit('plan-selected', plan);
   };
 
+  import { useConfiguration } from '@/composables/useConfiguration';
+  const { functionalCurrency: systemCurrency } = useConfiguration();
+
   // Helper for price formatting
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: systemCurrency.value,
+    }).format(value);
   };
 </script>
 

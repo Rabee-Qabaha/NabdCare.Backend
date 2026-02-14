@@ -38,7 +38,9 @@
       <Column field="amount" header="Amount" sortable style="width: 15%">
         <template #loading><Skeleton width="4rem" height="1.5rem" /></template>
         <template #body="{ data }">
-          <span v-if="data" class="font-bold">{{ formatCurrency(data.amount) }}</span>
+          <span v-if="data" class="font-bold">
+            {{ formatCurrency(data.amount, data.currency) }}
+          </span>
           <Skeleton v-else width="4rem" height="1.5rem" />
         </template>
       </Column>
@@ -50,7 +52,7 @@
             v-if="data"
             :class="data.unallocatedAmount > 0 ? 'text-green-600 font-bold' : 'text-surface-500'"
           >
-            {{ formatCurrency(data.unallocatedAmount) }}
+            {{ formatCurrency(data.unallocatedAmount, data.currency) }}
           </span>
           <Skeleton v-else width="4rem" height="1.5rem" />
         </template>
@@ -98,6 +100,15 @@
         <template #body="{ data }">
           <div v-if="data" class="flex gap-2">
             <Button
+              icon="pi pi-eye"
+              text
+              rounded
+              severity="secondary"
+              @click="openDetails(data)"
+              v-tooltip.top="'View Details'"
+              aria-label="View Details"
+            />
+            <Button
               v-if="canDelete"
               icon="pi pi-trash"
               text
@@ -121,6 +132,12 @@
       @cancel="closeDialog"
     />
 
+    <PaymentDetailsDialog
+      v-model:visible="detailsVisible"
+      :payment="selectedPayment"
+      :clinic-id="props.clinicId"
+    />
+
     <!-- Filter Drawer -->
     <PaymentFilters
       v-model:visible="showFilters"
@@ -135,8 +152,10 @@
 
 <script setup lang="ts">
   // PaymentList Component
+  import PaymentDetailsDialog from '@/components/Payments/PaymentDetailsDialog.vue';
   import PaymentDialog from '@/components/Payments/PaymentDialog.vue';
   import PaymentFilters from '@/components/Payments/PaymentFilters.vue';
+  import { useClinicQueries } from '@/composables/query/clinics/useClinicQueries';
   import { usePaymentActions } from '@/composables/query/payments/usePaymentActions.ts';
   import { usePaymentsTable } from '@/composables/query/payments/usePaymentsTable.ts';
   import { PaymentMethod } from '@/types/backend/payment-method';
@@ -144,6 +163,7 @@
   import { computed, ref, watch } from 'vue';
 
   // PrimeVue Components
+  import { useConfiguration } from '@/composables/useConfiguration';
   import Button from 'primevue/button';
   import Column from 'primevue/column';
   import ConfirmDialog from 'primevue/confirmdialog';
@@ -192,15 +212,8 @@
     emit('update:total-records', val);
   });
 
-  const {
-    createMutation,
-    updateMutation,
-    updateCheque,
-    deleteMutation,
-    canEdit,
-    canDelete,
-    isUpdatingCheque,
-  } = usePaymentActions();
+  const { createMutation, updateMutation, deleteMutation, canDelete, isUpdatingCheque } =
+    usePaymentActions();
 
   const isProcessing = computed(
     () =>
@@ -209,8 +222,24 @@
 
   // --- Dialog State ---
   const dialogVisible = ref(false);
+  const detailsVisible = ref(false);
+  const selectedPayment = ref<any>(null);
+
+  const { useClinicDetails } = useClinicQueries();
+  const { functionalCurrency: systemCurrency } = useConfiguration();
+  const clinicIdRef = computed(() => props.clinicId);
+  const { data: clinic } = useClinicDetails(clinicIdRef);
+
+  const functionalCurrency = computed(
+    () => clinic.value?.settings?.currency || systemCurrency.value || 'USD',
+  );
 
   // --- Handlers ---
+
+  const openDetails = (payment: any) => {
+    selectedPayment.value = payment;
+    detailsVisible.value = true;
+  };
 
   const openCreateDialog = () => {
     dialogVisible.value = true;
@@ -236,8 +265,11 @@
   };
 
   // --- Formatters ---
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'ILS' }).format(value);
+  const formatCurrency = (value: number, currency?: string) => {
+    const currencyCode = currency || functionalCurrency.value;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(
+      value,
+    );
   };
 
   const formatDate = (dateInput: string | Date) => {

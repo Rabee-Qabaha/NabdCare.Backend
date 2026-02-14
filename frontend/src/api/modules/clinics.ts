@@ -1,11 +1,12 @@
-// src/api/modules/clinics.ts
 import { api } from '@/api/apiClient';
 import type {
   ClinicDashboardStatsDto,
   ClinicFilterRequestDto,
   ClinicResponseDto,
   CreateClinicRequestDto,
+  ExchangeRateResponseDto,
   PaginatedResult,
+  PaginationRequestDto,
   UpdateClinicRequestDto,
   UpdateClinicStatusDto,
 } from '@/types/backend';
@@ -24,6 +25,25 @@ export const clinicsApi = {
 
   async getById(id: string) {
     const { data } = await api.get<ClinicResponseDto>(`/clinics/${id}`);
+    return data;
+  },
+
+  async getMyClinic() {
+    const { data } = await api.get<ClinicResponseDto>('/clinics/me');
+    return data;
+  },
+
+  async getExchangeRate(targetCurrency?: string) {
+    const { data } = await api.get<ExchangeRateResponseDto>('/clinics/me/exchange-rate', {
+      params: { targetCurrency },
+    });
+    return data;
+  },
+
+  async search(query: string, pagination: PaginationRequestDto) {
+    const { data } = await api.get<PaginatedResult<ClinicResponseDto>>('/clinics/search', {
+      params: { query, ...pagination },
+    });
     return data;
   },
 
@@ -67,11 +87,11 @@ export const clinicsApi = {
     return data;
   },
 
-  async delete(id: string) {
-    return api.delete<void>(`/clinics/${id}`);
+  async softDelete(id: string) {
+    return api.delete<{ message: string }>(`/clinics/${id}`);
   },
 
   async hardDelete(id: string) {
-    return api.delete<void>(`/clinics/${id}/permanent`);
+    return api.delete<{ message: string }>(`/clinics/${id}/permanent`);
   },
 };

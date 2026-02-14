@@ -82,6 +82,7 @@ declare module 'vue' {
     PatientDetails: typeof import('./src/components/Patiesnt/patientDetails.vue')['default']
     PatientDialog: typeof import('./src/components/Patiesnt/PatientDialog.vue')['default']
     PatientProfileHeader: typeof import('./src/components/Patiesnt/PatientProfileHeader.vue')['default']
+    PaymentDetailsDialog: typeof import('./src/components/Payments/PaymentDetailsDialog.vue')['default']
     PaymentDialog: typeof import('./src/components/Payments/PaymentDialog.vue')['default']
     PaymentFilters: typeof import('./src/components/Payments/PaymentFilters.vue')['default']
     PaymentList: typeof import('./src/components/Payments/PaymentList.vue')['default']

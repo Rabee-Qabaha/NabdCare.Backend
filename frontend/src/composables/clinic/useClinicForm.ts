@@ -1,9 +1,9 @@
 // src/composables/clinic/useClinicForm.ts
 import { clinicSchema } from '@/composables/validation/clinicSchema';
-import { type ClinicResponseDto } from '@/types/backend';
-import { ref, type Ref } from 'vue';
+import { Currency, MarkupType, type ClinicResponseDto } from '@/types/backend';
+import { ref } from 'vue';
 
-export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
+export function useClinicForm() {
   const name = ref('');
   const slug = ref('');
   const email = ref('');
@@ -14,10 +14,13 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
   const taxNumber = ref('');
   const registrationNumber = ref('');
   const timeZone = ref('UTC');
-  const currency = ref('USD');
+  const currency = ref<Currency>(Currency.USD);
   const dateFormat = ref('dd/MM/yyyy');
   const locale = ref('en-US');
+
   const enablePatientPortal = ref(false);
+  const exchangeRateMarkupType = ref<MarkupType>(MarkupType.None);
+  const exchangeRateMarkupValue = ref(0);
 
   const validate = () => {
     const result = clinicSchema.safeParse(getFormData());
@@ -47,10 +50,13 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
       taxNumber.value = data.taxNumber || '';
       registrationNumber.value = data.registrationNumber || '';
       timeZone.value = data.settings?.timeZone || 'UTC';
-      currency.value = data.settings?.currency || 'USD';
+      currency.value = data.settings?.currency || Currency.USD;
       dateFormat.value = data.settings?.dateFormat || 'dd/MM/yyyy';
       locale.value = data.settings?.locale || 'en-US';
+
       enablePatientPortal.value = data.settings?.enablePatientPortal || false;
+      exchangeRateMarkupType.value = data.settings?.exchangeRateMarkupType || MarkupType.None;
+      exchangeRateMarkupValue.value = data.settings?.exchangeRateMarkupValue || 0;
     } else {
       resetToDefaults();
     }
@@ -67,10 +73,13 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
     taxNumber.value = '';
     registrationNumber.value = '';
     timeZone.value = 'UTC';
-    currency.value = 'USD';
+    currency.value = Currency.USD;
     dateFormat.value = 'dd/MM/yyyy';
     locale.value = 'en-US';
+
     enablePatientPortal.value = false;
+    exchangeRateMarkupType.value = MarkupType.None;
+    exchangeRateMarkupValue.value = 0;
   }
 
   function getFormData() {
@@ -89,7 +98,10 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
         currency: currency.value,
         dateFormat: dateFormat.value,
         locale: locale.value,
+
         enablePatientPortal: enablePatientPortal.value,
+        exchangeRateMarkupType: exchangeRateMarkupType.value,
+        exchangeRateMarkupValue: exchangeRateMarkupValue.value,
       },
     };
   }
@@ -111,6 +123,9 @@ export function useClinicForm(clinic: Ref<Partial<ClinicResponseDto>>) {
     validate,
     dateFormat,
     locale,
+
     enablePatientPortal,
+    exchangeRateMarkupType,
+    exchangeRateMarkupValue,
   };
 }

@@ -302,6 +302,46 @@
             />
           </div>
 
+          <!-- Exchange Rate Markup -->
+          <div class="col-span-2 border-t border-surface-100 dark:border-surface-700 pt-4 mt-2">
+            <label class="text-xs font-bold text-surface-500 uppercase mb-3 block">
+              Financial Configuration
+            </label>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
+                  Exchange Rate Markup
+                </label>
+                <Select
+                  v-model="exchangeRateMarkupType"
+                  :options="MARKUP_TYPE_OPTIONS"
+                  option-label="label"
+                  option-value="value"
+                  class="w-full"
+                  append-to="self"
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
+                  Markup Value
+                </label>
+                <InputGroup>
+                  <InputNumber
+                    v-model="exchangeRateMarkupValue"
+                    :disabled="exchangeRateMarkupType === MarkupType.None"
+                    :min="0"
+                    :max="100"
+                    class="w-full"
+                    placeholder="0"
+                  />
+                  <InputGroupAddon v-if="exchangeRateMarkupType === MarkupType.Percentage">
+                    %
+                  </InputGroupAddon>
+                </InputGroup>
+              </div>
+            </div>
+          </div>
+
           <!-- Date Format -->
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-medium text-surface-600 dark:text-surface-300">
@@ -375,6 +415,7 @@
   import { useClinicActions } from '@/composables/query/clinics/useClinicActions';
   import { useToastService } from '@/composables/useToastService';
   import type { ClinicResponseDto } from '@/types/backend';
+  import { MarkupType } from '@/types/backend/markup-type';
   import {
     CURRENCY_OPTIONS,
     DATE_FORMAT_OPTIONS,
@@ -382,6 +423,12 @@
     TIMEZONE_OPTIONS,
   } from '@/utils/constants';
   import { getFieldErrors } from '@/utils/errorHandler';
+  import InputNumber from 'primevue/inputnumber';
+
+  const MARKUP_TYPE_OPTIONS = [
+    { label: 'None', value: MarkupType.None },
+    { label: 'Percentage', value: MarkupType.Percentage },
+  ];
 
   const props = defineProps<{ visible: boolean; clinic?: ClinicResponseDto | null }>();
   const emit = defineEmits(['update:visible', 'saved']);
@@ -414,13 +461,15 @@
     registrationNumber,
     timeZone,
     currency,
+    exchangeRateMarkupType,
+    exchangeRateMarkupValue,
     dateFormat,
     locale,
     enablePatientPortal,
     initForm,
     getFormData,
     validate,
-  } = useClinicForm(localClinic);
+  } = useClinicForm();
 
   const onSlugInputChange = (e: any) => {
     slug.value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');

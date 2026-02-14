@@ -18,7 +18,7 @@ export class ClinicResponseDto {
   website: string;
   taxNumber: string;
   registrationNumber: string;
-  settings: ClinicSettingsDto = {"timeZone":"UTC","currency":"USD","dateFormat":"dd/MM/yyyy","locale":"en-US","enablePatientPortal":false};
+  settings: ClinicSettingsDto = {"timeZone":"UTC","currency":0,"dateFormat":"dd/MM/yyyy","locale":"en-US","exchangeRateMarkupType":0,"exchangeRateMarkupValue":0.0,"enablePatientPortal":false};
   status: SubscriptionStatus;
   subscriptionStartDate: Date;
   subscriptionEndDate: Date;

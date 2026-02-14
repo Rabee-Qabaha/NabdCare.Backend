@@ -6,6 +6,7 @@
 import { PaymentContext } from "./payment-context";
 import { Clinic } from "./clinic";
 import { Patient } from "./patient";
+import { Currency } from "./currency";
 import { PaymentMethod } from "./payment-method";
 import { PaymentStatus } from "./payment-status";
 import { ChequePaymentDetail } from "./cheque-payment-detail";
@@ -18,8 +19,12 @@ export class Payment {
   patientId: string;
   patient: Patient;
   amount: number;
+  currency: Currency;
+  baseExchangeRate: number;
+  finalExchangeRate: number;
+  amountInFunctionalCurrency: number;
   refundedAmount: number;
-  paymentDate: Date = new Date("2026-02-08T20:18:39.2727170Z");
+  paymentDate: Date = new Date("2026-02-14T19:45:58.5721370Z");
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId: string;
